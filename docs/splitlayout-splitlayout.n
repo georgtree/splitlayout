@@ -1,0 +1,800 @@
+'\"
+'\" '\" Copyright (c) George Yashin
+'\"
+.TH "splitlayout" 3tcl 0\&.1 "splitlayout" "splitlayout package"
+.SH NAME
+splitlayout - Commands in namespace splitlayout
+.SH SYNOPSIS
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+.br
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+.br
+\fBSPLITLAYOUTOBJ destroy\fP
+.br
+\fBSPLITLAYOUTOBJ cget\fP \fIoption\fP
+.br
+\fBSPLITLAYOUTOBJ children\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ clear\fP
+.br
+\fBSPLITLAYOUTOBJ configure\fP \fI?option? ?value \&.\&.\&.?\fP
+.br
+\fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
+.br
+\fBSPLITLAYOUTOBJ frame\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ insert\fP \fInode ?-side side?\fP
+.br
+\fBSPLITLAYOUTOBJ leaves\fP \fI?id?\fP
+.br
+\fBSPLITLAYOUTOBJ locate\fP \fIpath\fP
+.br
+\fBSPLITLAYOUTOBJ node\fP \fIpath\fP
+.br
+\fBSPLITLAYOUTOBJ parent\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ proportions\fP \fInode ?weights?\fP
+.br
+\fBSPLITLAYOUTOBJ ratio\fP \fInode ?value?\fP
+.br
+\fBSPLITLAYOUTOBJ remove\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ retain\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ root\fP
+.br
+\fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
+.br
+\fBSPLITLAYOUTOBJ swap\fP \fIa b\fP
+.br
+\fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
+.br
+\fBSPLITLAYOUTOBJ type\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ widget\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ widgets\fP \fI?path?\fP
+.br
+.SH SPLITLAYOUT
+.SH CLASSES
+.PP
+.RS -4n
+\fBsplitlayout\fR (::splitlayout)
+.RE
+.PP
+\fBMethod summary\fR
+.RS 4n
+.TP
+constructor
+Constructor for the class\&.
+.TP
+destructor
+Destructor for the class\&.
+.TP
+cget
+Returns the current value of a configuration option\&. The current option value\&.
+.TP
+children
+Returns the immediate logical children of a node\&. Child identifiers in pane order, or an empty list for a leaf\&.
+.TP
+clear
+Destroys all layout content and creates one empty root leaf\&.
+.TP
+configure
+Queries or changes layout and hull configuration options\&.
+.TP
+container
+Returns the geometry container for a managed node\&. The hull for the root, or the logical parent panedwindow for another node\&.
+.TP
+frame
+Returns the content frame of a leaf\&. The leaf content frame pathname\&.
+.TP
+insert
+Inserts an empty leaf beside an existing non-root node\&.
+.TP
+leaves
+Collects the leaves below a logical node\&.
+.TP
+locate
+Finds the leaf containing an application widget\&.
+.TP
+node
+Finds the logical node associated with an exact widget pathname\&.
+.TP
+parent
+Returns the logical parent of a node\&. The parent node identifier, or an empty string for the root\&.
+.TP
+proportions
+Queries or sets all pane proportions of a split\&.
+.TP
+ratio
+Queries or sets the first pane fraction of a two-child split\&.
+.TP
+remove
+Removes a node and all content in its subtree\&.
+.TP
+retain
+Keeps a node while removing its siblings and collapsing its parent\&.
+.TP
+root
+Returns the current logical root node\&. The root node identifier\&.
+.TP
+\fIsplit\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]
+Replaces a leaf with a split containing two new leaves\&.
+.TP
+swap
+Exchanges the content frames assigned to two leaves\&.
+.TP
+tree
+Returns a recursive snapshot of the logical layout hierarchy\&. A nested dictionary describing the requested logical subtree\&.
+.TP
+type
+Returns the type of a logical node\&. The string leaf or split\&.
+.TP
+widget
+Returns the widget associated with a logical node\&. The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+.TP
+widgets
+Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widget dictionary with path, parent, class, manager, container, and children\&.
+.RE
+.PP
+.RS -4n
+\fBconstructor\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Creates a split layout with one empty root leaf\&.
+.RS 4n
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+.br
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-height height
+Nonnegative requested hull height in pixels; default 600\&.
+.TP
+-opaqueresize boolean
+Enable live sash resizing; default true\&.
+.TP
+-sashpreview mode
+Deferred preview mode: window, inline, or none; default window\&.
+.TP
+-width width
+Nonnegative requested hull width in pixels; default 800\&.
+.TP
+path
+New, non-root Tk widget pathname\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The hull is a ttk frame\&. Managed content frames and panedwindows are its immediate Tk children; their logical
+layout hierarchy is stored separately\&. The object command takes the widget pathname\&. Existing widgets or
+commands at that pathname, invalid sizes, and invalid options raise an error\&.
+.PP
+\fBReturn value\fR
+.PP
+Nothing\&.
+.PP
+.RS -4n
+\fBdestructor\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Destroys the layout and all of its content widgets\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ destroy\fP
+.br
+.RE
+.PP
+\fBDescription\fR
+.PP
+Cancels deferred dragging and pending geometry callbacks, removes the manager binding scripts and owner
+bindtag, and destroys the owned hull\&. Also supports cleanup after partially completed construction\&.
+.PP
+\fBReturn value\fR
+.PP
+Nothing\&.
+.PP
+.RS -4n
+\fBcget\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the current value of a configuration option\&.
+The current option value\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ cget\fP \fIoption\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+option
+Layout-specific or ttk frame hull option name\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Recognizes -opaqueresize and -sashpreview directly and delegates other options to the hull\&. Unknown options
+raise an error\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns the current value of a configuration option\&.
+The current option value\&.
+.PP
+.RS -4n
+\fBchildren\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the immediate logical children of a node\&.
+Child identifiers in pane order, or an empty list for a leaf\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ children\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing logical node identifier\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Returns the immediate logical children of a node\&.
+Child identifiers in pane order, or an empty list for a leaf\&.
+.PP
+.RS -4n
+\fBclear\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Destroys all layout content and creates one empty root leaf\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ clear\fP
+.br
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The new root leaf identifier\&.
+.PP
+.RS -4n
+\fBconfigure\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Queries or changes layout and hull configuration options\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ configure\fP \fI?option? ?value \&.\&.\&.?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+option
+Option name to query, or an option name in a sequence of option/value pairs\&.
+.TP
+value
+New value for the preceding option; omit all values to query a single option\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+With no arguments, returns all configuration descriptors\&. With one option name, returns its descriptor\&.
+To change configuration, supply one or more option/value pairs\&.
+.PP
+The layout adds two options to the ttk frame hull options:
+.TP
+\(bu
+-opaqueresize: Boolean controlling live sash resizing; default true\&.
+.TP
+\(bu
+-sashpreview: window, inline, or none for deferred preview; default window\&.
+.PP
+Changing either layout option cancels an active deferred gesture\&. Other options are forwarded to the hull\&.
+Invalid options or values raise an error\&. The layout option descriptors use the standard Tk five-element
+format\&.
+.PP
+\fBReturn value\fR
+.PP
+All option descriptors with no arguments, one descriptor with one option name, or nothing after
+setting options\&.
+.PP
+.RS -4n
+\fBcontainer\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the geometry container for a managed node\&.
+The hull for the root, or the logical parent panedwindow for another node\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+value
+Logical node identifier or exact managed widget pathname\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The container can differ from the actual Tk parent\&. Unknown identifiers and unmanaged paths raise an error\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns the geometry container for a managed node\&.
+The hull for the root, or the logical parent panedwindow for another node\&.
+.PP
+.RS -4n
+\fBframe\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the content frame of a leaf\&.
+The leaf content frame pathname\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ frame\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing leaf identifier\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Raises an error if the node is unknown or is a split\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns the content frame of a leaf\&.
+The leaf content frame pathname\&.
+.PP
+.RS -4n
+\fBinsert\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Inserts an empty leaf beside an existing non-root node\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ insert\fP \fInode ?-side side?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-side side
+Position of the new leaf relative to node: before or after; default after\&.
+.TP
+node
+Identifier of the leaf or split beside which to insert a sibling\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The new leaf shares the target parent, and the target pane share is divided equally between the two siblings\&.
+Inserting beside the root raises an error; split the root first\&.
+.PP
+\fBReturn value\fR
+.PP
+The new leaf identifier\&.
+.PP
+.RS -4n
+\fBleaves\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Collects the leaves below a logical node\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ leaves\fP \fI?id?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Subtree root identifier; empty selects the layout root\&. Optional, default ""\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Traversal follows pane order recursively\&. A leaf includes itself\&.
+.PP
+\fBReturn value\fR
+.PP
+A list of leaf identifiers in depth-first pane order\&.
+.PP
+.RS -4n
+\fBlocate\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Finds the leaf containing an application widget\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ locate\fP \fIpath\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+path
+Widget pathname to locate\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Walks the actual Tk parent chain looking for a managed content frame\&.
+A split panedwindow does not identify a leaf\&.
+.PP
+\fBReturn value\fR
+.PP
+The containing leaf identifier, or empty for a missing or unrelated widget\&.
+.PP
+.RS -4n
+\fBnode\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Finds the logical node associated with an exact widget pathname\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ node\fP \fIpath\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+path
+Managed content frame or panedwindow pathname\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+This method does not search ancestors; use locate for application widgets inside a content frame\&.
+.PP
+\fBReturn value\fR
+.PP
+The node identifier, or an empty string when no node matches\&.
+.PP
+.RS -4n
+\fBparent\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the logical parent of a node\&.
+The parent node identifier, or an empty string for the root\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ parent\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing logical node identifier\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+This relationship is independent of the actual Tk widget parent\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns the logical parent of a node\&.
+The parent node identifier, or an empty string for the root\&.
+.PP
+.RS -4n
+\fBproportions\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Queries or sets all pane proportions of a split\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ proportions\fP \fInode ?weights?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+node
+Identifier of an existing split\&.
+.TP
+weights
+Optional list containing one finite positive weight per child, in pane order\&. Omit to query\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Weights are normalized before storage\&. Setting cancels any active deferred drag and schedules geometry
+application at idle\&. A query captures current sash positions when geometry is usable and no application is
+pending; otherwise it returns the stored proportions\&.
+.PP
+\fBReturn value\fR
+.PP
+The normalized list of pane proportions\&.
+.PP
+.RS -4n
+\fBratio\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Queries or sets the first pane fraction of a two-child split\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ ratio\fP \fInode ?value?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+node
+Identifier of a split with exactly two children\&.
+.TP
+value
+Optional finite first-pane fraction strictly between zero and one\&. Omit to query\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Use proportions for splits with more children\&. Setting stores the fraction and its complement, cancels a
+deferred drag, and schedules idle geometry application\&. Querying captures current geometry when possible,
+using the same conditions as proportions\&.
+.PP
+\fBReturn value\fR
+.PP
+The stored first pane fraction\&.
+.PP
+.RS -4n
+\fBremove\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Removes a node and all content in its subtree\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ remove\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing node identifier to remove\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Removing the root behaves like clear\&. Otherwise, the parent retains its remaining children with normalized
+weights\&. If only one child remains, that child replaces the parent split\&. Surviving content is preserved\&.
+.PP
+\fBReturn value\fR
+.PP
+The surviving parent split, its promoted sole child, or the new empty root\&.
+.PP
+.RS -4n
+\fBretain\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Keeps a node while removing its siblings and collapsing its parent\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ retain\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing node identifier to retain\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Destroys all sibling subtrees and their content, then promotes the retained node in place of its immediate
+parent\&. Only that parent level is collapsed\&. Retaining the root makes no changes\&.
+.PP
+\fBReturn value\fR
+.PP
+The retained node identifier\&.
+.PP
+.RS -4n
+\fBroot\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the current logical root node\&.
+The root node identifier\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ root\fP
+.br
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Returns the current logical root node\&.
+The root node identifier\&.
+.PP
+.RS -4n
+\fBsplit\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Replaces a leaf with a split containing two new leaves\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-keep child
+Child receiving the existing content: first or second; default first\&.
+.TP
+-orient orientation
+Split orientation: horizontal or vertical; default horizontal\&.
+.TP
+-ratio fraction
+First child fraction, strictly between zero and one; default 0\&.5\&.
+.TP
+node
+Identifier of the existing leaf to split\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The original leaf identifier becomes the split identifier, and both child leaves receive new identifiers\&.
+The retained content frame and its widget descendants are reused without reparenting or recreation\&. The other
+child starts with an empty frame\&. Existing pane proportions are captured before rebuilding the layout\&.
+.PP
+\fBReturn value\fR
+.PP
+The two new leaf identifiers in pane order\&.
+.PP
+.RS -4n
+\fBswap\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Exchanges the content frames assigned to two leaves\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ swap\fP \fIa b\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+a
+First leaf identifier\&.
+.TP
+b
+Second leaf identifier\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The leaves can belong to different splits and nesting levels\&. Their logical positions remain unchanged, while
+complete content frames and their existing widget state move between those positions\&. Actual Tk parentage and
+widget pathnames remain unchanged\&. Equal identifiers do nothing\&.
+.PP
+\fBReturn value\fR
+.PP
+Nothing\&.
+.PP
+.RS -4n
+\fBtree\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns a recursive snapshot of the logical layout hierarchy\&.
+A nested dictionary describing the requested logical subtree\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Subtree root identifier; empty selects the layout root\&. Optional, default ""\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Each node dictionary contains id, type, parent, widget, and children\&. Leaf dictionaries also contain frame,
+with an empty children list\&. Split dictionaries contain orient and proportions; two-child splits also contain
+ratio\&. Split children are nested node dictionaries in pane order\&.
+.PP
+Proportions are refreshed from usable geometry unless application is pending\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns a recursive snapshot of the logical layout hierarchy\&.
+A nested dictionary describing the requested logical subtree\&.
+.PP
+.RS -4n
+\fBtype\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the type of a logical node\&.
+The string leaf or split\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ type\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing logical node identifier\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Returns the type of a logical node\&.
+The string leaf or split\&.
+.PP
+.RS -4n
+\fBwidget\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the widget associated with a logical node\&.
+The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ widget\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing logical node identifier\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Returns the widget associated with a logical node\&.
+The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+.PP
+.RS -4n
+\fBwidgets\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns a recursive snapshot of the actual Tk widget hierarchy\&.
+A nested widget dictionary with path, parent, class, manager, container, and children\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ widgets\fP \fI?path?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+path
+Widget subtree root; empty selects the layout hull\&. Optional, default ""\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The pathname must exist and be the hull or one of its Tk descendants\&. This hierarchy includes application
+widgets and is independent of the logical tree returned by tree\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns a recursive snapshot of the actual Tk widget hierarchy\&.
+A nested widget dictionary with path, parent, class, manager, container, and children\&.
+
+
+.SH SEE ALSO
+splitlayout(n) - package's main page
+.br
+.sp 1
+Public commands and classes documentation:
+.br
+splitlayout-splitlayout(n)

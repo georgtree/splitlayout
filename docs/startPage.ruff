@@ -1,0 +1,17 @@
+# startPage.ruff --
+#
+# Use the repository README as the documentation landing page so that
+# the overview, build instructions, and credits stay synchronized.
+#
+# Resolve the README relative to this file, independently of the
+# directory from which documentation generation was started.
+
+variable startPage [apply {{readmePath} {
+    set channel [open $readmePath r]
+    try {
+        fconfigure $channel -encoding utf-8 -translation auto
+        return [read $channel]
+    } finally {
+        close $channel
+    }
+}} [file join [file dirname [file normalize [info script]]] .. README.md]]

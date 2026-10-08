@@ -1,0 +1,795 @@
+package require Tcl 8.6-
+package require tcltest 2
+namespace import ::tcltest::*
+package require splitlayout
+namespace import ::splitlayout::splitlayout
+::tcltest::configure {*}$argv
+
+namespace eval ::sltest {
+    variable errors {}
+    proc setup {} {
+        cleanup
+        toplevel .sltest
+        wm geometry .sltest 800x600
+        splitlayout .sltest.layout -width 800 -height 600
+        pack .sltest.layout -fill both -expand 1
+        update
+        return .sltest.layout
+    }
+    proc cleanup {} {
+        if {[winfo exists .sltest]} {
+            destroy .sltest
+        }
+        update
+    }
+    proc fill {m leaf value} {
+        set f [$m frame $leaf]
+        text $f.text -width 10 -height 3
+        $f.text insert end $value
+        pack $f.text -fill both -expand 1
+        return $f.text
+    }
+    proc check {m {id {}} {parent {}}} {
+        if {$id eq {}} {
+            set id [$m root]
+        }
+        if {[$m parent $id] ne $parent} {
+            return -code error "bad parent of $id"
+        }
+        set w [$m widget $id]
+        if {[winfo parent $w] ne $m} {
+            return -code error {actual parent is not the hull}
+        }
+        if {[$m node $w] ne $id} {
+            return -code error {bad reverse mapping}
+        }
+        if {$parent eq {}} {
+            if {[winfo manager $w] ne {pack}} {
+                return -code error "root is not packed"
+            }
+        } else {
+            if {$w ni [[$m widget $parent] panes]} {
+                return -code error {pane missing from parent}
+            }
+        }
+        if {[$m type $id] eq {split}} {
+            if {[llength [$m children $id]] < 2} {
+                return -code error {split has fewer than two children}
+            }
+            set expected [lmap c [$m children $id] {$m widget $c}]
+            if {[$w panes] ne $expected} {
+                return -code error {pane order mismatch}
+            }
+            foreach c [$m children $id] {
+                check $m $c $id
+            }
+        } elseif {[llength [$m children $id]]} {
+            return -code error {leaf has children}
+        }
+        return 1
+    }
+    proc snapshotCount {tree} {
+        set n 1
+        foreach child [dict get $tree children] {
+            incr n [snapshotCount $child]
+        }
+        return $n
+    }
+}
+
+# Intercept asynchronous Tk errors so cleanup failures cannot go unnoticed.
+set ::sltest::hadBgerror [expr {[llength [info commands ::bgerror]]!=0}]
+if {$::sltest::hadBgerror} {
+    rename ::bgerror ::sltest::savedBgerror
+}
+proc ::bgerror {message} {
+    lappend ::sltest::errors $message
+}
+
+test splitlayout-create-1.1 {Tk-style TclOO construction and frame options} -setup {
+    set m [::sltest::setup]
+} -body {
+    list [info object isa typeof $m ::splitlayout] [$m type [$m root]] [$m parent [$m root]] [$m children [$m root]]\
+            [$m cget -width] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 leaf {} {} 800 1}
+
+test splitlayout-create-1.2 {configure is forwarded to the hull} -setup {
+    set m [::sltest::setup]
+} -body {
+    $m configure -padding 7
+    $m cget -padding
+} -cleanup {::sltest::cleanup} -result 7
+
+test splitlayout-create-1.3 {existing path is not destroyed on constructor failure} -setup {
+    toplevel .sltest
+    ttk::frame .sltest.existing
+} -body {
+    list [catch {splitlayout .sltest.existing}] [winfo exists .sltest.existing]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-split-2.1 {split keeps first content and returns two new IDs} -setup {
+    set m [::sltest::setup]; set root [$m root]
+    set text [::sltest::fill $m $root original]
+    set original [$m frame $root]
+} -body {
+    lassign [$m split $root -orient horizontal -ratio 0.3] a b
+    update
+    list [$m type $root] [expr {$a ne $root && $b ne $root && $a ne $b}] [expr {[$m frame $a] eq $original}]\
+            [$text get 1.0 end-1c] [winfo parent $original] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {split 1 1 original .sltest.layout 1}
+
+test splitlayout-split-2.2 {keep second preserves widget identity and bindings} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    set text [::sltest::fill $m $root original]
+    bind $text <<Example>> {set ::example yes}
+    set frame [$m frame $root]
+} -body {
+    lassign [$m split $root -orient vertical -keep second] a b
+    update
+    list [expr {[$m frame $b] eq $frame}] [winfo children [$m frame $a]] [bind $text <<Example>>] [$m locate $text]\
+            [expr {$b eq [$m locate $text]}]
+} -cleanup {::sltest::cleanup} -match glob -result {1 {} {set ::example yes} n* 1}
+
+test splitlayout-split-2.3 {nested sibling windows are visible and correctly stacked} -setup {
+    set m [::sltest::setup]
+    lassign [$m split [$m root]] a b
+    lassign [$m split $b -orient vertical] b1 b2
+    set text [::sltest::fill $m $b2 deep]
+} -body {
+    update
+    set x [expr {[winfo rootx $text]+10}]
+    set y [expr {[winfo rooty $text]+10}]
+    list [::sltest::check $m] [winfo viewable $text] [expr {[winfo containing $x $y] eq $text}]\
+            [expr {[winfo width $text]>100 && [winfo height $text]>100}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-split-2.4 {invalid options and ratios leave layout untouched} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    set before [$m tree]
+} -body {
+    set codes {}
+    foreach opts {{-ratio 0} {-ratio 1} {-ratio NaN} {-ratio Inf} {-ratio nope} {-orient diagonal} {-keep both}\
+                          {-unknown yes} {-ratio}} {
+        lappend codes [catch {$m split $root {*}$opts}]
+    }
+    list $codes [expr {$before eq [$m tree]}] [llength [winfo children $m]]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1 1 1 1 1} 1 1}
+
+test splitlayout-ratio-3.1 {initial ratio and proportional resizing} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    $m split $root -ratio 0.3
+} -body {
+    update
+    set pw [$m widget $root]
+    set first [expr {abs(double([$pw sashpos 0])/[winfo width $pw]-0.3)<0.015}]
+    wm geometry .sltest 1000x700
+    update
+    list $first [expr {abs(double([$pw sashpos 0])/[winfo width $pw]-0.3)<0.015}]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-ratio-3.2 {ratio setter, vertical axis and query} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    $m split $root -orient vertical
+} -body {
+    $m ratio $root 0.7
+    update
+    set pw [$m widget $root]
+    list [expr {abs([$m ratio $root]-0.7)<0.015}] [expr {abs(double([$pw sashpos 0])/[winfo height $pw]-0.7)<0.015}]\
+            [catch {$m ratio $root -1}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-ratio-3.3 {native sash drag updates stored proportion} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    $m split $root
+    update
+} -body {
+    set pw [$m widget $root]
+    set x [$pw sashpos 0]
+    event generate $pw <ButtonPress-1> -x [expr {$x+1}] -y 30
+    event generate $pw <B1-Motion> -x [expr {$x+101}] -y 30
+    event generate $pw <ButtonRelease-1> -x [expr {$x+101}] -y 30
+    update
+    set fraction [$m ratio $root]
+    wm geometry .sltest 1100x700
+    update
+    list [expr {$fraction>0.58}] [expr {abs([$m ratio $root]-$fraction)<0.015}]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-remove-4.1 {remove leaf promotes its sibling and destroys content} -setup {
+    set m [::sltest::setup]
+    set oldRoot [$m root]
+    lassign [$m split $oldRoot] a b
+    set gone [::sltest::fill $m $a gone]
+    set kept [::sltest::fill $m $b kept]
+    set oldPW [$m widget $oldRoot]
+} -body {
+    set result [$m remove $a]
+    update
+    list [expr {$result eq $b && [$m root] eq $b}] [winfo exists $gone] [$kept get 1.0 end-1c] [winfo exists $oldPW]\
+            [catch {$m type $a}] [catch {$m type $oldRoot}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 0 kept 0 1 1 1}
+
+test splitlayout-remove-4.2 {remove a subtree destroys all descendants} -setup {
+    set m [::sltest::setup]
+    lassign [$m split [$m root]] a b
+    lassign [$m split $b -orient vertical] b1 b2
+    set f1 [$m frame $b1]
+    set f2 [$m frame $b2]
+    set pw [$m widget $b]
+} -body {
+    $m remove $b
+    update
+    list [expr {[$m root] eq $a}] [winfo exists $f1] [winfo exists $f2] [winfo exists $pw]\
+            [llength [winfo children $m]] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 0 0 0 1 1}
+
+test splitlayout-remove-4.3 {deep removal preserves grandparent and ordering} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] b1 b2
+    lassign [$m split $b2] c d
+} -body {
+    $m remove $b1
+    update
+    list [expr {[$m children $root] eq [list $a $b2]}] [expr {[$m children $b2] eq [list $c $d]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-retain-4.4 {retain entire nested subtree and its content} -setup {
+    set m [::sltest::setup]
+    lassign [$m split [$m root]] a b
+    lassign [$m split $b -orient vertical] c d
+    set text [::sltest::fill $m $d retained]
+} -body {
+    $m retain $b
+    update
+    list [expr {[$m root] eq $b}] [$text get 1.0 end-1c] [expr {[$m leaves] eq [list $c $d]}] [::sltest::check $m]\
+            [expr {[$m retain $b] eq $b}]
+} -cleanup {::sltest::cleanup} -result {1 retained 1 1 1}
+
+test splitlayout-clear-4.5 {root removal resets to fresh empty leaf} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    $m split $root
+} -body {
+    set fresh [$m remove $root]
+    update
+    list [expr {$fresh ne $root}] [$m type $fresh] [llength [winfo children $m]] [winfo children [$m frame $fresh]]\
+            [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 leaf 1 {} 1}
+
+test splitlayout-swap-5.1 {swap leaves at different depths preserves content and topology} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    set ta [::sltest::fill $m $a alpha]
+    set td [::sltest::fill $m $d delta]
+    set fa [$m frame $a]
+    set fd [$m frame $d]
+    set topchildren [$m children $root]
+} -body {
+    $m swap $a $d
+    update
+    list [expr {([$m frame $a] eq $fd) && ([$m frame $d] eq $fa)}] [$ta get 1.0 end-1c] [$td get 1.0 end-1c]\
+            [expr {([$m locate $ta] eq $d) && ([$m locate $td] eq $a)}] [expr {[$m children $root] eq $topchildren}]\
+            [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 alpha delta 1 1 1}
+
+test splitlayout-swap-5.2 {same-parent swap, no-op swap, and invalid split argument} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set fa [$m frame $a]
+} -body {
+    $m swap $a $b
+    $m swap $a $a
+    list [expr {[$m frame $b] eq $fa}] [::sltest::check $m] [catch {$m swap $a $root}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-query-6.1 {logical snapshot differs from actual widget tree} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    set text [::sltest::fill $m $d example]
+} -body {
+    set tree [$m tree]; set actual [$m widgets]
+    list [::sltest::snapshotCount $tree] [llength [dict get $actual children]] [dict get $actual path]\
+            [expr {[$m container $d] eq [$m widget $b]}] [expr {[winfo parent [$m frame $d]] eq $m}]\
+            [expr {[$m locate $text] eq $d}] [dict get [$m widgets [$m frame $d]] parent]
+} -cleanup {::sltest::cleanup} -result {5 5 .sltest.layout 1 1 1 .sltest.layout}
+
+test splitlayout-query-6.2 {reverse queries and invalid nodes have defined results} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+} -body {
+    list [$m node .nonexistent] [$m locate .nonexistent] [$m locate $m] [catch {$m children invalid}]\
+            [catch {$m container .nonexistent}] [catch {$m widgets .}] [$m container [$m frame $root]]
+} -cleanup {::sltest::cleanup} -result {{} {} {} 1 1 1 .sltest.layout}
+
+test splitlayout-lifetime-7.1 {object destruction destroys hull and cancels idle work} -setup {
+    set m [::sltest::setup]
+    $m split [$m root]
+} -body {
+    $m destroy
+    update
+    list [winfo exists $m] [llength [info commands $m]]
+} -cleanup {::sltest::cleanup} -result {0 0}
+
+test splitlayout-lifetime-7.2 {Tk destruction deletes the TclOO object} -setup {
+    set m [::sltest::setup]
+    $m split [$m root]
+    set ns [info object namespace $m]
+} -body {
+    destroy .sltest
+    update
+    list [llength [info commands $m]] [namespace exists $ns] [bind ${ns}::bindings] [bind ${ns}::bindingsSash]
+} -cleanup {::sltest::cleanup} -result {0 0 {} {}}
+
+test splitlayout-lifetime-7.3 {repeated split/swap/retain/clear before idle leaves no orphan widgets} -setup {
+    set m [::sltest::setup]
+} -body {
+    for {set i 0} {$i<30} {incr i} {
+        lassign [$m split [$m root]] a b
+        lassign [$m split $b -orient vertical -keep second] c d
+        $m swap $a $d
+        $m retain $b
+        $m clear
+    }
+    update
+    list [llength [winfo children $m]] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-lifetime-7.4 {independent instances do not share state} -setup {
+    set m [::sltest::setup]
+    splitlayout .sltest.other
+    set otherRoot [.sltest.other root]
+} -body {
+    $m split [$m root]
+    $m destroy
+    list [.sltest.other type $otherRoot] [::sltest::check .sltest.other]
+} -cleanup {::sltest::cleanup} -result {leaf 1}
+
+test splitlayout-flat-9.1 {insertion order and splitting the target share} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -ratio 0.4] a b
+} -body {
+    set c [$m insert $b]
+    set d [$m insert $a -side before]
+    list [expr {[$m children $root] eq [list $d $a $b $c]}] [$m proportions $root] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 {0.2 0.2 0.3 0.3} 1}
+
+test splitlayout-flat-9.2 {removal redistributes shares then collapses single child} -setup {
+    set m [::sltest::setup]; set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    $m proportions $root {2 3 5}
+} -body {
+    set kept [$m remove $a]
+    set weights [lmap v [$m proportions $root] {format %.3f $v}]
+    set survivor [$m remove $b]
+    list [expr {$kept eq $root}] $weights [expr {($survivor eq $c) && ([$m root] eq $c)}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 {0.375 0.625} 1 1}
+
+test splitlayout-flat-9.3 {retain subtree destroys all siblings} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $a]
+    set d [$m insert $b]
+    lassign [$m split $b -orient vertical] x y
+    set text [::sltest::fill $m $y preserved]
+    set gone [list [$m frame $a] [$m frame $c] [$m frame $d]]
+} -body {
+    $m retain $b
+    update
+    list [expr {[$m root] eq $b}] [$text get 1.0 end-1c] [lmap f $gone {winfo exists $f}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 preserved {0 0 0} 1}
+
+test splitlayout-flat-9.4 {insert beside split subtree and swap across levels} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] x y
+    set text [::sltest::fill $m $y deep]
+} -body {
+    set c [$m insert $b -side before]
+    $m swap $c $y
+    update
+    list [expr {[$m children $root] eq [list $a $c $b]}] [expr {[$m locate $text] eq $c}] [winfo viewable $text]\
+            [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-flat-9.5 {weights validation is atomic and binary ratio is guarded} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    $m insert $b
+    set before [$m tree]
+} -body {
+    set errors {}
+    foreach weights {{1 2} {1 2 0} {1 -2 3} {1 NaN 3} {1 Inf 3} {x 2 3}} {
+        lappend errors [catch {$m proportions $root $weights}]
+    }
+    list $errors [catch {$m ratio $root}] [catch {$m insert $root}] [catch {$m insert $a -side above}]\
+            [expr {[$m tree] eq $before}]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1 1} 1 1 1 1}
+
+test splitlayout-flat-9.6 {all sashes follow proportions in both orientations} -setup {
+    set m [::sltest::setup]
+} -body {
+    set results {}
+    foreach orient {horizontal vertical} {
+        $m clear
+        set root [$m root]
+        lassign [$m split $root -orient $orient] a b
+        set c [$m insert $b]; $m insert $c
+        foreach weights {{1 2 3 4} {4 3 2 1}} {
+            $m proportions $root $weights
+            wm geometry .sltest 950x750
+            update
+            set actual [$m proportions $root]
+            set ok 1
+            foreach v $actual w $weights {
+                if {abs($v-$w/10.0)>0.015} {
+                    set ok 0
+                }
+            }
+            lappend results $ok
+        }
+    }
+    set results
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-flat-9.7 {dragging second sash persists through resize} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    $m insert $b
+    $m proportions $root {1 1 1}
+    update
+} -body {
+    set pw [$m widget $root]
+    set x [$pw sashpos 1]
+    event generate $pw <ButtonPress-1> -x [expr {$x+1}] -y 30
+    event generate $pw <B1-Motion> -x [expr {$x+71}] -y 30
+    event generate $pw <ButtonRelease-1> -x [expr {$x+71}] -y 30
+    update
+    set before [$m proportions $root]
+    wm geometry .sltest 1050x700
+    update
+    set ok 1
+    foreach a $before b [$m proportions $root] {
+        if {abs($a-$b)>0.015} {
+            set ok 0
+        }
+    }
+    list [expr {[lindex $before 1]>0.39}] $ok
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-flat-9.8 {delete nested subtree among several siblings} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    lassign [$m split $b] x y
+    set gone [list [$m widget $b] [$m frame $x] [$m frame $y]]
+} -body {
+    $m remove $b
+    update
+    list [expr {[$m children $root] eq [list $a $c]}] [lmap f $gone {winfo exists $f}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 {0 0 0} 1}
+
+namespace eval ::sltest {
+    proc gesture {pw sash amount {release 0}} {
+        set p [$pw sashpos $sash]
+        set x 20
+        set y 20
+        if {[$pw cget -orient] eq {horizontal}} {
+            set x [expr {$p+1}]
+        } else {
+            set y [expr {$p+1}]
+        }
+        event generate $pw <ButtonPress-1> -x $x -y $y
+        if {[$pw cget -orient] eq {horizontal}} {
+            incr x $amount
+        } else {
+            incr y $amount
+        }
+        event generate $pw <B1-Motion> -x $x -y $y
+        if {$release} {
+            event generate $pw <ButtonRelease-1> -x $x -y $y
+        }
+        return [list $x $y]
+    }
+}
+
+test splitlayout-deferred-10.1 {creation/configuration queries and validation} -setup {
+    set m [::sltest::setup]
+    splitlayout .sltest.other -opaqueresize false
+} -body {
+    set default [$m cget -opaqueresize]
+    $m configure -opaqueresize false -padding 4
+    list $default [.sltest.other cget -opaqueresize] [$m cget -opaqueresize] [lindex [$m configure -opaqueresize] end]\
+            [$m cget -padding] [catch {$m configure -opaqueresize nonsense}] [$m cget -opaqueresize]
+} -cleanup {::sltest::cleanup} -result {1 0 0 0 4 1 0}
+
+test splitlayout-deferred-10.2 {both axes keep panes unchanged until release} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+} -body {
+    set result {}
+    foreach orient {horizontal vertical} {
+        $m clear
+        set root [$m root]
+        lassign [$m split $root -orient $orient] a b
+        set c [$m insert $b]
+        update
+        set pw [$m widget $root]
+        set original [$pw sashpos 1]
+        set frame [$m frame $c]
+        set geometry [winfo geometry $frame]
+        lassign [::sltest::gesture $pw 1 -60] x y
+        update
+        lappend result [expr {[$pw sashpos 1] == $original}] [expr {[winfo geometry $frame] eq $geometry}]\
+                [llength [info commands $m.proxy*]]
+        event generate $pw <ButtonRelease-1> -x $x -y $y
+        update
+        lappend result [expr {abs([$pw sashpos 1]-($original-60))<3}] [llength [info commands $m.proxy*]]
+    }
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 0 1 1 1 1 0}
+
+test splitlayout-deferred-10.3 {Escape cancels without changing geometry} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root; update
+} -body {
+    set pw [$m widget $root]
+    set original [$pw sashpos 0]
+    lassign [::sltest::gesture $pw 0 75] x y
+    # Force focus for synthetic keyboard events on headless X11.
+    focus -force $pw; update
+    event generate $pw <Escape>
+    event generate $pw <ButtonRelease-1> -x $x -y $y
+    update
+    list [expr {[$pw sashpos 0]==$original}] [llength [info commands $m.proxy*]]
+} -cleanup {::sltest::cleanup} -result {1 0}
+
+test splitlayout-deferred-10.4 {nested preview above sibling content and ratio persists} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    lassign [$m split [$m root]] a b
+    lassign [$m split $b -orient vertical] c d
+    update
+} -body {
+    set pw [$m widget $b]
+    lassign [::sltest::gesture $pw 0 70] x y
+    update
+    set proxy [lindex [info commands $m.proxy*] 0]
+    set hit [winfo containing [expr {[winfo rootx $proxy]+1}] [expr {[winfo rooty $proxy]+1}]]
+    event generate $pw <ButtonRelease-1> -x $x -y $y
+    update
+    set ratio [$m ratio $b]
+    wm geometry .sltest 1000x800; update
+    list [expr {$hit eq $proxy}] [expr {$ratio>0.58}] [expr {abs([$m ratio $b]-$ratio)<0.015}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-deferred-10.5 {structural edits and mode switches cancel preview} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    lassign [$m split $root] a b
+    update
+} -body {
+    set pw [$m widget $root]
+    ::sltest::gesture $pw 0 50
+    $m insert $b
+    update
+    set first [llength [info commands $m.proxy*]]
+    ::sltest::gesture $pw 0 40
+    $m configure -opaqueresize true
+    set second [llength [info commands $m.proxy*]]
+    $m configure -opaqueresize false
+    ::sltest::gesture $pw 0 30
+    $m clear
+    update
+    list $first $second [llength [info commands $m.proxy*]] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {0 0 0 1}
+
+test splitlayout-deferred-10.6 {destroy while dragging clears callbacks and proxy} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+    set ns [info object namespace $m]
+} -body {
+    ::sltest::gesture [$m widget $root] 0 40
+    destroy .sltest
+    update
+    list [winfo exists $m] [info commands $m] [bind ${ns}::bindingsDeferred]
+} -cleanup {::sltest::cleanup} -result {0 {} {}}
+
+# Separate preview surfaces and deferred commit lifecycle.
+test splitlayout-preview-11.1 {preview option metadata and rejected updates preserve state} -setup {
+    set m [::sltest::setup]
+} -body {
+    set result [list [$m cget -sashpreview] [lindex [$m configure -sashpreview] end]]
+    $m configure -sashpreview none
+    lappend result [$m cget -sashpreview] [catch {$m configure -sashpreview invalid}] [$m cget -sashpreview]
+    set result
+} -cleanup {::sltest::cleanup} -result {window window none 1 none}
+
+test splitlayout-preview-11.2 {window preview is transient and leaves pane geometry unchanged} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    lassign [$m split $root] a b
+    update
+} -body {
+    set pw [$m widget $root]
+    set old [$pw sashpos 0]
+    set geometry [winfo geometry [$m frame $b]]
+    ::sltest::gesture $pw 0 70
+    update
+    set proxy [lindex [info commands $m.proxy*] 0]
+    list [expr {[winfo toplevel $proxy] eq $proxy}] [wm overrideredirect $proxy] [wm transient $proxy]\
+            [winfo ismapped $proxy] [expr {[$pw sashpos 0]==$old}] [expr {[winfo geometry [$m frame $b]] eq $geometry}]\
+            [expr {abs([winfo rootx $proxy]-[winfo rootx $pw]-$old-70)<=1}]
+} -cleanup {::sltest::cleanup} -result {1 1 .sltest 1 1 1 1}
+
+test splitlayout-preview-11.3 {inline and none previews retain deferred commit on both axes} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+} -body {
+    set result {}
+    foreach mode {inline none} {
+        $m configure -sashpreview $mode
+        foreach orient {horizontal vertical} {
+            $m clear
+            set root [$m root]
+            $m split $root -orient $orient
+            update
+            set pw [$m widget $root]
+            set old [$pw sashpos 0]
+            lassign [::sltest::gesture $pw 0 40] x y
+            update
+            set proxies [info commands $m.proxy*]
+            set valid [expr {$mode eq {none} ? [llength $proxies]==0 :
+                             ([llength $proxies]==1) && ([winfo toplevel [lindex $proxies 0]] ne [lindex $proxies 0])}]
+            lappend result $valid [expr {[$pw sashpos 0]==$old}]
+            event generate $pw <ButtonRelease-1> -x $x -y $y
+            update
+            lappend result [expr {abs([$pw sashpos 0]-$old-40)<3}]
+        }
+    }
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1 1 1 1}
+
+test splitlayout-preview-11.4 {release uses newest coordinate and commits before destroying preview} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+} -body {
+    set pw [$m widget $root]
+    set old [$pw sashpos 0]
+    lassign [::sltest::gesture $pw 0 20] x y
+    # Release before the pending preview idle callback runs, at a newer position.
+    set proxy [lindex [info commands $m.proxy*] 0]
+    bind $proxy <Destroy> [list apply {{pw} {set ::sltest::atDestroy [$pw sashpos 0]}} $pw]
+    event generate $pw <ButtonRelease-1> -x [expr {$x+50}] -y $y
+    update
+    list [expr {abs($::sltest::atDestroy-$old-70)<3}] [expr {abs([$pw sashpos 0]-$old-70)<3}]\
+            [llength [info commands $m.proxy*]]
+} -cleanup {
+    unset -nocomplain ::sltest::atDestroy
+    ::sltest::cleanup
+} -result {1 1 0}
+
+test splitlayout-preview-11.5 {owner movement and hiding cancel window preview} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+} -body {
+    set pw [$m widget $root]
+    set old [$pw sashpos 0]
+    ::sltest::gesture $pw 0 50
+    update
+    wm geometry .sltest +100+90
+    update
+    set moved [llength [info commands $m.proxy*]]
+    ::sltest::gesture $pw 0 50
+    update
+    wm withdraw .sltest
+    update
+    list $moved [llength [info commands $m.proxy*]] [expr {[$pw sashpos 0]==$old}]
+} -cleanup {::sltest::cleanup} -result {0 0 1}
+
+test splitlayout-preview-11.6 {changing preview mode cancels pending motion without a late commit} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+} -body {
+    set pw [$m widget $root]
+    set old [$pw sashpos 0]
+    lassign [::sltest::gesture $pw 0 50] x y
+    $m configure -sashpreview inline
+    event generate $pw <ButtonRelease-1> -x $x -y $y
+    update
+    list [llength [info commands $m.proxy*]] [expr {[$pw sashpos 0]==$old}]
+} -cleanup {::sltest::cleanup} -result {0 1}
+
+test splitlayout-preview-11.7 {motion coalesces and layout destruction removes owner bindtag} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+    set ns [info object namespace $m]
+} -body {
+    set pw [$m widget $root]
+    lassign [::sltest::gesture $pw 0 10] x y
+    set drag [set ${ns}::Drag]
+    set token [dict get $drag previewAfter]
+    event generate $pw <B1-Motion> -x [expr {$x+30}] -y $y
+    set same [expr {($token ne {}) && ($token eq [dict get [set ${ns}::Drag] previewAfter])}]
+    set ownerTag ${ns}::bindingsOwner
+    $m destroy
+    update
+    list $same [expr {$token ni [after info]}] [expr {$ownerTag ni [bindtags .sltest]}] [bind ${ns}::bindingsOwner]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {}}
+
+test splitlayout-preview-11.8 {preview does not steal keyboard focus and release/Escape restore it} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    lassign [$m split $root] a b
+    set entry [ttk::entry [$m frame $a].entry]
+    pack $entry
+    update
+} -body {
+    set pw [$m widget $root]
+    set result {}
+    foreach action {release escape} {
+        focus -force $entry
+        update
+        lassign [::sltest::gesture $pw 0 30] x y
+        update
+        lappend result [expr {[focus] eq $pw}]
+        if {$action eq {release}} {
+            event generate $pw <ButtonRelease-1> -x $x -y $y
+        } else {
+            event generate $pw <Escape>
+        }
+        update
+        lappend result [expr {[focus] eq $entry}]
+    }
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-errors-8.1 {no background callback errors during tests} -body {
+    update
+    set ::sltest::errors
+} -result {}
+
+::sltest::cleanup
+rename ::bgerror {}
+if {$::sltest::hadBgerror} {
+    rename ::sltest::savedBgerror ::bgerror
+}
+cleanupTests

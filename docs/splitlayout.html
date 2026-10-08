@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>splitlayout — Dynamic pane layouts for Tcl/Tk &#8212; splitlayout  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=2bf1fcf8" />
+    
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="splitlayout" href="splitlayout-splitlayout.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="splitlayout-splitlayout.html" title="splitlayout"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="&lt;no title&gt;"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">splitlayout — Dynamic pane layouts for Tcl/Tk</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="splitlayout-dynamic-pane-layouts-for-tcl-tk">
+<span id="r-splitlayout-dynamic-pane-layouts-for-tcl-tk"></span><span id="r-splitlayout20201420dynamic20pane20layouts20for20tcl2ftk"></span><h1>splitlayout — Dynamic pane layouts for Tcl/Tk<a class="headerlink" href="#splitlayout-dynamic-pane-layouts-for-tcl-tk" title="Link to this heading">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code> is a pure Tcl megawidget for creating dynamically resizable layouts from nested <code class="docutils literal notranslate"><span class="pre">ttk::panedwindow</span></code>
+widgets. Split a content area, add panes beside existing ones, remove subtrees, or exchange content between panes
+without recreating the surviving application widgets.</p>
+<section id="what-it-gives-you-at-a-glance">
+<span id="r-what-it-gives-you-at-a-glance"></span><span id="r-what20it20gives20you2028at20a20glance29"></span><h2>What it gives you (at a glance)<a class="headerlink" href="#what-it-gives-you-at-a-glance" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Horizontal and vertical splits, combined at any nesting depth.</p></li>
+<li><p>Two or more panes in each split, with ordered insertion of new siblings.</p></li>
+<li><p>Retention of existing content when a leaf is split.</p></li>
+<li><p>Removal of individual panes or complete subtrees, with automatic collapse of redundant parent splits.</p></li>
+<li><p>Content swapping between leaves at different nesting levels.</p></li>
+<li><p>Relative pane proportions and interactive sash resizing.</p></li>
+<li><p>Live resizing or deferred resizing with a configurable sash preview.</p></li>
+<li><p>Inspection of both the logical layout tree and the actual Tk widget hierarchy.</p></li>
+</ul>
+</section>
+<section id="general-concept">
+<span id="r-general-concept"></span><span id="r-general20concept"></span><h2>General concept<a class="headerlink" href="#general-concept" title="Link to this heading">¶</a></h2>
+<p>A layout starts with one empty <strong>leaf</strong>. Each leaf owns a content frame into which the application places its widgets.
+Splitting a leaf converts its node into a <strong>split</strong> and creates two new leaf nodes. A split owns a panedwindow and
+has an ordered list of children. Each child can itself be a leaf or another split.</p>
+<p>A split can contain more than two children. Use <code class="docutils literal notranslate"><span class="pre">insert</span></code> to add an empty leaf beside an existing child without
+introducing another nesting level.</p>
+<p>Layouts must be expressible through successive horizontal or vertical subdivisions. A pane can occupy the full
+height or width beside a more deeply subdivided region, producing arrangements similar to row or column spans.
+There are no grid coordinates or <code class="docutils literal notranslate"><span class="pre">-rowspan</span></code>/<code class="docutils literal notranslate"><span class="pre">-columnspan</span></code> options, and arbitrary overlapping grid arrangements are
+not supported.</p>
+<section id="two-hierarchies">
+<span id="r-two-hierarchies"></span><span id="r-two20hierarchies"></span><h3>Two hierarchies<a class="headerlink" href="#two-hierarchies" title="Link to this heading">¶</a></h3>
+<p>The <strong>logical tree</strong> describes pane order, split orientation, and geometry relationships. The <strong>Tk widget tree</strong>
+describes actual widget ownership and pathnames.</p>
+<p>All managed content frames and split panedwindows are immediate Tk children of the layout hull. Application widgets
+are descendants of their content frame. Splitting, promoting, or swapping content changes its logical placement and
+geometry container, while its actual Tk parent and widget pathnames stay the same.</p>
+<p>Removing a content frame destroys that frame and its application widgets. Destroying the layout destroys all its
+content. Surviving frames retain their widgets and state.</p>
+</section>
+</section>
+<section id="requirements">
+<span id="r-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Tcl and Tk; the source accepts version 8.6 or newer and development targets Tcl/Tk 9.1.</p></li>
+<li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, available to the selected Tcl interpreter.</p></li>
+</ul>
+</section>
+<section id="installing">
+<span id="r-installing"></span><h2>Installing<a class="headerlink" href="#installing" title="Link to this heading">¶</a></h2>
+<p>From the source directory, run:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./configure
+make
+make<span class="w"> </span><span class="nb">test</span>
+sudo<span class="w"> </span>make<span class="w"> </span>install
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install</span></code> without <code class="docutils literal notranslate"><span class="pre">sudo</span></code> when installing into a user-writable prefix. On Windows, run the commands in an
+MSYS2 shell with your Tcl/Tk installation available through the environment.</p>
+<p>To select a Tcl installation and a custom installation prefix:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--with-tcl<span class="o">=</span>/path/to/tcl/lib<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--prefix<span class="o">=</span>/your/prefix<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--exec-prefix<span class="o">=</span>/your/prefix
+make
+make<span class="w"> </span><span class="nb">test</span>
+make<span class="w"> </span>install
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">--with-tcl</span></code> takes the directory containing <code class="docutils literal notranslate"><span class="pre">tclConfig.sh</span></code>. Use matching Tcl/Tk installations and make argparse
+available to the selected interpreter. Tests require a graphical display.</p>
+<p>Installation follows the configured prefix: the Tcl source and <code class="docutils literal notranslate"><span class="pre">pkgIndex.tcl</span></code> go together in
+<code class="docutils literal notranslate"><span class="pre">lib/splitlayout0.4</span></code>. Load the installed package with:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout<span class="w"> </span><span class="mf">0.1</span>
+</pre></div>
+</div>
+<p>For a nonstandard prefix, add its library directory to Tcl’s search path before loading the package:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lappend</span><span class="w"> </span>auto_path<span class="w"> </span><span class="o">/</span>your<span class="o">/</span>prefix<span class="o">/</span>lib
+<span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout<span class="w"> </span><span class="mf">0.1</span>
+</pre></div>
+</div>
+<p>Windows Tcl paths can use forward slashes. The same search-path mechanism can be used to locate argparse.</p>
+<p>To stage an installation without writing into the configured system prefix:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>install<span class="w"> </span><span class="nv">DESTDIR</span><span class="o">=</span>/path/to/staging
+</pre></div>
+</div>
+<p>To uninstall, keep the configured build directory and use the same installation directory overrides:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>make<span class="w"> </span>uninstall
+</pre></div>
+</div>
+<p>Omit <code class="docutils literal notranslate"><span class="pre">sudo</span></code> for a user-writable prefix. For a staged installation, use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">uninstall</span> <span class="pre">DESTDIR=/path/to/staging</span></code>.</p>
+</section>
+<section id="quick-start">
+<span id="r-quick-start"></span><span id="r-quick20start"></span><h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout
+
+<span class="nv">wm</span><span class="w"> </span>title<span class="w"> </span>.<span class="w"> </span><span class="k">{</span><span class="nv">Split</span><span class="w"> </span>layout<span class="w"> </span>example<span class="k">}</span>
+<span class="nv">wm</span><span class="w"> </span>geometry<span class="w"> </span>.<span class="w"> </span><span class="mi">900</span>x600
+
+<span class="nv">splitlayout</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">900</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">600</span>
+<span class="nv">pack</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="k">set</span><span class="w"> </span>root<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>root<span class="k">]</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>split<span class="w"> </span><span class="nv">$root</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>horizontal<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.4</span><span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>left<span class="w"> </span>right
+
+<span class="k">set</span><span class="w"> </span>leftFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$left</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>rightFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$right</span><span class="k">]</span>
+
+<span class="nv">text</span><span class="w"> </span><span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">-</span>wrap<span class="w"> </span>word
+<span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="nv">insert</span><span class="w"> </span>end<span class="w"> </span><span class="k">{</span><span class="nv">Content</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span>the<span class="w"> </span>left<span class="w"> </span>pane.<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="nv">text</span><span class="w"> </span><span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">-</span>wrap<span class="w"> </span>word
+<span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="nv">insert</span><span class="w"> </span>end<span class="w"> </span><span class="k">{</span><span class="nv">Content</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span>the<span class="w"> </span>right<span class="w"> </span>pane.<span class="w"> </span>Drag<span class="w"> </span>the<span class="w"> </span>sash<span class="w"> </span>to<span class="w"> </span>resize.<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">splitlayout</span> <span class="pre">.layout</span> <span class="pre">...</span></code> command returns the widget pathname. Use that pathname both as the layout command and
+with Tk geometry managers. The constructor accepts <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, and <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>.</p>
+<section id="splitting-existing-content">
+<span id="r-splitting-existing-content"></span><span id="r-splitting20existing20content"></span><h3>Splitting existing content<a class="headerlink" href="#splitting-existing-content" title="Link to this heading">¶</a></h3>
+<p>Continue from the quick-start example:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>split<span class="w"> </span><span class="nv">$right</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.65</span><span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>top<span class="w"> </span>bottom
+
+<span class="k">set</span><span class="w"> </span>bottomFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$bottom</span><span class="k">]</span>
+<span class="nv">ttk</span><span class="o">::</span>label<span class="w"> </span><span class="nv">$bottomFrame.status</span><span class="w"> </span><span class="o">-</span>text<span class="w"> </span><span class="k">{</span><span class="nv">New</span><span class="w"> </span>bottom<span class="w"> </span>pane<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$bottomFrame.status</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>The original right-hand editor remains in <code class="docutils literal notranslate"><span class="pre">$top</span></code>, with the same widget pathname and state. <code class="docutils literal notranslate"><span class="pre">$right</span></code> now identifies
+the parent split; <code class="docutils literal notranslate"><span class="pre">$top</span></code> and <code class="docutils literal notranslate"><span class="pre">$bottom</span></code> are new leaf identifiers. <code class="docutils literal notranslate"><span class="pre">-keep</span> <span class="pre">second</span></code> would retain the editor in the second
+child instead. Both children are returned in pane order.</p>
+</section>
+<section id="adding-panes-at-the-same-level">
+<span id="r-adding-panes-at-the-same-level"></span><span id="r-adding20panes20at20the20same20level"></span><h3>Adding panes at the same level<a class="headerlink" href="#adding-panes-at-the-same-level" title="Link to this heading">¶</a></h3>
+<p>Insert beside a leaf or a split, provided that it has a parent:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>middle<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>insert<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>middleFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
+<span class="nv">ttk</span><span class="o">::</span>label<span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>text<span class="w"> </span><span class="k">{</span><span class="nv">Middle</span><span class="w"> </span>pane<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="c"># The root now has three children: left, middle, and the right-hand split.</span>
+<span class="nv">.layout</span><span class="w"> </span>proportions<span class="w"> </span><span class="nv">$root</span><span class="w"> </span><span class="k">{</span><span class="nv">2</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
+</pre></div>
+</div>
+<p>Insertion divides the target child’s existing share equally between that child and the new leaf. The <code class="docutils literal notranslate"><span class="pre">-side</span></code> option
+accepts <code class="docutils literal notranslate"><span class="pre">before</span></code> or <code class="docutils literal notranslate"><span class="pre">after</span></code>, with <code class="docutils literal notranslate"><span class="pre">after</span></code> as the default. To add panes when the root is still a leaf, split it first.</p>
+<p><code class="docutils literal notranslate"><span class="pre">proportions</span></code> accepts one finite positive weight per immediate child and normalizes the weights. The example assigns
+shares of 2/6, 1/6, and 3/6. For a split with exactly two children, <code class="docutils literal notranslate"><span class="pre">ratio</span></code> queries or sets the first child’s fraction:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>ratio<span class="w"> </span><span class="nv">$right</span><span class="w"> </span><span class="mf">0.7</span>
+<span class="k">set</span><span class="w"> </span>fraction<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>ratio<span class="w"> </span><span class="nv">$right</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>shares<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>proportions<span class="w"> </span><span class="nv">$root</span><span class="k">]</span>
+</pre></div>
+</div>
+<p>Geometry changes settle through Tk’s event loop. Immediately after setting proportions, a query can return the stored
+values before the sashes have moved.</p>
+</section>
+<section id="swapping-and-removing-content">
+<span id="r-swapping-and-removing-content"></span><span id="r-swapping20and20removing20content"></span><h3>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading">¶</a></h3>
+<p>The following operations continue the example above:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Exchange complete content frames across different nesting levels.</span>
+<span class="nv">.layout</span><span class="w"> </span>swap<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="nv">$bottom</span>
+
+<span class="c"># Remove the middle pane and all widgets it contains.</span>
+<span class="k">set</span><span class="w"> </span>survivingParent<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>remove<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
+
+<span class="c"># Keep top, destroy its sibling subtree, and replace their parent with top.</span>
+<span class="nv">.layout</span><span class="w"> </span>retain<span class="w"> </span><span class="nv">$top</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">swap</span></code> exchanges content frames; node identifiers continue to identify the same logical positions. Cached frame and
+application-widget pathnames remain valid, but may now belong to a different leaf.</p>
+<p><code class="docutils literal notranslate"><span class="pre">remove</span></code> destroys the requested subtree. If its parent has only one child left, that child replaces the parent.
+<code class="docutils literal notranslate"><span class="pre">retain</span></code> destroys all siblings of the retained node and collapses its immediate parent; it does not collapse all
+ancestors. Retaining the root does nothing.</p>
+<p>To discard all content and start again:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>root<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>clear<span class="k">]</span>
+</pre></div>
+</div>
+<p>Previously removed node identifiers are invalid. Use the return values or query the layout again after structural
+changes. To destroy the entire layout, use <code class="docutils literal notranslate"><span class="pre">.layout</span> <span class="pre">destroy</span></code> or <code class="docutils literal notranslate"><span class="pre">destroy</span> <span class="pre">.layout</span></code>.</p>
+</section>
+</section>
+<section id="resizing">
+<span id="r-resizing"></span><h2>Resizing<a class="headerlink" href="#resizing" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">800</span></code></p></td>
+<td><p>Nonnegative requested hull width in pixels.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-height</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">600</span></code></p></td>
+<td><p>Nonnegative requested hull height in pixels.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Resize pane content continuously while dragging a sash.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+<td><p>Deferred preview mode: <code class="docutils literal notranslate"><span class="pre">window</span></code>, <code class="docutils literal notranslate"><span class="pre">inline</span></code>, or <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Enable deferred resizing at construction or through <code class="docutils literal notranslate"><span class="pre">configure</span></code>:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="w"> </span><span class="o">-</span>sashpreview<span class="w"> </span>window
+</pre></div>
+</div>
+<p>In deferred mode, dragging changes only the preview target. Releasing the mouse commits the sash position and resizes
+the content. Escape cancels the gesture. Changing layout structure or resizing mode, unmapping the pane, or changing
+geometry in a way that invalidates the gesture also cancels it.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Preview mode</p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+<td><p>Uses a temporary borderless transient toplevel for the sash marker.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">inline</span></code></p></td>
+<td><p>Uses a frame inside the layout for the sash marker.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">none</span></code></p></td>
+<td><p>Defers resizing without displaying a marker.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Preview motion is coalesced at idle. <code class="docutils literal notranslate"><span class="pre">window</span></code> can reduce content exposures on composited desktops, but appearance
+depends on Tk and the window manager; it does not guarantee atomic repainting of application widgets.</p>
+<p>These options apply to current and future splits. Deferred mode affects sash dragging; resizing the containing
+window and programmatic sizing still update the layout normally. Very small containers can collapse panes; there is
+no per-pane minimum-size API.</p>
+<p><code class="docutils literal notranslate"><span class="pre">configure</span></code> and <code class="docutils literal notranslate"><span class="pre">cget</span></code> also expose the ttk frame hull options. Additional hull options can be set after construction.</p>
+</section>
+<section id="inspecting-the-layout">
+<span id="r-inspecting-the-layout"></span><span id="r-inspecting20the20layout"></span><h2>Inspecting the layout<a class="headerlink" href="#inspecting-the-layout" title="Link to this heading">¶</a></h2>
+<p>Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nb">lindex</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>leaves<span class="k">]</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>contentFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+
+<span class="k">set</span><span class="w"> </span>logicalParent<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>parent<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>geometryContainer<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>container<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>actualParent<span class="w"> </span><span class="k">[</span><span class="nv">winfo</span><span class="w"> </span>parent<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span>
+
+<span class="k">set</span><span class="w"> </span>layoutTree<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>tree<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>widgetTree<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>widgets<span class="k">]</span>
+</pre></div>
+</div>
+<p>For a non-root node, <code class="docutils literal notranslate"><span class="pre">container</span></code> returns its parent panedwindow. Its actual Tk parent remains <code class="docutils literal notranslate"><span class="pre">.layout</span></code>.
+<code class="docutils literal notranslate"><span class="pre">winfo</span> <span class="pre">manager</span></code> reports the manager name, not the pathname of that geometry container.</p>
+<p><code class="docutils literal notranslate"><span class="pre">node</span></code> maps an exact managed frame or panedwindow pathname to its node identifier. <code class="docutils literal notranslate"><span class="pre">locate</span></code> accepts a descendant
+application widget and walks its Tk parents to find the containing leaf:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>node<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span>
+<span class="c"># For any existing application widget inside a content frame:</span>
+<span class="k">set</span><span class="w"> </span>applicationWidget<span class="w"> </span><span class="k">[</span><span class="nb">lindex</span><span class="w"> </span><span class="k">[</span><span class="nv">winfo</span><span class="w"> </span>children<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
+<span class="k">if</span><span class="w"> </span><span class="k">{</span><span class="nv">$applicationWidget</span><span class="w"> </span><span class="nv">ne</span><span class="w"> </span><span class="k">{}}</span><span class="w"> </span><span class="k">{</span>
+<span class="w">    </span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>locate<span class="w"> </span><span class="nv">$applicationWidget</span><span class="k">]</span>
+<span class="k">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">tree</span></code> returns nested dictionaries containing <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">parent</span></code>, <code class="docutils literal notranslate"><span class="pre">widget</span></code>, and <code class="docutils literal notranslate"><span class="pre">children</span></code>. Leaves also contain
+<code class="docutils literal notranslate"><span class="pre">frame</span></code>. Splits contain <code class="docutils literal notranslate"><span class="pre">orient</span></code> and <code class="docutils literal notranslate"><span class="pre">proportions</span></code>, plus <code class="docutils literal notranslate"><span class="pre">ratio</span></code> when they have two children. Split <code class="docutils literal notranslate"><span class="pre">children</span></code> are nested
+node dictionaries in pane order.</p>
+<p><code class="docutils literal notranslate"><span class="pre">widgets</span></code> returns nested dictionaries containing <code class="docutils literal notranslate"><span class="pre">path</span></code>, <code class="docutils literal notranslate"><span class="pre">parent</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span></code>, <code class="docutils literal notranslate"><span class="pre">manager</span></code>, <code class="docutils literal notranslate"><span class="pre">container</span></code>, and <code class="docutils literal notranslate"><span class="pre">children</span></code>.
+It includes application widgets. The container is resolved for layout nodes and for widgets managed by pack, grid,
+or place; it is empty for other managers without a supported reverse lookup.</p>
+<p>Both snapshots are for inspection. They do not serialize application widget state or provide a restore operation.</p>
+<hr class="docutils" />
+<p class="centered">
+<strong>Copyright (c) George Yashin</strong></p></section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">splitlayout — Dynamic pane layouts for Tcl/Tk</a><ul>
+<li><a class="reference internal" href="#what-it-gives-you-at-a-glance">What it gives you (at a glance)</a></li>
+<li><a class="reference internal" href="#general-concept">General concept</a><ul>
+<li><a class="reference internal" href="#two-hierarchies">Two hierarchies</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#requirements">Requirements</a></li>
+<li><a class="reference internal" href="#installing">Installing</a></li>
+<li><a class="reference internal" href="#quick-start">Quick start</a><ul>
+<li><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
+<li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#resizing">Resizing</a></li>
+<li><a class="reference internal" href="#inspecting-the-layout">Inspecting the layout</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">&lt;no title&gt;</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="splitlayout-splitlayout.html"
+                          title="next chapter">splitlayout</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/splitlayout.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="splitlayout-splitlayout.html" title="splitlayout"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="&lt;no title&gt;"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">splitlayout — Dynamic pane layouts for Tcl/Tk</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright George Yashin.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>
