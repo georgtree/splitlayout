@@ -1,6 +1,6 @@
 # splitlayout.tcl -- Multi-pane split layout megawidget (TclOO).
-package require Tcl 8.6-
-package require Tk 8.6-
+package require Tcl 9.0-
+package require Tk 9.0-
 package require argparse
 
 package provide splitlayout 0.1
@@ -16,8 +16,129 @@ namespace eval ::splitlayout {
     variable _ruff_preamble {}
 }
 
-oo::class create ::splitlayout::splitlayout {
+oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner
+    classmethod _ruffClassHook {} {
+        # Supplies class and property documentation to Ruff.
+        #
+        # Returns: Ruff class metadata dictionary.
+        return {
+            preamble {
+                Configurable TclOO layout manager for Tcl/Tk 9.
+
+                `configure` is inherited from `oo::configurable`. With no arguments it returns a dictionary
+                of property names and values; with one property name it returns that value. Set properties
+                with option/value pairs. Pairs are applied in order, and a failed setter leaves earlier
+                successful assignments in effect. Use `configure -name` instead of `cget -name`.
+
+                Hull properties delegate directly to the ttk frame. No option objects or option-database
+                resources are created for the layout properties.
+            }
+            propertydescriptions {
+                -opaqueresize {
+                    Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1.
+                    Changing the value cancels an active deferred drag without committing its target.
+                }
+                -sashpreview {
+                    Deferred sash preview: window, inline, or none; default window.
+                    Changing the value cancels an active deferred drag. Invalid values preserve the old value.
+                }
+                -width {
+                    Requested hull width, delegated to the ttk frame; constructor default 800.
+                }
+                -height {
+                    Requested hull height, delegated to the ttk frame; constructor default 600.
+                }
+                -padding {
+                    Internal hull padding, delegated to the ttk frame.
+                }
+                -borderwidth {
+                    Hull border width, delegated to the ttk frame.
+                }
+                -relief {
+                    Hull relief, delegated to the ttk frame.
+                }
+                -cursor {
+                    Hull cursor, delegated to the ttk frame.
+                }
+                -takefocus {
+                    Hull focus traversal setting, delegated to the ttk frame.
+                }
+                -style {
+                    Hull ttk style, delegated to the ttk frame.
+                }
+                -class {
+                    Read-only hull class override; empty when the default ttk class is used.
+                }
+            }
+        }
+    }
+    property opaqueresize -get {
+        return $Opaque
+    } -set {
+        if {![string is boolean -strict $value]} {
+            return -code error "expected boolean value but got '$value'"
+        }
+        set value [expr {!!$value}]
+        if {![info exists Opaque] || ($value != $Opaque)} {
+            my CancelDrag
+            set Opaque $value
+        }
+    }
+    property sashpreview -get {
+        return $Preview
+    } -set {
+        if {$value ni {window inline none}} {
+            return -code error {expected -sashpreview window, inline, or none}
+        }
+        if {![info exists Preview] || $value ne $Preview} {
+            my CancelDrag
+            set Preview $value
+        }
+    }
+    property width -get {
+        return [$Hull cget -width]
+    } -set {
+        $Hull configure -width $value
+    }
+    property height -get {
+        return [$Hull cget -height]
+    } -set {
+        $Hull configure -height $value
+    }
+    property padding -get {
+        return [$Hull cget -padding]
+    } -set {
+        $Hull configure -padding $value
+    }
+    property borderwidth -get {
+        return [$Hull cget -borderwidth]
+    } -set {
+        $Hull configure -borderwidth $value
+    }
+    property relief -get {
+        return [$Hull cget -relief]
+    } -set {
+        $Hull configure -relief $value
+    }
+    property cursor -get {
+        return [$Hull cget -cursor]
+    } -set {
+        $Hull configure -cursor $value
+    }
+    property takefocus -get {
+        return [$Hull cget -takefocus]
+    } -set {
+        $Hull configure -takefocus $value
+    }
+    property style -get {
+        return [$Hull cget -style]
+    } -set {
+        $Hull configure -style $value
+    }
+    property class -kind readable -get {
+        return [$Hull cget -class]
+    }
     self method unknown {w args} {
         # Creates a layout using Tk-style widget-path syntax.
         #  w - New widget pathname, or an unrecognized class subcommand.
@@ -63,8 +184,7 @@ oo::class create ::splitlayout::splitlayout {
             {-opaqueresize= -default true -type boolean}
             {-sashpreview= -default window -enum {window inline none}}
         }]
-        set Opaque [expr {!![dict get $options opaqueresize]}]
-        set Preview [dict get $options sashpreview]
+        my configure -opaqueresize [dict get $options opaqueresize] -sashpreview [dict get $options sashpreview]
         set W [dict get $options path]
         if {![string match .* $W] || ($W eq {.})} {
             return -code error {expected a new non-root Tk widget path}
@@ -1141,87 +1261,7 @@ oo::class create ::splitlayout::splitlayout {
             my CancelDrag
         }
     }
-    method configure {args} {
-        # Queries or changes layout and hull configuration options.
-        #  option - Option name to query, or an option name in a sequence of option/value pairs.
-        #  value - New value for the preceding option; omit all values to query a single option.
-        #
-        # With no arguments, returns all configuration descriptors. With one option name, returns its descriptor.
-        # To change configuration, supply one or more option/value pairs.
-        #
-        # The layout adds two options to the ttk frame hull options:
-        #
-        # - `-opaqueresize`: Boolean controlling live sash resizing; default true.
-        # - `-sashpreview`: window, inline, or none for deferred preview; default window.
-        #
-        # Changing either layout option cancels an active deferred gesture. Other options are forwarded to the hull.
-        # Invalid options or values raise an error. The layout option descriptors use the standard Tk five-element
-        # format.
-        #
-        # Returns: All option descriptors with no arguments, one descriptor with one option name, or nothing after
-        # setting options.
-        # Synopsis: ?option? ?value ...?
-        set optionInfo [list -opaqueresize opaqueResize OpaqueResize 1 $Opaque]
-        set previewInfo [list -sashpreview sashPreview SashPreview window $Preview]
-        if {[llength $args] == 0} {
-            return [concat [$Hull configure] [list $optionInfo $previewInfo]]
-        }
-        if {[llength $args] == 1} {
-            if {[lindex $args 0] eq {-opaqueresize}} {
-                return $optionInfo
-            }
-            if {[lindex $args 0] eq {-sashpreview}} {
-                return $previewInfo
-            }
-            return [$Hull configure {*}$args]
-        }
-        if {[llength $args] % 2} {
-            return -code error {expected option/value pairs}
-        }
-        set native {}
-        set opaque $Opaque
-        set preview $Preview
-        foreach {option value} $args {
-            if {$option eq {-opaqueresize}} {
-                if {![string is boolean -strict $value]} {
-                    return -code error "expected boolean value but got '$value'"
-                }
-                set opaque [expr {!!$value}]
-            } elseif {$option eq {-sashpreview}} {
-                if {$value ni {window inline none}} {
-                    return -code error {expected -sashpreview window, inline, or none}
-                }
-                set preview $value
-            } else {
-                lappend native $option $value
-            }
-        }
-        if {[llength $native]} {
-            $Hull configure {*}$native
-        }
-        if {($opaque != $Opaque) || ($preview ne $Preview)} {
-            my CancelDrag
-            set Opaque $opaque
-            set Preview $preview
-        }
-        return
-    }
-    method cget {option} {
-        # Returns the current value of a configuration option.
-        #  option - Layout-specific or ttk frame hull option name.
-        #
-        # Recognizes -opaqueresize and -sashpreview directly and delegates other options to the hull. Unknown options
-        # raise an error.
-        #
-        # Returns: The current option value.
-        if {$option eq {-opaqueresize}} {
-            return $Opaque
-        }
-        if {$option eq {-sashpreview}} {
-            return $Preview
-        }
-        return [$Hull cget $option]
-    }
+
 }
 
 namespace eval splitlayout {

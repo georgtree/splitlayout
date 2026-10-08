@@ -83,7 +83,7 @@ content. Surviving frames retain their widgets and state.</p>
 <section id="requirements">
 <span id="r-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>Tcl and Tk; the source accepts version 8.6 or newer and development targets Tcl/Tk 9.1.</p></li>
+<li><p>Tcl and Tk 9.0 or newer.</p></li>
 <li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, available to the selected Tcl interpreter.</p></li>
 </ul>
 </section>
@@ -289,7 +289,21 @@ depends on Tk and the window manager; it does not guarantee atomic repainting of
 <p>These options apply to current and future splits. Deferred mode affects sash dragging; resizing the containing
 window and programmatic sizing still update the layout normally. Very small containers can collapse panes; there is
 no per-pane minimum-size API.</p>
-<p><code class="docutils literal notranslate"><span class="pre">configure</span></code> and <code class="docutils literal notranslate"><span class="pre">cget</span></code> also expose the ttk frame hull options. Additional hull options can be set after construction.</p>
+<p>The class uses <code class="docutils literal notranslate"><span class="pre">oo::configurable</span></code> properties directly, without creating option objects. Query a property with
+<code class="docutils literal notranslate"><span class="pre">configure</span> <span class="pre">-name</span></code>. With no arguments, <code class="docutils literal notranslate"><span class="pre">configure</span></code> returns a dictionary
+of property names and current values, rather than Tk-style option descriptors:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>preview<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>sashpreview<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>properties<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>configure<span class="k">]</span>
+<span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="w"> </span><span class="o">-</span>padding<span class="w"> </span><span class="mi">4</span>
+</pre></div>
+</div>
+<p>The hull properties <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-padding</span></code>, <code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code>, <code class="docutils literal notranslate"><span class="pre">-relief</span></code>, <code class="docutils literal notranslate"><span class="pre">-cursor</span></code>, <code class="docutils literal notranslate"><span class="pre">-takefocus</span></code>, and <code class="docutils literal notranslate"><span class="pre">-style</span></code>
+delegate to the ttk frame. <code class="docutils literal notranslate"><span class="pre">-class</span></code> is read-only. The constructor accepts the four creation options listed above;
+other writable properties can be set after construction. No Tk option-database resources are added for
+<code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code> or <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>.</p>
+<p>Native property setters run in argument order. If a later value is invalid, earlier successful changes remain in
+effect. Invalid resizing values leave that property’s value and any active drag unchanged; changing a valid resizing
+value cancels the active drag. Setting the same value preserves it.</p>
 </section>
 <section id="inspecting-the-layout">
 <span id="r-inspecting-the-layout"></span><span id="r-inspecting20the20layout"></span><h2>Inspecting the layout<a class="headerlink" href="#inspecting-the-layout" title="Link to this heading">¶</a></h2>

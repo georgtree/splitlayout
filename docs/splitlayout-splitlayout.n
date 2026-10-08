@@ -11,13 +11,9 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
-\fBSPLITLAYOUTOBJ cget\fP \fIoption\fP
-.br
 \fBSPLITLAYOUTOBJ children\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ clear\fP
-.br
-\fBSPLITLAYOUTOBJ configure\fP \fI?option? ?value \&.\&.\&.?\fP
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
@@ -62,6 +58,16 @@ splitlayout - Commands in namespace splitlayout
 \fBsplitlayout\fR (::splitlayout)
 .RE
 .PP
+Configurable TclOO layout manager for Tcl/Tk 9\&.
+.PP
+configure is inherited from oo::configurable\&. With no arguments it returns a dictionary
+of property names and values; with one property name it returns that value\&. Set properties
+with option/value pairs\&. Pairs are applied in order, and a failed setter leaves earlier
+successful assignments in effect\&. Use configure -name instead of cget -name\&.
+.PP
+Hull properties delegate directly to the ttk frame\&. No option objects or option-database
+resources are created for the layout properties\&.
+.PP
 \fBMethod summary\fR
 .RS 4n
 .TP
@@ -71,17 +77,14 @@ Constructor for the class\&.
 destructor
 Destructor for the class\&.
 .TP
-cget
-Returns the current value of a configuration option\&. The current option value\&.
+\fIconfigure\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]
+Configure properties\&. See \fI::oo::configuresupport::configurable\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]\&.
 .TP
 children
 Returns the immediate logical children of a node\&. Child identifiers in pane order, or an empty list for a leaf\&.
 .TP
 clear
 Destroys all layout content and creates one empty root leaf\&.
-.TP
-configure
-Queries or changes layout and hull configuration options\&.
 .TP
 container
 Returns the geometry container for a managed node\&. The hull for the root, or the logical parent panedwindow for another node\&.
@@ -136,6 +139,43 @@ Returns the widget associated with a logical node\&. The content frame pathname 
 .TP
 widgets
 Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widget dictionary with path, parent, class, manager, container, and children\&.
+.RE
+.PP
+\fBProperties\fR
+.RS 4n
+.TP
+-borderwidth
+Readable, writable\&. Hull border width, delegated to the ttk frame\&.
+.TP
+-class
+Readable\&. Read-only hull class override; empty when the default ttk class is used\&.
+.TP
+-cursor
+Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
+.TP
+-height
+Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
+.TP
+-opaqueresize
+Readable, writable\&. Boolean enabling live sash resizing; default true\&. Values are normalized to 0 or 1\&. Changing the value cancels an active deferred drag without committing its target\&.
+.TP
+-padding
+Readable, writable\&. Internal hull padding, delegated to the ttk frame\&.
+.TP
+-relief
+Readable, writable\&. Hull relief, delegated to the ttk frame\&.
+.TP
+-sashpreview
+Readable, writable\&. Deferred sash preview: window, inline, or none; default window\&. Changing the value cancels an active deferred drag\&. Invalid values preserve the old value\&.
+.TP
+-style
+Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
+.TP
+-takefocus
+Readable, writable\&. Hull focus traversal setting, delegated to the ttk frame\&.
+.TP
+-width
+Readable, writable\&. Requested hull width, delegated to the ttk frame; constructor default 800\&.
 .RE
 .PP
 .RS -4n
@@ -199,34 +239,6 @@ bindtag, and destroys the owned hull\&. Also supports cleanup after partially co
 Nothing\&.
 .PP
 .RS -4n
-\fBcget\fR (::splitlayout::splitlayout)
-.RE
-.PP
-Returns the current value of a configuration option\&.
-The current option value\&.
-.RS 4n
-\fBSPLITLAYOUTOBJ cget\fP \fIoption\fP
-.br
-.RE
-.PP
-\fBParameters\fR
-.RS 4n
-.TP
-option
-Layout-specific or ttk frame hull option name\&.
-.RE
-.PP
-\fBDescription\fR
-.PP
-Recognizes -opaqueresize and -sashpreview directly and delegates other options to the hull\&. Unknown options
-raise an error\&.
-.PP
-\fBReturn value\fR
-.PP
-Returns the current value of a configuration option\&.
-The current option value\&.
-.PP
-.RS -4n
 \fBchildren\fR (::splitlayout::splitlayout)
 .RE
 .PP
@@ -262,48 +274,6 @@ Destroys all layout content and creates one empty root leaf\&.
 \fBReturn value\fR
 .PP
 The new root leaf identifier\&.
-.PP
-.RS -4n
-\fBconfigure\fR (::splitlayout::splitlayout)
-.RE
-.PP
-Queries or changes layout and hull configuration options\&.
-.RS 4n
-\fBSPLITLAYOUTOBJ configure\fP \fI?option? ?value \&.\&.\&.?\fP
-.br
-.RE
-.PP
-\fBParameters\fR
-.RS 4n
-.TP
-option
-Option name to query, or an option name in a sequence of option/value pairs\&.
-.TP
-value
-New value for the preceding option; omit all values to query a single option\&.
-.RE
-.PP
-\fBDescription\fR
-.PP
-With no arguments, returns all configuration descriptors\&. With one option name, returns its descriptor\&.
-To change configuration, supply one or more option/value pairs\&.
-.PP
-The layout adds two options to the ttk frame hull options:
-.TP
-\(bu
--opaqueresize: Boolean controlling live sash resizing; default true\&.
-.TP
-\(bu
--sashpreview: window, inline, or none for deferred preview; default window\&.
-.PP
-Changing either layout option cancels an active deferred gesture\&. Other options are forwarded to the hull\&.
-Invalid options or values raise an error\&. The layout option descriptors use the standard Tk five-element
-format\&.
-.PP
-\fBReturn value\fR
-.PP
-All option descriptors with no arguments, one descriptor with one option name, or nothing after
-setting options\&.
 .PP
 .RS -4n
 \fBcontainer\fR (::splitlayout::splitlayout)

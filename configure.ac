@@ -10,6 +10,12 @@ TEA_PATH_TCLCONFIG
 TEA_LOAD_TCLCONFIG
 TEA_PATH_TKCONFIG
 TEA_LOAD_TKCONFIG
+if test "$TCL_MAJOR_VERSION" -lt 9; then
+    AC_MSG_ERROR([splitlayout requires Tcl 9.0 or newer])
+fi
+if test "$TK_MAJOR_VERSION" -lt 9; then
+    AC_MSG_ERROR([splitlayout requires Tk 9.0 or newer])
+fi
 TEA_PREFIX
 TEA_ADD_SOURCES([])
 TEA_ADD_HEADERS([])

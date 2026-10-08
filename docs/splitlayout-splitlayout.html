@@ -42,19 +42,24 @@
 <span id="r-splitlayout-classes"></span><span id="r-3a3asplitlayoutqzclasses"></span><h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
 <section id="r-symbolqz3a3asplitlayout3a3asplitlayout">
 <span id="index-1"></span><span id="index-0"></span><span id="id1"></span><h3><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code><a class="headerlink" href="#r-symbolqz3a3asplitlayout3a3asplitlayout" title="Link to this heading">¶</a></h3>
+<p>Configurable TclOO layout manager for Tcl/Tk 9.</p>
+<p><code class="docutils literal notranslate"><span class="pre">configure</span></code> is inherited from <code class="docutils literal notranslate"><span class="pre">oo::configurable</span></code>. With no arguments it returns a dictionary
+of property names and values; with one property name it returns that value. Set properties
+with option/value pairs. Pairs are applied in order, and a failed setter leaves earlier
+successful assignments in effect. Use <code class="docutils literal notranslate"><span class="pre">configure</span> <span class="pre">-name</span></code> instead of <code class="docutils literal notranslate"><span class="pre">cget</span> <span class="pre">-name</span></code>.</p>
+<p>Hull properties delegate directly to the ttk frame. No option objects or option-database
+resources are created for the layout properties.</p>
 <p class="rubric">Method summary</p>
 <dl class="simple">
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"><span class="std std-ref">constructor</span></a></dt><dd><p>Constructor for the class.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3adestructor"><span class="std std-ref">destructor</span></a></dt><dd><p>Destructor for the class.</p>
 </dd>
-<dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3acget"><span class="std std-ref">cget</span></a></dt><dd><p>Returns the current value of a configuration option. The current option value.</p>
+<dt><a class="reference external" href="https://www.tcl-lang.org/man/tcl9.0/TclCmd/index.html">configure</a></dt><dd><p>Configure properties. See <a class="reference external" href="https://www.tcl-lang.org/man/tcl9.0/TclCmd/index.html">::oo::configuresupport::configurable</a>.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3achildren"><span class="std std-ref">children</span></a></dt><dd><p>Returns the immediate logical children of a node. Child identifiers in pane order, or an empty list for a leaf.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aclear"><span class="std std-ref">clear</span></a></dt><dd><p>Destroys all layout content and creates one empty root leaf.</p>
-</dd>
-<dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconfigure"><span class="std std-ref">configure</span></a></dt><dd><p>Queries or changes layout and hull configuration options.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"><span class="std std-ref">container</span></a></dt><dd><p>Returns the geometry container for a managed node. The hull for the root, or the logical parent panedwindow for another node.</p>
 </dd>
@@ -91,6 +96,42 @@
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"><span class="std std-ref">widget</span></a></dt><dd><p>Returns the widget associated with a logical node. The content frame pathname for a leaf, or panedwindow pathname for a split.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"><span class="std std-ref">widgets</span></a></dt><dd><p>Returns a recursive snapshot of the actual Tk widget hierarchy. A nested widget dictionary with path, parent, class, manager, container, and children.</p>
+</dd>
+</dl>
+<p class="rubric">Properties</p>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull border width, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-class</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable. Read-only hull class override; empty when the default ttk class is used.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-cursor</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull cursor, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Requested hull height, delegated to the ttk frame; constructor default 600.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
 </dd>
 </dl>
 <section id="constructor">
@@ -133,26 +174,8 @@ bindtag, and destroys the owned hull. Also supports cleanup after partially comp
 <p class="rubric">Return value</p>
 <p>Nothing.</p>
 </section>
-<section id="cget">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acget"></span><span id="index-7"></span><span id="index-6"></span><h4><code class="docutils literal notranslate"><span class="pre">cget</span></code><a class="headerlink" href="#cget" title="Link to this heading">¶</a></h4>
-<p>Returns the current value of a configuration option.
-The current option value.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ cget</strong> <em>option</em></pre>
-<p class="rubric">Parameters</p>
-<dl class="field-list simple">
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">option</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Layout-specific or ttk frame hull option name.</p>
-</dd>
-</dl>
-<p class="rubric">Description</p>
-<p>Recognizes -opaqueresize and -sashpreview directly and delegates other options to the hull. Unknown options
-raise an error.</p>
-<p class="rubric">Return value</p>
-<p>Returns the current value of a configuration option.
-The current option value.</p>
-</section>
 <section id="children">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3achildren"></span><span id="index-9"></span><span id="index-8"></span><h4><code class="docutils literal notranslate"><span class="pre">children</span></code><a class="headerlink" href="#children" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3achildren"></span><span id="index-7"></span><span id="index-6"></span><h4><code class="docutils literal notranslate"><span class="pre">children</span></code><a class="headerlink" href="#children" title="Link to this heading">¶</a></h4>
 <p>Returns the immediate logical children of a node.
 Child identifiers in pane order, or an empty list for a leaf.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ children</strong> <em>id</em></pre>
@@ -167,42 +190,14 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 Child identifiers in pane order, or an empty list for a leaf.</p>
 </section>
 <section id="clear">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aclear"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">clear</span></code><a class="headerlink" href="#clear" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aclear"></span><span id="index-9"></span><span id="index-8"></span><h4><code class="docutils literal notranslate"><span class="pre">clear</span></code><a class="headerlink" href="#clear" title="Link to this heading">¶</a></h4>
 <p>Destroys all layout content and creates one empty root leaf.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ clear</strong></pre>
 <p class="rubric">Return value</p>
 <p>The new root leaf identifier.</p>
 </section>
-<section id="configure">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconfigure"></span><span id="index-13"></span><span id="index-12"></span><h4><code class="docutils literal notranslate"><span class="pre">configure</span></code><a class="headerlink" href="#configure" title="Link to this heading">¶</a></h4>
-<p>Queries or changes layout and hull configuration options.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ configure</strong> <em>?option? ?value ...?</em></pre>
-<p class="rubric">Parameters</p>
-<dl class="field-list simple">
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">option</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Option name to query, or an option name in a sequence of option/value pairs.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">value</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>New value for the preceding option; omit all values to query a single option.</p>
-</dd>
-</dl>
-<p class="rubric">Description</p>
-<p>With no arguments, returns all configuration descriptors. With one option name, returns its descriptor.
-To change configuration, supply one or more option/value pairs.</p>
-<p>The layout adds two options to the ttk frame hull options:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>: Boolean controlling live sash resizing; default true.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>: window, inline, or none for deferred preview; default window.</p></li>
-</ul>
-<p>Changing either layout option cancels an active deferred gesture. Other options are forwarded to the hull.
-Invalid options or values raise an error. The layout option descriptors use the standard Tk five-element
-format.</p>
-<p class="rubric">Return value</p>
-<p>All option descriptors with no arguments, one descriptor with one option name, or nothing after
-setting options.</p>
-</section>
 <section id="container">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"></span><span id="index-15"></span><span id="index-14"></span><h4><code class="docutils literal notranslate"><span class="pre">container</span></code><a class="headerlink" href="#container" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">container</span></code><a class="headerlink" href="#container" title="Link to this heading">¶</a></h4>
 <p>Returns the geometry container for a managed node.
 The hull for the root, or the logical parent panedwindow for another node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ container</strong> <em>value</em></pre>
@@ -219,7 +214,7 @@ The hull for the root, or the logical parent panedwindow for another node.</p>
 The hull for the root, or the logical parent panedwindow for another node.</p>
 </section>
 <section id="frame">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aframe"></span><span id="index-17"></span><span id="index-16"></span><h4><code class="docutils literal notranslate"><span class="pre">frame</span></code><a class="headerlink" href="#frame" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aframe"></span><span id="index-13"></span><span id="index-12"></span><h4><code class="docutils literal notranslate"><span class="pre">frame</span></code><a class="headerlink" href="#frame" title="Link to this heading">¶</a></h4>
 <p>Returns the content frame of a leaf.
 The leaf content frame pathname.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ frame</strong> <em>id</em></pre>
@@ -236,7 +231,7 @@ The leaf content frame pathname.</p>
 The leaf content frame pathname.</p>
 </section>
 <section id="insert">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"></span><span id="index-19"></span><span id="index-18"></span><h4><code class="docutils literal notranslate"><span class="pre">insert</span></code><a class="headerlink" href="#insert" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"></span><span id="index-15"></span><span id="index-14"></span><h4><code class="docutils literal notranslate"><span class="pre">insert</span></code><a class="headerlink" href="#insert" title="Link to this heading">¶</a></h4>
 <p>Inserts an empty leaf beside an existing non-root node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ insert</strong> <em>node ?-side side?</em></pre>
 <p class="rubric">Parameters</p>
@@ -255,7 +250,7 @@ Inserting beside the root raises an error; split the root first.</p>
 <p>The new leaf identifier.</p>
 </section>
 <section id="leaves">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-21"></span><span id="index-20"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-17"></span><span id="index-16"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading">¶</a></h4>
 <p>Collects the leaves below a logical node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ leaves</strong> <em>?id?</em></pre>
 <p class="rubric">Parameters</p>
@@ -270,7 +265,7 @@ Inserting beside the root raises an error; split the root first.</p>
 <p>A list of leaf identifiers in depth-first pane order.</p>
 </section>
 <section id="locate">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-23"></span><span id="index-22"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-19"></span><span id="index-18"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading">¶</a></h4>
 <p>Finds the leaf containing an application widget.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ locate</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -286,7 +281,7 @@ A split panedwindow does not identify a leaf.</p>
 <p>The containing leaf identifier, or empty for a missing or unrelated widget.</p>
 </section>
 <section id="node">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-25"></span><span id="index-24"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-21"></span><span id="index-20"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading">¶</a></h4>
 <p>Finds the logical node associated with an exact widget pathname.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ node</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -301,7 +296,7 @@ A split panedwindow does not identify a leaf.</p>
 <p>The node identifier, or an empty string when no node matches.</p>
 </section>
 <section id="parent">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-27"></span><span id="index-26"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-23"></span><span id="index-22"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading">¶</a></h4>
 <p>Returns the logical parent of a node.
 The parent node identifier, or an empty string for the root.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ parent</strong> <em>id</em></pre>
@@ -318,7 +313,7 @@ The parent node identifier, or an empty string for the root.</p>
 The parent node identifier, or an empty string for the root.</p>
 </section>
 <section id="proportions">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-29"></span><span id="index-28"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-25"></span><span id="index-24"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading">¶</a></h4>
 <p>Queries or sets all pane proportions of a split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ proportions</strong> <em>node ?weights?</em></pre>
 <p class="rubric">Parameters</p>
@@ -338,7 +333,7 @@ pending; otherwise it returns the stored proportions.</p>
 <p>The normalized list of pane proportions.</p>
 </section>
 <section id="ratio">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-31"></span><span id="index-30"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-27"></span><span id="index-26"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading">¶</a></h4>
 <p>Queries or sets the first pane fraction of a two-child split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ ratio</strong> <em>node ?value?</em></pre>
 <p class="rubric">Parameters</p>
@@ -358,7 +353,7 @@ using the same conditions as proportions.</p>
 <p>The stored first pane fraction.</p>
 </section>
 <section id="remove">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-33"></span><span id="index-32"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-29"></span><span id="index-28"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading">¶</a></h4>
 <p>Removes a node and all content in its subtree.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ remove</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -374,7 +369,7 @@ weights. If only one child remains, that child replaces the parent split. Surviv
 <p>The surviving parent split, its promoted sole child, or the new empty root.</p>
 </section>
 <section id="retain">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-35"></span><span id="index-34"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-31"></span><span id="index-30"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading">¶</a></h4>
 <p>Keeps a node while removing its siblings and collapsing its parent.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ retain</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -390,7 +385,7 @@ parent. Only that parent level is collapsed. Retaining the root makes no changes
 <p>The retained node identifier.</p>
 </section>
 <section id="root">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-33"></span><span id="index-32"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading">¶</a></h4>
 <p>Returns the current logical root node.
 The root node identifier.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ root</strong></pre>
@@ -399,7 +394,7 @@ The root node identifier.</p>
 The root node identifier.</p>
 </section>
 <section id="split">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-35"></span><span id="index-34"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading">¶</a></h4>
 <p>Replaces a leaf with a split containing two new leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ split</strong> <em>node ?-orient orientation? ?-ratio fraction? ?-keep child?</em></pre>
 <p class="rubric">Parameters</p>
@@ -425,7 +420,7 @@ child starts with an empty frame. Existing pane proportions are captured before 
 <p>The two new leaf identifiers in pane order.</p>
 </section>
 <section id="swap">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading">¶</a></h4>
 <p>Exchanges the content frames assigned to two leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ swap</strong> <em>a b</em></pre>
 <p class="rubric">Parameters</p>
@@ -445,7 +440,7 @@ widget pathnames remain unchanged. Equal identifiers do nothing.</p>
 <p>Nothing.</p>
 </section>
 <section id="tree">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading">¶</a></h4>
 <p>Returns a recursive snapshot of the logical layout hierarchy.
 A nested dictionary describing the requested logical subtree.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ tree</strong> <em>?id?</em></pre>
@@ -465,7 +460,7 @@ ratio. Split children are nested node dictionaries in pane order.</p>
 A nested dictionary describing the requested logical subtree.</p>
 </section>
 <section id="type">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading">¶</a></h4>
 <p>Returns the type of a logical node.
 The string leaf or split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ type</strong> <em>id</em></pre>
@@ -480,7 +475,7 @@ The string leaf or split.</p>
 The string leaf or split.</p>
 </section>
 <section id="widget">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-47"></span><span id="index-46"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading">¶</a></h4>
 <p>Returns the widget associated with a logical node.
 The content frame pathname for a leaf, or panedwindow pathname for a split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ widget</strong> <em>id</em></pre>
@@ -495,7 +490,7 @@ The content frame pathname for a leaf, or panedwindow pathname for a split.</p>
 The content frame pathname for a leaf, or panedwindow pathname for a split.</p>
 </section>
 <section id="widgets">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-49"></span><span id="index-48"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading">¶</a></h4>
 <p>Returns a recursive snapshot of the actual Tk widget hierarchy.
 A nested widget dictionary with path, parent, class, manager, container, and children.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ widgets</strong> <em>?path?</em></pre>
@@ -533,10 +528,8 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 <li><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout"><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code></a><ul>
 <li><a class="reference internal" href="#constructor"><code class="docutils literal notranslate"><span class="pre">constructor</span></code></a></li>
 <li><a class="reference internal" href="#destructor"><code class="docutils literal notranslate"><span class="pre">destructor</span></code></a></li>
-<li><a class="reference internal" href="#cget"><code class="docutils literal notranslate"><span class="pre">cget</span></code></a></li>
 <li><a class="reference internal" href="#children"><code class="docutils literal notranslate"><span class="pre">children</span></code></a></li>
 <li><a class="reference internal" href="#clear"><code class="docutils literal notranslate"><span class="pre">clear</span></code></a></li>
-<li><a class="reference internal" href="#configure"><code class="docutils literal notranslate"><span class="pre">configure</span></code></a></li>
 <li><a class="reference internal" href="#container"><code class="docutils literal notranslate"><span class="pre">container</span></code></a></li>
 <li><a class="reference internal" href="#frame"><code class="docutils literal notranslate"><span class="pre">frame</span></code></a></li>
 <li><a class="reference internal" href="#insert"><code class="docutils literal notranslate"><span class="pre">insert</span></code></a></li>

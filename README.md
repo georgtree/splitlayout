@@ -43,7 +43,7 @@ content. Surviving frames retain their widgets and state.
 
 ## Requirements
 
-- Tcl and Tk; the source accepts version 8.6 or newer and development targets Tcl/Tk 9.1.
+- Tcl and Tk 9.0 or newer.
 - [argparse](https://github.com/georgtree/argparse), available to the selected Tcl interpreter.
 
 ## Installing
@@ -238,7 +238,24 @@ These options apply to current and future splits. Deferred mode affects sash dra
 window and programmatic sizing still update the layout normally. Very small containers can collapse panes; there is
 no per-pane minimum-size API.
 
-`configure` and `cget` also expose the ttk frame hull options. Additional hull options can be set after construction.
+The class uses `oo::configurable` properties directly, without creating option objects. Query a property with
+`configure -name`. With no arguments, `configure` returns a dictionary
+of property names and current values, rather than Tk-style option descriptors:
+
+```tcl
+set preview [.layout configure -sashpreview]
+set properties [.layout configure]
+.layout configure -opaqueresize false -padding 4
+```
+
+The hull properties `-width`, `-height`, `-padding`, `-borderwidth`, `-relief`, `-cursor`, `-takefocus`, and `-style`
+delegate to the ttk frame. `-class` is read-only. The constructor accepts the four creation options listed above;
+other writable properties can be set after construction. No Tk option-database resources are added for
+`-opaqueresize` or `-sashpreview`.
+
+Native property setters run in argument order. If a later value is invalid, earlier successful changes remain in
+effect. Invalid resizing values leave that property's value and any active drag unchanged; changing a valid resizing
+value cancels the active drag. Setting the same value preserves it.
 
 ## Inspecting the layout
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:

@@ -1,4 +1,4 @@
-package require Tcl 8.6-
+package require Tcl 9.0-
 package require tcltest 2
 namespace import ::tcltest::*
 package require splitlayout
@@ -89,16 +89,44 @@ proc ::bgerror {message} {
 test splitlayout-create-1.1 {Tk-style TclOO construction and frame options} -setup {
     set m [::sltest::setup]
 } -body {
-    list [info object isa typeof $m ::splitlayout] [$m type [$m root]] [$m parent [$m root]] [$m children [$m root]]\
-            [$m cget -width] [::sltest::check $m]
+    list [info object isa typeof $m ::splitlayout::splitlayout] [$m type [$m root]] [$m parent [$m root]] [$m children [$m root]]\
+            [$m configure -width] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 leaf {} {} 800 1}
 
 test splitlayout-create-1.2 {configure is forwarded to the hull} -setup {
     set m [::sltest::setup]
 } -body {
     $m configure -padding 7
-    $m cget -padding
+    $m configure -padding
 } -cleanup {::sltest::cleanup} -result 7
+
+test splitlayout-properties-1.1 {native property configuration and discovery} -setup {
+    set m [::sltest::setup]
+} -body {
+    set values [$m configure]
+    list [info object isa typeof ::splitlayout::splitlayout oo::configurable] \
+        [expr {"configure" ni [info class methods ::splitlayout::splitlayout]}] \
+        [lsort [dict keys $values]] [dict get $values -width] \
+        [catch {$m cget -width}] [catch {$m configure -class Other}] \
+        [$m configure -class]
+} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -class -cursor -height -opaqueresize -padding -relief -sashpreview -style -takefocus -width} 800 1 1 {}}
+
+test splitlayout-properties-1.2 {native ordered setters and rejected values} -setup {
+    set m [::sltest::setup]
+} -body {
+    set failed [catch {$m configure -opaqueresize off -sashpreview invalid -padding 8}]
+    list $failed [$m configure -opaqueresize] [$m configure -sashpreview] \
+        [$m configure -padding] [catch {$m configure -unknown 1}]
+} -cleanup {::sltest::cleanup} -result {1 0 window {} 1}
+
+test splitlayout-properties-1.3 {properties delegate hull changes and normalize booleans} -setup {
+    set m [::sltest::setup]
+} -body {
+    $m configure -width 420 -height 240 -padding {2 3} -relief sunken -borderwidth 2 -opaqueresize yes
+    set ns [info object namespace $m]
+    list [$m configure -width] [$m configure -height] [$m configure -padding] \
+        [${ns}::hull cget -relief] [${ns}::hull cget -borderwidth] [$m configure -opaqueresize]
+} -cleanup {::sltest::cleanup} -result {420 240 {2 3} sunken 2 1}
 
 test splitlayout-create-1.3 {existing path is not destroyed on constructor failure} -setup {
     toplevel .sltest
@@ -515,10 +543,10 @@ test splitlayout-deferred-10.1 {creation/configuration queries and validation} -
     set m [::sltest::setup]
     splitlayout .sltest.other -opaqueresize false
 } -body {
-    set default [$m cget -opaqueresize]
+    set default [$m configure -opaqueresize]
     $m configure -opaqueresize false -padding 4
-    list $default [.sltest.other cget -opaqueresize] [$m cget -opaqueresize] [lindex [$m configure -opaqueresize] end]\
-            [$m cget -padding] [catch {$m configure -opaqueresize nonsense}] [$m cget -opaqueresize]
+    list $default [.sltest.other configure -opaqueresize] [$m configure -opaqueresize] [dict get [$m configure] -opaqueresize]\
+            [$m configure -padding] [catch {$m configure -opaqueresize nonsense}] [$m configure -opaqueresize]
 } -cleanup {::sltest::cleanup} -result {1 0 0 0 4 1 0}
 
 test splitlayout-deferred-10.2 {both axes keep panes unchanged until release} -setup {
@@ -620,12 +648,12 @@ test splitlayout-deferred-10.6 {destroy while dragging clears callbacks and prox
 } -cleanup {::sltest::cleanup} -result {0 {} {}}
 
 # Separate preview surfaces and deferred commit lifecycle.
-test splitlayout-preview-11.1 {preview option metadata and rejected updates preserve state} -setup {
+test splitlayout-preview-11.1 {preview property queries and rejected updates preserve state} -setup {
     set m [::sltest::setup]
 } -body {
-    set result [list [$m cget -sashpreview] [lindex [$m configure -sashpreview] end]]
+    set result [list [$m configure -sashpreview] [dict get [$m configure] -sashpreview]]
     $m configure -sashpreview none
-    lappend result [$m cget -sashpreview] [catch {$m configure -sashpreview invalid}] [$m cget -sashpreview]
+    lappend result [$m configure -sashpreview] [catch {$m configure -sashpreview invalid}] [$m configure -sashpreview]
     set result
 } -cleanup {::sltest::cleanup} -result {window window none 1 none}
 
@@ -781,6 +809,27 @@ test splitlayout-preview-11.8 {preview does not steal keyboard focus and release
     }
     set result
 } -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-properties-1.4 {invalid and unchanged properties preserve an active drag} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    $m split $root
+    update
+    set ns [info object namespace $m]
+} -body {
+    set pw [$m widget $root]
+    set old [$pw sashpos 0]
+    ::sltest::gesture $pw 0 40
+    set drag [set ${ns}::Drag]
+    set badBoolean [catch {$m configure -opaqueresize invalid}]
+    set badPreview [catch {$m configure -sashpreview invalid}]
+    $m configure -opaqueresize off -sashpreview window
+    set preserved [expr {[set ${ns}::Drag] eq $drag}]
+    $m configure -sashpreview none
+    update
+    list $badBoolean $badPreview $preserved [set ${ns}::Drag] [expr {[$pw sashpos 0] == $old}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {} 1}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

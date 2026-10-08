@@ -3885,6 +3885,13 @@ printf "%s\n" "#define MAC_OSX_TK 1" >>confdefs.h
 
 
 
+if test "$TCL_MAJOR_VERSION" -lt 9; then
+    as_fn_error $? "splitlayout requires Tcl 9.0 or newer" "$LINENO" 5
+fi
+if test "$TK_MAJOR_VERSION" -lt 9; then
+    as_fn_error $? "splitlayout requires Tk 9.0 or newer" "$LINENO" 5
+fi
+
     if test "${prefix}" = "NONE"; then
 	prefix_default=yes
 	if test x"${TCL_PREFIX}" != x; then
