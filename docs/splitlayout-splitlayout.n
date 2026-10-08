@@ -25,6 +25,8 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ locate\fP \fIpath\fP
 .br
+\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
+.br
 \fBSPLITLAYOUTOBJ node\fP \fIpath\fP
 .br
 \fBSPLITLAYOUTOBJ parent\fP \fIid\fP
@@ -100,6 +102,9 @@ Collects the leaves below a logical node\&.
 .TP
 locate
 Finds the leaf containing an application widget\&.
+.TP
+move
+Moves an existing leaf to an edge or sibling position without destroying its content\&.
 .TP
 node
 Finds the logical node associated with an exact widget pathname\&.
@@ -408,6 +413,57 @@ A split panedwindow does not identify a leaf\&.
 \fBReturn value\fR
 .PP
 The containing leaf identifier, or empty for a missing or unrelated widget\&.
+.PP
+.RS -4n
+\fBmove\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Moves an existing leaf to an edge or sibling position without destroying its content\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-after target
+Insert after a non-root leaf or split in its existing parent\&.
+.TP
+-before target
+Insert before a non-root leaf or split in its existing parent\&.
+.TP
+-bottom target
+Place after a target leaf in a vertical split\&.
+.TP
+-left target
+Place before a target leaf in a horizontal split\&.
+.TP
+-right target
+Place after a target leaf in a horizontal split\&.
+.TP
+-top target
+Place before a target leaf in a vertical split\&.
+.TP
+leaf
+Existing source leaf identifier, retained by the move\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Exactly one destination option is required\&. Edge destinations reuse the target parent when its orientation
+matches\&. Otherwise the target leaf becomes a split, and its existing frame moves to a newly identified leaf,
+following split's identifier semantics\&. The source identifier, frame, widget paths, and state survive\&.
+.PP
+Within one parent and orientation, panes are reordered with their existing weights\&. Other moves divide the
+target share equally between the source and target; remaining source siblings retain relative proportions\&.
+A source parent left with one child is collapsed after insertion\&. Moving to oneself or to an already adjacent
+position does nothing\&. Argument errors are detected before changing layout or cancelling a deferred drag\&.
+A successful structural move cancels deferred dragging and rebuilds geometry once, without nested updates\&.
+.PP
+\fBReturn value\fR
+.PP
+The unchanged source leaf identifier\&. Query parent, children, or tree for the resulting structure\&.
 .PP
 .RS -4n
 \fBnode\fR (::splitlayout::splitlayout)

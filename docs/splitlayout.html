@@ -53,6 +53,7 @@ without recreating the surviving application widgets.</p>
 <li><p>Retention of existing content when a leaf is split.</p></li>
 <li><p>Removal of individual panes or complete subtrees, with automatic collapse of redundant parent splits.</p></li>
 <li><p>Content swapping between leaves at different nesting levels.</p></li>
+<li><p>Leaf moves to edge or sibling destinations, preserving application widgets and state.</p></li>
 <li><p>Relative pane proportions and interactive sash resizing.</p></li>
 <li><p>Live resizing or deferred resizing with a configurable sash preview.</p></li>
 <li><p>Inspection of both the logical layout tree and the actual Tk widget hierarchy.</p></li>
@@ -195,6 +196,74 @@ shares of 2/6, 1/6, and 3/6. For a split with exactly two children, <code class=
 </div>
 <p>Geometry changes settle through Tk’s event loop. Immediately after setting proportions, a query can return the stored
 values before the sashes have moved.</p>
+</section>
+<section id="moving-panes">
+<span id="r-moving-panes"></span><span id="r-moving20panes"></span><h3>Moving panes<a class="headerlink" href="#moving-panes" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">move</span></code> relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and application
+state. Supply exactly one destination option:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Destination</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-left</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source to the left of a target leaf.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-right</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source to the right of a target leaf.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-top</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source above a target leaf.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-bottom</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source below a target leaf.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-before</span> <span class="pre">target</span></code></p></td>
+<td><p>Insert before a non-root leaf or split in its existing parent.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-after</span> <span class="pre">target</span></code></p></td>
+<td><p>Insert after a non-root leaf or split in its existing parent.</p></td>
+</tr>
+</tbody>
+</table>
+<p>For example, in the layout built above:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Insert the middle pane above the bottom pane in the existing vertical split.</span>
+<span class="nv">.layout</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$middle</span><span class="w"> </span><span class="o">-</span>top<span class="w"> </span><span class="nv">$bottom</span>
+
+<span class="c"># Insert it before the entire right-hand region in the root split.</span>
+<span class="nv">.layout</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$middle</span><span class="w"> </span><span class="o">-</span>before<span class="w"> </span><span class="nv">$right</span>
+</pre></div>
+</div>
+<p>Edge destinations reuse the target’s parent when it already has the required orientation. Otherwise, the target leaf
+becomes a new split containing the source and a new leaf for the target’s existing content. This follows <code class="docutils literal notranslate"><span class="pre">split</span></code>’s
+identifier semantics: the target identifier now denotes a split. Use <code class="docutils literal notranslate"><span class="pre">children</span></code>, <code class="docutils literal notranslate"><span class="pre">leaves</span></code>, or <code class="docutils literal notranslate"><span class="pre">locate</span></code> to obtain the
+new target-content leaf identifier. The source identifier remains unchanged and is also the command’s return value.</p>
+<p>For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">splitlayout</span><span class="w"> </span>.example
+<span class="nv">pack</span><span class="w"> </span>.example<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>split<span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>root<span class="k">]</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>horizontal<span class="k">]</span><span class="w"> </span>a<span class="w"> </span>b
+<span class="k">set</span><span class="w"> </span>moved<span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>top<span class="w"> </span><span class="nv">$b</span><span class="k">]</span>
+<span class="c"># moved equals a; b is now the root vertical split.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">-before</span></code> and <code class="docutils literal notranslate"><span class="pre">-after</span></code> always use the existing parent orientation. They can describe a sash destination without pixel
+coordinates: insertion at a sash is <code class="docutils literal notranslate"><span class="pre">-before</span></code> its following child or <code class="docutils literal notranslate"><span class="pre">-after</span></code> its preceding child. A split target may
+contain the source; moving beside that ancestor moves the source outside its subtree. Insertion beside the root is
+an error, except that any move to oneself is a no-op.</p>
+<p>Reordering within the same parent preserves the pane weights associated with each node. Other moves divide the
+target’s share equally between the source and target. Remaining siblings in the source parent retain their relative
+weights. If only one child remains there, it replaces the old parent after insertion; that old parent identifier
+becomes invalid. Query <code class="docutils literal notranslate"><span class="pre">root</span></code> again after a move that can collapse the root.</p>
+<p>Moving to oneself or to an already adjacent position with the requested orientation does nothing. Invalid arguments
+are rejected before modifying the layout. A structural move cancels an active deferred sash gesture, rebuilds geometry
+once, and lets geometry settle through the normal event loop. No application content is destroyed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">move</span></code> changes pane placement; <code class="docutils literal notranslate"><span class="pre">swap</span></code> exchanges content at two existing positions.</p>
 </section>
 <section id="swapping-and-removing-content">
 <span id="r-swapping-and-removing-content"></span><span id="r-swapping20and20removing20content"></span><h3>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading">¶</a></h3>
@@ -364,6 +433,7 @@ or place; it is empty for other managers without a supported reverse lookup.</p>
 <li><a class="reference internal" href="#quick-start">Quick start</a><ul>
 <li><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
 <li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
 <li><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
 </ul>
 </li>

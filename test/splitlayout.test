@@ -831,6 +831,169 @@ test splitlayout-properties-1.4 {invalid and unchanged properties preserve an ac
     list $badBoolean $badPreview $preserved [set ${ns}::Drag] [expr {[$pw sashpos 0] == $old}]
 } -cleanup {::sltest::cleanup} -result {1 1 1 {} 1}
 
+# Public move: destinations, identifier/content retention, proportions, and lifecycle.
+foreach {edge orient first} {left horizontal 1 right horizontal 0 top vertical 1 bottom vertical 0} {
+    test splitlayout-move-12.1-$edge {perpendicular sibling move wraps target and collapses old root} -setup {
+        set m [::sltest::setup]
+        set oldRoot [$m root]
+        set opposite [expr {$orient eq {horizontal} ? {vertical} : {horizontal}}]
+        lassign [$m split $oldRoot -orient $opposite] a b
+        set aw [::sltest::fill $m $a A]
+        set bw [::sltest::fill $m $b B]
+        set af [$m frame $a]
+        set bf [$m frame $b]
+    } -body {
+        set result [$m move $a -$edge $b]
+        set kids [$m children $b]
+        set retained [lindex $kids $first]
+        list [expr {$result eq $a}] [expr {[$m root] eq $b}] [dict get [$m tree $b] orient]\
+                [expr {[lindex $kids [expr {!$first}]] eq $a}]\
+                [expr {[$m frame $a] eq $af && [$m frame $retained] eq $bf}] [string trim [$aw get 1.0 end]]\
+                [string trim [$bw get 1.0 end]] [expr {[$m locate $bw] eq $retained}] [catch {$m type $oldRoot}]\
+                [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result [list 1 1 $orient 1 1 A B 1 1 1]
+
+    test splitlayout-move-12.2-$edge {matching orientation reorders existing siblings with their shares} -setup {
+        set m [::sltest::setup]
+        set root [$m root]
+        lassign [$m split $root -orient $orient] a b
+        set c [$m insert $b]
+        $m proportions $root {2 3 5}
+        set source [expr {$first ? $c : $a}]
+    } -body {
+        $m move $source -$edge $b
+        set expected [expr {$first ? [list $a $c $b] : [list $b $a $c]}]
+        set shares [lmap x [$m proportions $root] {format %.1f $x}]
+        list [expr {[$m children $root] eq $expected}] $shares [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result [list 1 [expr {$first ? {0.2 0.5 0.3} : {0.3 0.2 0.5}}] 1]
+}
+
+foreach side {before after} {
+    test splitlayout-move-12.3-$side {cross-parent insertion retains source and distributes destination share} -setup {
+        set m [::sltest::setup]
+        set root [$m root]
+        lassign [$m split $root] left right
+        lassign [$m split $left -orient vertical] a b
+        set c [$m insert $b]
+        lassign [$m split $right -orient vertical] d e
+        set path [::sltest::fill $m $a kept]
+        $m proportions $left {2 3 5}
+        $m proportions $right {4 6}
+    } -body {
+        $m move $a -$side $d
+        set expected [expr {$side eq {before} ? [list $a $d $e] : [list $d $a $e]}]
+        list [expr {[$m children $left] eq [list $b $c]}] [lmap x [$m proportions $left] {format %.3f $x}]\
+                [expr {[$m children $right] eq $expected}] [lmap x [$m proportions $right] {format %.1f $x}]\
+                [expr {[$m locate $path] eq $a}] [string trim [$path get 1.0 end]] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {1 {0.375 0.625} 1 {0.2 0.2 0.6} 1 kept 1}
+}
+
+test splitlayout-move-12.4 {move beside source ancestor delays collapse until insertion} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] left right
+    lassign [$m split $left -orient vertical] a b
+    set bw [::sltest::fill $m $b survivor]
+} -body {
+    $m move $a -before $left
+    list [expr {[$m children $root] eq [list $a $b $right]}] [catch {$m type $left}] [expr {[$m locate $bw] eq $b}]\
+            [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-move-12.5 {move into descendant region of sibling while old root collapses} -setup {
+    set m [::sltest::setup]
+    set oldRoot [$m root]
+    lassign [$m split $oldRoot] a right
+    lassign [$m split $right -orient vertical] b c
+} -body {
+    $m move $a -bottom $b
+    list [expr {[$m root] eq $right}] [expr {[$m children $right] eq [list $b $a $c]}] [catch {$m type $oldRoot}]\
+            [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-move-12.6 {split target wraps while destination grandparent share survives} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    $m proportions $root {2 3 5}
+} -body {
+    $m move $a -top $b
+    list [expr {[$m children $root] eq [list $b $c]}] [$m type $b] [lmap x [$m proportions $root] {format %.3f $x}]\
+            [expr {[lindex [$m children $b] 0] eq $a}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 split {0.375 0.625} 1 1}
+
+test splitlayout-move-12.7 {all self moves including root and adjacent moves preserve exact records} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    set ns [info object namespace $m]
+} -body {
+    set before [set ${ns}::Nodes]
+    foreach where {left right top bottom before after} {$m move $root -$where $root}
+    set single [expr {$before eq [set ${ns}::Nodes]}]
+    lassign [$m split $root] a b
+    set before [set ${ns}::Nodes]
+    foreach command [list [list $m move $a -left $b] [list $m move $b -after $a]] {{*}$command}
+    list $single [expr {$before eq [set ${ns}::Nodes]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-move-12.8 {invalid destinations leave records, callbacks, and widgets unchanged} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set ns [info object namespace $m]
+} -body {
+    set before [list [set ${ns}::Nodes] [set ${ns}::Pending] [winfo children $m]]
+    set result {}
+    foreach command [list [list $m move $a] [list $m move $a -left $b -after $b] [list $m move $a -left missing]\
+                             [list $m move missing -left $b] [list $m move $root -left $b] [list $m move $a -top $root]\
+                             [list $m move $a -before $root] [list $m move $a -unknown $b] [list $m move $a -right]] {
+        lappend result [catch {{*}$command}]
+    }
+    list $result [expr {$before eq [list [set ${ns}::Nodes] [set ${ns}::Pending] [winfo children $m]]}]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1 1 1 1 1} 1}
+
+test splitlayout-move-12.9 {move cancels a deferred gesture without a late commit} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    update
+    set pw [$m widget $root]
+    set ns [info object namespace $m]
+} -body {
+    lassign [::sltest::gesture $pw 0 40] x y
+    set drag [set ${ns}::Drag]
+    set invalid [catch {$m move $a -left missing}]
+    set preserved [expr {$drag eq [set ${ns}::Drag]}]
+    $m move $a -after $c
+    event generate $pw <ButtonRelease-1> -x $x -y $y
+    update
+    list $invalid $preserved [set ${ns}::Drag] [llength [info commands $m.proxy*]]\
+            [expr {[$m children $root] eq [list $b $c $a]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 {} 0 1 1}
+
+test splitlayout-move-12.10 {mixed repeated moves keep every application widget alive} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    set paths [list [::sltest::fill $m $a A] [::sltest::fill $m $b B] [::sltest::fill $m $c C]]
+} -body {
+    set valid 1
+    for {set i 0} {$i < 24} {incr i} {
+        set source [$m locate [lindex $paths [expr {$i % 3}]]]
+        set target [$m locate [lindex $paths [expr {($i + 1) % 3}]]]
+        set direction [lindex {top right bottom left before after} [expr {$i % 6}]]
+        $m move $source -$direction $target
+        update
+        set valid [expr {$valid && [::sltest::check $m]}]
+    }
+    list $valid [llength [$m leaves]] [lmap p $paths {string trim [$p get 1.0 end]}]\
+            [expr {[llength [winfo children $m]] == [::sltest::snapshotCount [$m tree]]}]
+} -cleanup {::sltest::cleanup} -result {1 3 {A B C} 1}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

@@ -450,7 +450,31 @@ oo::configurable create ::splitlayout::splitlayout {
         set fraction [my Fraction [dict get $opts ratio]]
         my CaptureAll
         set old [my frame $id]
-        set pw [ttk::panedwindow $W.split[incr Serial] -orient [dict get $opts orient]]
+        set pw [my NewSplitWidget $id [dict get $opts orient]]
+        if {[dict get $opts keep] eq {first}} {
+            set first [my NewLeaf $id $old]
+            set second [my NewLeaf $id]
+        } else {
+            set first [my NewLeaf $id]
+            set second [my NewLeaf $id $old]
+        }
+        # Detach the old content before replacing its node record.
+        my Detach $old
+        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw \
+                                    orient [dict get $opts orient] proportions [list $fraction [expr {1.0-$fraction}]]\
+                                    children [list $first $second]]
+        my Rebuild
+        return [list $first $second]
+    }
+    method NewSplitWidget {id orient} {
+        # Creates a panedwindow with the layout sash and lifecycle bindings.
+        #  id - Logical split identifier used by geometry callbacks.
+        #  orient - Panedwindow orientation: horizontal or vertical.
+        #
+        # Does not modify node records or attach panes. Used by split and move.
+        #
+        # Returns: The new panedwindow pathname.
+        set pw [ttk::panedwindow $W.split[incr Serial] -orient $orient]
         # A dedicated tag AFTER the class tag captures the position after Tk's
         # sash bindings have moved it. It cannot affect application bindings.
         set motionTag ${Tag}Sash
@@ -466,20 +490,131 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $deferredTag <Unmap> [namespace code {my CancelDrag}]
         bindtags $pw [linsert [bindtags $pw] 0 $deferredTag]
         bind $pw <Configure> [namespace code [list my SplitConfigure $id]]
-        if {[dict get $opts keep] eq {first}} {
-            set first [my NewLeaf $id $old]
-            set second [my NewLeaf $id]
-        } else {
-            set first [my NewLeaf $id]
-            set second [my NewLeaf $id $old]
+        return $pw
+    }
+    method move {args} {
+        # Moves an existing leaf to an edge or sibling position without destroying its content.
+        #  leaf - Existing source leaf identifier, retained by the move.
+        #  -left target - Place before a target leaf in a horizontal split.
+        #  -right target - Place after a target leaf in a horizontal split.
+        #  -top target - Place before a target leaf in a vertical split.
+        #  -bottom target - Place after a target leaf in a vertical split.
+        #  -before target - Insert before a non-root leaf or split in its existing parent.
+        #  -after target - Insert after a non-root leaf or split in its existing parent.
+        #
+        # Exactly one destination option is required. Edge destinations reuse the target parent when its orientation
+        # matches. Otherwise the target leaf becomes a split, and its existing frame moves to a newly identified leaf,
+        # following split's identifier semantics. The source identifier, frame, widget paths, and state survive.
+        #
+        # Within one parent and orientation, panes are reordered with their existing weights. Other moves divide the
+        # target share equally between the source and target; remaining source siblings retain relative proportions.
+        # A source parent left with one child is collapsed after insertion. Moving to oneself or to an already adjacent
+        # position does nothing. Argument errors are detected before changing layout or cancelling a deferred drag.
+        # A successful structural move cancels deferred dragging and rebuilds geometry once, without nested updates.
+        #
+        # Returns: The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.
+        # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
+        set opts [argparse -inline -pfirst {
+            leaf
+            {-left=}
+            {-right=}
+            {-top=}
+            {-bottom=}
+            {-before=}
+            {-after=}
+        }]
+        set source [my Check [dict get $opts leaf] leaf]
+        set destinations {}
+        foreach key {left right top bottom before after} {
+            if {[dict exists $opts $key]} {
+                lappend destinations $key
+            }
         }
-        # Detach the old content before replacing its node record.
-        my Detach $old
-        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw \
-                                    orient [dict get $opts orient] proportions [list $fraction [expr {1.0-$fraction}]]\
-                                    children [list $first $second]]
+        if {[llength $destinations] != 1} {
+            return -code error {move requires exactly one destination: -left, -right, -top, -bottom, -before, or -after}
+        }
+        set where [lindex $destinations 0]
+        set target [my Check [dict get $opts $where]]
+        set edge [expr {$where in {left right top bottom}}]
+        if {$edge} {
+            my Check $target leaf
+        }
+        # A self-drop is a no-op even for the sole root leaf.
+        if {$source eq $target} {
+            return $source
+        }
+        set destination [my parent $target]
+        if {!$edge && ($destination eq {})} {
+            return -code error {cannot move beside root; use an edge destination on a leaf}
+        }
+        set before [expr {$where in {left top before}}]
+        set orient [expr {$where in {left right} ? {horizontal} : {vertical}}]
+        set wrap [expr {$edge && (($destination eq {}) || ([dict get $Nodes $destination orient] ne $orient))}]
+        set oldParent [my parent $source]
+        # Reordering siblings requires neither removal nor parent collapse. Preserve weights by node.
+        if {!$wrap && $oldParent eq $destination} {
+            set children [my children $oldParent]
+            set from [lsearch -exact $children $source]
+            set reordered [lreplace $children $from $from]
+            set at [lsearch -exact $reordered $target]
+            if {!$before} {
+                incr at
+            }
+            set reordered [linsert $reordered $at $source]
+            if {$reordered eq $children} {
+                return $source
+            }
+            my CancelDrag
+            my CaptureAll
+            set weights [dict get $Nodes $oldParent proportions]
+            set share [lindex $weights $from]
+            set weights [linsert [lreplace $weights $from $from] $at $share]
+            dict set Nodes $oldParent children $reordered
+            dict set Nodes $oldParent proportions $weights
+            my Rebuild
+            return $source
+        }
+        # Allocate any new native widget before detaching the source.
+        if {$wrap} {
+            set pw [my NewSplitWidget $target $orient]
+        }
+        my CancelDrag
+        my CaptureAll
+        my Detach [my frame $source]
+        set children [my children $oldParent]
+        set from [lsearch -exact $children $source]
+        set remaining [lreplace $children $from $from]
+        set weights [lreplace [dict get $Nodes $oldParent proportions] $from $from]
+        dict set Nodes $oldParent children $remaining
+        dict set Nodes $oldParent proportions [my Normalize $weights [llength $remaining]]
+        if {$wrap} {
+            set frame [my frame $target]
+            my Detach $frame
+            set retained [my NewLeaf $target $frame]
+            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+            dict set Nodes $target [dict create type split parent $destination widget $pw orient $orient\
+                                            proportions {0.5 0.5} children $children]
+            dict set Nodes $source parent $target
+        } else {
+            set children [my children $destination]
+            set at [lsearch -exact $children $target]
+            set weights [dict get $Nodes $destination proportions]
+            set half [expr {[lindex $weights $at]/2.0}]
+            set weights [lreplace $weights $at $at $half $half]
+            if {!$before} {
+                incr at
+            }
+            dict set Nodes $destination children [linsert $children $at $source]
+            dict set Nodes $destination proportions $weights
+            dict set Nodes $source parent $destination
+        }
+        # Delay collapse until destination links are installed, including moves beside an ancestor.
+        set remaining [my children $oldParent]
+        if {[llength $remaining] == 1} {
+            my Promote $oldParent [lindex $remaining 0]
+        }
         my Rebuild
-        return [list $first $second]
+        return $source
     }
     method insert {args} {
         # Inserts an empty leaf beside an existing non-root node.

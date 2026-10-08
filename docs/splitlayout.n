@@ -27,6 +27,9 @@ Removal of individual panes or complete subtrees, with automatic collapse of red
 Content swapping between leaves at different nesting levels\&.
 .TP
 \(bu
+Leaf moves to edge or sibling destinations, preserving application widgets and state\&.
+.TP
+\(bu
 Relative pane proportions and interactive sash resizing\&.
 .TP
 \(bu
@@ -214,6 +217,70 @@ set shares [\&.layout proportions $root]
 .PP
 Geometry changes settle through Tk's event loop\&. Immediately after setting proportions, a query can return the stored
 values before the sashes have moved\&.
+.SS "MOVING PANES"
+.PP
+move relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and application
+state\&. Supply exactly one destination option:
+.PP
+.RS 4n
+.nf
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│ Destination    │ Effect                                                         │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ -left target   │ Place the source to the left of a target leaf\&.                 │
+│ -right target  │ Place the source to the right of a target leaf\&.                │
+│ -top target    │ Place the source above a target leaf\&.                          │
+│ -bottom target │ Place the source below a target leaf\&.                          │
+│ -before target │ Insert before a non-root leaf or split in its existing parent\&. │
+│ -after target  │ Insert after a non-root leaf or split in its existing parent\&.  │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+For example, in the layout built above:
+.PP
+.RS 4n
+.nf
+# Insert the middle pane above the bottom pane in the existing vertical split\&.
+\&.layout move $middle -top $bottom
+
+# Insert it before the entire right-hand region in the root split\&.
+\&.layout move $middle -before $right
+.fi
+.RE
+.PP
+Edge destinations reuse the target's parent when it already has the required orientation\&. Otherwise, the target leaf
+becomes a new split containing the source and a new leaf for the target's existing content\&. This follows split's
+identifier semantics: the target identifier now denotes a split\&. Use children, leaves, or locate to obtain the
+new target-content leaf identifier\&. The source identifier remains unchanged and is also the command's return value\&.
+.PP
+For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
+.PP
+.RS 4n
+.nf
+splitlayout \&.example
+pack \&.example -fill both -expand 1
+lassign [\&.example split [\&.example root] -orient horizontal] a b
+set moved [\&.example move $a -top $b]
+# moved equals a; b is now the root vertical split\&.
+.fi
+.RE
+.PP
+-before and -after always use the existing parent orientation\&. They can describe a sash destination without pixel
+coordinates: insertion at a sash is -before its following child or -after its preceding child\&. A split target may
+contain the source; moving beside that ancestor moves the source outside its subtree\&. Insertion beside the root is
+an error, except that any move to oneself is a no-op\&.
+.PP
+Reordering within the same parent preserves the pane weights associated with each node\&. Other moves divide the
+target's share equally between the source and target\&. Remaining siblings in the source parent retain their relative
+weights\&. If only one child remains there, it replaces the old parent after insertion; that old parent identifier
+becomes invalid\&. Query root again after a move that can collapse the root\&.
+.PP
+Moving to oneself or to an already adjacent position with the requested orientation does nothing\&. Invalid arguments
+are rejected before modifying the layout\&. A structural move cancels an active deferred sash gesture, rebuilds geometry
+once, and lets geometry settle through the normal event loop\&. No application content is destroyed\&.
+.PP
+move changes pane placement; swap exchanges content at two existing positions\&.
 .SS "SWAPPING AND REMOVING CONTENT"
 .PP
 The following operations continue the example above:
