@@ -12,6 +12,7 @@ without recreating the surviving application widgets.
 - Removal of individual panes or complete subtrees, with automatic collapse of redundant parent splits.
 - Content swapping between leaves at different nesting levels.
 - Leaf moves to edge or sibling destinations, preserving application widgets and state.
+- Optional textless grips for mouse-driven swaps, edge moves, and insertion at sashes.
 - Relative pane proportions and interactive sash resizing.
 - Live resizing or deferred resizing with a configurable sash preview.
 - Inspection of both the logical layout tree and the actual Tk widget hierarchy.
@@ -35,7 +36,8 @@ not supported.
 The **logical tree** describes pane order, split orientation, and geometry relationships. The **Tk widget tree**
 describes actual widget ownership and pathnames.
 
-All managed content frames and split panedwindows are immediate Tk children of the layout hull. Application widgets
+All managed content frames, optional leaf and split wrappers, and split panedwindows are immediate Tk children of the layout hull.
+Grip canvases are children of their wrappers. Application widgets
 are descendants of their content frame. Splitting, promoting, or swapping content changes its logical placement and
 geometry container, while its actual Tk parent and widget pathnames stay the same.
 
@@ -132,7 +134,7 @@ pack $rightFrame.editor -fill both -expand 1
 ```
 
 The `splitlayout .layout ...` command returns the widget pathname. Use that pathname both as the layout command and
-with Tk geometry managers. The constructor accepts `-width`, `-height`, `-opaqueresize`, and `-sashpreview`.
+with Tk geometry managers. The constructor accepts `-width`, `-height`, `-opaqueresize`, `-sashpreview`, `-draghandles`, and `-showstructure`.
 
 ### Splitting existing content
 Continue from the quick-start example:
@@ -183,10 +185,10 @@ state. Supply exactly one destination option:
 
 | Destination      | Effect                                                         |
 |------------------|----------------------------------------------------------------|
-| `-left target`   | Place the source to the left of a target leaf.                 |
-| `-right target`  | Place the source to the right of a target leaf.                |
-| `-top target`    | Place the source above a target leaf.                          |
-| `-bottom target` | Place the source below a target leaf.                          |
+| `-left target`   | Place the source to the left of a target leaf or split.        |
+| `-right target`  | Place the source to the right of a target leaf or split.       |
+| `-top target`    | Place the source above a target leaf or split.                 |
+| `-bottom target` | Place the source below a target leaf or split.                 |
 | `-before target` | Insert before a non-root leaf or split in its existing parent. |
 | `-after target`  | Insert after a non-root leaf or split in its existing parent.  |
 
@@ -200,10 +202,14 @@ For example, in the layout built above:
 .layout move $middle -before $right
 ```
 
-Edge destinations reuse the target's parent when it already has the required orientation. Otherwise, the target leaf
+Edge destinations reuse the target's parent when it already has the required orientation. Otherwise, a target leaf
 becomes a new split containing the source and a new leaf for the target's existing content. This follows `split`'s
 identifier semantics: the target identifier now denotes a split. Use `children`, `leaves`, or `locate` to obtain the
-new target-content leaf identifier. The source identifier remains unchanged and is also the command's return value.
+new target-content leaf identifier. If the target is already a split, a new parent split is created around the
+source and target subtree; the target keeps its identifier unless source removal leaves it with a sole child and
+normal collapse promotes that child. A split target may contain the source, including the root. For example,
+`.layout move $source -right [.layout root]` places the source beside the remaining layout in a new horizontal root.
+The source identifier remains unchanged and is also the command's return value.
 
 For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
 
@@ -230,6 +236,64 @@ are rejected before modifying the layout. A structural move cancels an active de
 once, and lets geometry settle through the normal event loop. No application content is destroyed.
 
 `move` changes pane placement; `swap` exchanges content at two existing positions.
+
+### Dragging panes
+Enable minimal, manager-owned grips for every leaf with the global `-draghandles` property:
+
+```tcl
+splitlayout .docking -draghandles true -opaqueresize false
+pack .docking -fill both -expand 1
+lassign [.docking split [.docking root]] first second
+
+# The existing content API is unchanged.
+set f [.docking frame $first]
+text $f.editor
+pack $f.editor -fill both -expand 1
+
+# Hide all grips and reclaim their space, including for leaves created later.
+.docking configure -draghandles false
+```
+
+The default is `false`. When enabled, each leaf has a narrow strip containing a centered three-line grip, with no
+text or buttons. The grip uses ttk theme colors and a height scaled to Tk's display scaling. Application widgets
+remain entirely inside the frame returned by `frame`; pack and grid configurations there survive toggles and moves.
+
+Press the left mouse button on a grip and move at least five pixels to start dragging. The entire strip accepts the
+press; content widgets retain their own mouse bindings. The destination is selected within this megawidget:
+
+| Drop location                                    | Operation                                                  | Preview                              |
+|--------------------------------------------------|------------------------------------------------------------|--------------------------------------|
+| Another leaf's center                            | Swap the two content frames.                               | Outline of the destination pane.     |
+| Left, right, top, or bottom edge of another leaf | Move beside that leaf using the corresponding edge option. | Narrow band at the chosen edge.      |
+| Outer rim of the megawidget                      | Move outside the entire layout region on that side.        | Full-height or full-width edge band. |
+| A native sash between panes                      | Insert before the child following that sash.               | Insertion line at the sash.          |
+| Source leaf or outside the megawidget            | Cancel.                                                    | No destination highlight.            |
+
+The outermost 12 pixels **inside** the megawidget form an outer drop zone (limited to one eighth of its size). This
+zone takes precedence over sashes and local leaf edges. It allows moving a pane to the far right or left of an entire
+stacked region, or above/below an entire row. A matching root orientation reuses that split's first or last position;
+otherwise a new root split is created. Drop just inside the window: points outside the megawidget still cancel.
+
+Farther inside, sashes take precedence over leaf edge zones. Local edge zones extend up to 24 pixels into a pane,
+limited to one quarter of its width or height; corners choose the nearest normalized edge. The blue preview is temporary
+and does not resize or rearrange content during dragging. Release performs one `move` or `swap`; a click without
+dragging does nothing.  The `-sashpreview` setting controls deferred sash resizing only, not this docking preview.
+
+Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
+changes, or disabling `-draghandles` cancels the gesture. The grip temporarily takes keyboard focus and a local mouse
+grab so that release outside the grip and Escape are handled. Cleanup restores the prior focus when still owned by
+the grip and releases only its own grab. A new gesture does not replace an existing grab. Dragging between separate
+splitlayout instances or to other applications is not supported.
+
+With handles enabled, `widget leaf` returns the **pane wrapper**, whereas `frame leaf` always returns the application
+content frame. `container leaf` resolves the wrapper's outer geometry container; `container $contentFrame` resolves
+the wrapper that packs the content. `node` recognizes either pathname. `locate` resolves application widgets and
+manager-owned grips to their current leaf. Logical `tree` snapshots expose both `widget` and `frame`; actual `widgets`
+snapshots also include the wrappers, grip canvases, and any temporary preview frames.
+
+The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged. A move preserves
+the moved leaf and its wrapper, while normal split/collapse rules may replace destination wrappers. Disabling handles
+removes wrappers; do not cache wrapper or grip paths across layout changes. Application content paths remain stable.
 
 ### Swapping and removing content
 The following operations continue the example above:
@@ -261,14 +325,49 @@ set root [.layout clear]
 Previously removed node identifiers are invalid. Use the return values or query the layout again after structural
 changes. To destroy the entire layout, use `.layout destroy` or `destroy .layout`.
 
+## Visual structure
+Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:
+
+```tcl
+.layout configure -showstructure true
+# Also accepted at construction:
+splitlayout .outlined -draghandles true -showstructure true
+```
+
+Each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel inset on each side.
+Flat siblings share one enclosing outline; a nested split has an additional inset outline around its children. A sole
+root leaf has no split outline. The setting is independent of drag handles and applies to future splits. During
+docking, the receiving group outline turns blue alongside the existing destination preview. For a local edge move that
+creates a new split, the highlighted outline is the current enclosing group. Escape, an invalid destination, and release
+restore the normal outline color.
+
+Changing `-showstructure` cancels active gestures and rebuilds geometry while retaining content, native panedwindows,
+and split proportions (subject to available pixel space). Disabling it removes the outlines and their spacing.
+Very small panes can still collapse under Tk's normal geometry constraints.
+
+With this option enabled, `widget split` returns the enclosing outline frame. Use `panedwindow split` to obtain the
+native ttk panedwindow regardless of the option value, for example:
+
+```tcl
+set split [.layout root]
+set pw [.layout panedwindow $split]
+set position [$pw sashpos 0]
+```
+
+`node` recognizes both paths. `container split` returns the outer geometry container, while `container $pw` returns
+the outline frame that packs the native panedwindow. `tree` includes both `widget` and `panedwindow` for splits;
+`widgets` exposes the actual geometry containers. Outline frames remain immediate Tk children of the hull.
+
 ## Resizing
 
-| Option          | Default  | Meaning                                                 |
-|-----------------|----------|---------------------------------------------------------|
-| `-width`        | `800`    | Nonnegative requested hull width in pixels.             |
-| `-height`       | `600`    | Nonnegative requested hull height in pixels.            |
-| `-opaqueresize` | `true`   | Resize pane content continuously while dragging a sash. |
-| `-sashpreview`  | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
+| Option           | Default  | Meaning                                                 |
+|------------------|----------|---------------------------------------------------------|
+| `-width`         | `800`    | Nonnegative requested hull width in pixels.             |
+| `-height`        | `600`    | Nonnegative requested hull height in pixels.            |
+| `-opaqueresize`  | `true`   | Resize pane content continuously while dragging a sash. |
+| `-sashpreview`   | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
+| `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
+| `-showstructure` | `false`  | Outline and inset all current and future splits.        |
 
 Enable deferred resizing at construction or through `configure`:
 
@@ -304,9 +403,9 @@ set properties [.layout configure]
 ```
 
 The hull properties `-width`, `-height`, `-padding`, `-borderwidth`, `-relief`, `-cursor`, `-takefocus`, and `-style`
-delegate to the ttk frame. `-class` is read-only. The constructor accepts the four creation options listed above;
+delegate to the ttk frame. `-class` is read-only. The constructor accepts the six creation options listed above;
 other writable properties can be set after construction. No Tk option-database resources are added for
-`-opaqueresize` or `-sashpreview`.
+`-opaqueresize`, `-sashpreview`, `-draghandles`, or `-showstructure`.
 
 Native property setters run in argument order. If a later value is invalid, earlier successful changes remain in
 effect. Invalid resizing values leave that property's value and any active drag unchanged; changing a valid resizing
@@ -327,7 +426,8 @@ set layoutTree [.layout tree]
 set widgetTree [.layout widgets]
 ```
 
-For a non-root node, `container` returns its parent panedwindow. Its actual Tk parent remains `.layout`.
+For a non-root node identifier, `container` returns its parent panedwindow. Its actual Tk parent remains `.layout`.
+With handles enabled, passing the content frame pathname instead returns its pane wrapper.
 `winfo manager` reports the manager name, not the pathname of that geometry container.
 
 `node` maps an exact managed frame or panedwindow pathname to its node identifier. `locate` accepts a descendant
@@ -343,7 +443,7 @@ if {$applicationWidget ne {}} {
 ```
 
 `tree` returns nested dictionaries containing `id`, `type`, `parent`, `widget`, and `children`. Leaves also contain
-`frame`. Splits contain `orient` and `proportions`, plus `ratio` when they have two children. Split `children` are nested
+`frame`. Splits contain `panedwindow`, `orient`, and `proportions`, plus `ratio` when they have two children. Split `children` are nested
 node dictionaries in pane order.
 
 `widgets` returns nested dictionaries containing `path`, `parent`, `class`, `manager`, `container`, and `children`.

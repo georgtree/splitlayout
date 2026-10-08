@@ -48,11 +48,12 @@ namespace eval ::sltest {
                 return -code error "root is not packed"
             }
         } else {
-            if {$w ni [[$m widget $parent] panes]} {
+            if {$w ni [[$m panedwindow $parent] panes]} {
                 return -code error {pane missing from parent}
             }
         }
         if {[$m type $id] eq {split}} {
+            set w [$m panedwindow $id]
             if {[llength [$m children $id]] < 2} {
                 return -code error {split has fewer than two children}
             }
@@ -109,7 +110,7 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
         [lsort [dict keys $values]] [dict get $values -width] \
         [catch {$m cget -width}] [catch {$m configure -class Other}] \
         [$m configure -class]
-} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -class -cursor -height -opaqueresize -padding -relief -sashpreview -style -takefocus -width} 800 1 1 {}}
+} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -class -cursor -draghandles -height -opaqueresize -padding -relief -sashpreview -showstructure -style -takefocus -width} 800 1 1 {}}
 
 test splitlayout-properties-1.2 {native ordered setters and rejected values} -setup {
     set m [::sltest::setup]
@@ -946,7 +947,7 @@ test splitlayout-move-12.8 {invalid destinations leave records, callbacks, and w
     set before [list [set ${ns}::Nodes] [set ${ns}::Pending] [winfo children $m]]
     set result {}
     foreach command [list [list $m move $a] [list $m move $a -left $b -after $b] [list $m move $a -left missing]\
-                             [list $m move missing -left $b] [list $m move $root -left $b] [list $m move $a -top $root]\
+                             [list $m move missing -left $b] [list $m move $root -left $b] [list $m move $a -top missing]\
                              [list $m move $a -before $root] [list $m move $a -unknown $b] [list $m move $a -right]] {
         lappend result [catch {{*}$command}]
     }
@@ -993,6 +994,511 @@ test splitlayout-move-12.10 {mixed repeated moves keep every application widget 
     list $valid [llength [$m leaves]] [lmap p $paths {string trim [$p get 1.0 end]}]\
             [expr {[llength [winfo children $m]] == [::sltest::snapshotCount [$m tree]]}]
 } -cleanup {::sltest::cleanup} -result {1 3 {A B C} 1}
+
+namespace eval ::sltest {
+    proc docksetup {} {
+        set m [setup]
+        $m configure -draghandles true
+        set root [$m root]
+        lassign [$m split $root] a b
+        fill $m $a A
+        fill $m $b B
+        update
+        return [list $m $root $a $b]
+    }
+    proc point {w {rx 0.5} {ry 0.5}} {
+        return [list [expr {[winfo rootx $w]+int([winfo width $w]*$rx)}] \
+            [expr {[winfo rooty $w]+int([winfo height $w]*$ry)}]]
+    }
+    proc grip {m leaf} {return [dict get [set [info object namespace $m]::Panels] $leaf grip]}
+    proc dockevent {grip event point} {
+        lassign $point x y
+        event generate $grip $event -rootx $x -rooty $y \
+            -x [expr {$x-[winfo rootx $grip]}] -y [expr {$y-[winfo rooty $grip]}]
+    }
+    proc dockstart {m leaf point} {
+        set g [grip $m $leaf]
+        dockevent $g <ButtonPress-1> [point $g]
+        dockevent $g <B1-Motion> $point
+        return $g
+    }
+    proc dockstate {m} {return [set [info object namespace $m]::Dock]}
+}
+
+test splitlayout-dock-13.1 {global property toggles wrappers while preserving gridded content} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+    set f [$m frame $leaf]
+    ttk::entry $f.entry
+    $f.entry insert 0 retained
+    grid $f.entry -sticky nsew
+    grid rowconfigure $f 0 -weight 1
+    grid columnconfigure $f 0 -weight 1
+} -body {
+    set result [list [$m configure -draghandles]]
+    $m configure -draghandles true
+    update
+    set pane [$m widget $leaf]
+    lappend result [expr {$pane ne $f}] [expr {[winfo parent $f] eq $m}] \
+        [expr {[dict get [pack info $f] -in] eq $pane}] \
+        [expr {[$m container $f] eq $pane}] [expr {[$m container $leaf] eq $m}] \
+        [expr {[dict get [$m tree] widget] eq $pane}] \
+        [expr {[$m locate $f.entry] eq $leaf}] [expr {[$m locate [::sltest::grip $m $leaf]] eq $leaf}] \
+        [catch {$m configure -draghandles bad}] [$m configure -draghandles]
+    $m configure -draghandles false
+    update
+    lappend result [expr {[$m widget $leaf] eq $f}] [winfo exists $pane] [$f.entry get] \
+        [grid columnconfigure $f 0 -weight] [expr {[winfo height $f] == [winfo height $m]}]
+    set result
+} -cleanup {::sltest::cleanup} -result {0 1 1 1 1 1 1 1 1 1 1 1 0 retained 1 1}
+
+test splitlayout-dock-13.2 {new leaves inherit grips and swaps retain position wrappers} -setup {
+    toplevel .sltest
+    set m [splitlayout .sltest.layout -draghandles true]
+    pack $m -fill both -expand 1
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    set f [$m frame $a]
+    set paneA [$m widget $a]
+    set paneB [$m widget $b]
+} -body {
+    $m swap $a $b
+    update
+    list [expr {[$m widget $a] eq $paneA && [$m widget $b] eq $paneB}] \
+        [expr {[$m frame $b] eq $f}] [llength [dict keys [set [info object namespace $m]::Panels]]] \
+        [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 3 1}
+
+test splitlayout-dock-13.3 {center drop swaps only on release and restores grab and focus} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set fa [$m frame $a]; set fb [$m frame $b]
+    focus -force $fa.text
+} -body {
+    set dest [::sltest::point [$m widget $b]]
+    set g [::sltest::dockstart $m $a $dest]
+    set state [::sltest::dockstate $m]
+    set result [list [dict get $state target op] [dict get $state target kind] \
+        [expr {[grab current $m] eq $g}] [expr {[$m frame $a] eq $fa}]]
+    update
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    lappend result [expr {[$m frame $a] eq $fb && [$m frame $b] eq $fa}] \
+        [grab current $m] [expr {[focus] eq "$fa.text"}] [llength [info commands $m.drop*]] [::sltest::check $m]
+    set result
+} -cleanup {::sltest::cleanup} -result {swap center 1 1 1 {} 1 0 1}
+
+foreach {side rx ry orientation} {left 0.01 0.5 horizontal right 0.99 0.5 horizontal top 0.5 0.01 vertical bottom 0.5 0.99 vertical} {
+    test splitlayout-dock-13.4-$side {edge drops use the public move operation} -setup {
+        lassign [::sltest::docksetup] m root a b
+        set c [$m insert $b]
+        update
+        set source [expr {$side eq {left} ? $c : $a}]
+        set f [$m frame $source]
+    } -body {
+        set dest [::sltest::point [$m widget $b] $rx $ry]
+        set g [::sltest::dockstart $m $source $dest]
+        set chosen [dict get [::sltest::dockstate $m] target side]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        list $chosen [expr {[$m frame $source] eq $f}] \
+            [dict get [$m tree [$m parent $source]] orient] [::sltest::check $m] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result [list $side 1 $orientation 1 {}]
+}
+
+foreach orientation {horizontal vertical} {
+    test splitlayout-dock-13.5-$orientation {sash destination takes precedence and inserts between panes} -setup {
+        lassign [::sltest::docksetup] m root a b
+        if {$orientation eq {vertical}} {
+            $m clear
+            set root [$m root]
+            lassign [$m split $root -orient vertical] a b
+        }
+        set c [$m insert $b]
+        update
+        set pw [$m widget $root]
+    } -body {
+        set sash [$pw sashpos 0]
+        if {$orientation eq {horizontal}} {
+            set dest [list [expr {[winfo rootx $pw]+$sash+1}] [expr {[winfo rooty $pw]+60}]]
+        } else {set dest [list [expr {[winfo rootx $pw]+60}] [expr {[winfo rooty $pw]+$sash+1}]]}
+        set g [::sltest::dockstart $m $c $dest]
+        set kind [dict get [::sltest::dockstate $m] target kind]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        list $kind [expr {[$m children $root] eq [list $a $c $b]}] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {sash 1 1}
+
+}
+
+foreach action {click escape focus outside self disable remove clear destroy resize unmap move} {
+    test splitlayout-dock-13.6-$action {cancelled gestures leave no grab, preview, or stale callbacks} -setup {
+        lassign [::sltest::docksetup] m root a b
+        set fa [$m frame $a]
+        set fb [$m frame $b]
+    } -body {
+        set dest [::sltest::point [$m widget $b]]
+        set g [::sltest::grip $m $a]
+        ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
+        if {$action ne {click}} {::sltest::dockevent $g <B1-Motion> $dest}
+        switch $action {
+            click {::sltest::dockevent $g <ButtonRelease-1> [::sltest::point $g]}
+            escape {event generate $g <Escape>}
+            focus {focus -force $fa.text}
+            outside {::sltest::dockevent $g <ButtonRelease-1> {-100 -100}}
+            self {::sltest::dockevent $g <ButtonRelease-1> [::sltest::point [$m widget $a]]}
+            disable {$m configure -draghandles false}
+            remove {$m remove $b}
+            clear {$m clear}
+            destroy {$m destroy}
+            resize {wm geometry .sltest 900x650}
+            unmap {wm withdraw .sltest}
+            move {$m move $a -bottom $b}
+        }
+        update
+        set cancelled [expr {![winfo exists $m] || [::sltest::dockstate $m] eq {}}]
+        set unchanged 1
+        if {$action in {click escape focus outside self disable resize unmap}} {
+            set unchanged [expr {[$m frame $a] eq $fa && [$m frame $b] eq $fb}]
+        }
+        list $cancelled $unchanged [grab current .sltest] [llength [info commands $m.drop*]]
+    } -cleanup {::sltest::cleanup} -result {1 1 {} 0}
+}
+
+test splitlayout-dock-13.7 {foreign layouts are not destinations and existing grabs are not stolen} -setup {
+    lassign [::sltest::docksetup] m root a b
+    toplevel .foreign
+    wm geometry .foreign 300x200+950+100
+    splitlayout .foreign.layout -draghandles true
+    pack .foreign.layout -fill both -expand 1
+    update
+} -body {
+    set g [::sltest::grip $m $a]
+    grab .foreign
+    ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
+    set protected [expr {[grab current $m] eq {.foreign} && [::sltest::dockstate $m] eq {}}]
+    grab release .foreign
+    set g [::sltest::dockstart $m $a [::sltest::point .foreign.layout]]
+    set target [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> [::sltest::point .foreign.layout]
+    list $protected $target [::sltest::dockstate $m] [grab current $m]
+} -cleanup {destroy .foreign; ::sltest::cleanup} -result {1 {} {} {}}
+
+test splitlayout-dock-13.8 {nested swap then moves and removal preserve only surviving content} -setup {
+    lassign [::sltest::docksetup] m root a b
+    lassign [$m split $b -orient vertical] top bottom
+    set bottomText [::sltest::fill $m $bottom C]
+    set fa [$m frame $a]
+    update
+} -body {
+    set dest [::sltest::point [$m widget $bottom]]
+    set g [::sltest::dockstart $m $a $dest]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    $m move $bottom -top $top
+    update
+    $m remove $a
+    update
+    set result [list [winfo exists $bottomText] [winfo exists $fa.text] [::sltest::check $m]]
+    $m clear
+    update
+    lappend result [winfo exists $fa.text] [llength [dict keys [set [info object namespace $m]::Panels]]] \
+        [llength [winfo children $m]]
+    set result
+} -cleanup {::sltest::cleanup} -result {0 1 1 0 1 2}
+
+test splitlayout-dock-13.9 {new wrapper requests settle before final sash placement} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set c [$m insert $b]
+} -body {
+    set result {}
+    foreach enabled {true false true} {
+        $m configure -draghandles $enabled
+        $m proportions $root {2 1 1}
+        update
+        set pw [$m widget $root]
+        set width [winfo width $pw]
+        lappend result [expr {abs([$pw sashpos 0] - 0.5*$width) <= 1 && \
+            abs([$pw sashpos 1] - 0.75*$width) <= 1}]
+    }
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+# Nested geometry requests must not collapse siblings until the next toplevel resize.
+foreach handles {false true} {
+    foreach orient {horizontal vertical} {
+        test splitlayout-dock-14.1-$handles-$orient {cross-level swaps preserve visible pane bounds without resizing} -setup {
+            set m [::sltest::setup]
+            $m configure -draghandles $handles
+            set root [$m root]
+            lassign [$m split $root -orient $orient] a b
+            set middle [$m insert $b -side before]
+            set opposite [expr {$orient eq {horizontal} ? {vertical} : {horizontal}}]
+            lassign [$m split $middle -orient $opposite] top bottom
+            foreach leaf [list $a $b $top $bottom] {
+                set f [$m frame $leaf]
+                frame $f.app -width 300 -height 600
+                pack propagate $f.app 0
+                grid $f.app -sticky nsew
+                grid rowconfigure $f 0 -weight 1
+                grid columnconfigure $f 0 -weight 1
+            }
+            update
+            set baseline [lmap id [list $root $middle $a $b $top $bottom] {
+                winfo geometry [$m widget $id]
+            }]
+        } -body {
+            set result {}
+            for {set i 0} {$i < 4} {incr i} {
+                $m swap $a $top
+                update
+                set pw [$m widget $root]
+                set extent [expr {$orient eq {horizontal} ? [winfo width $pw] : [winfo height $pw]}]
+                set ratiosOK [expr {abs([$pw sashpos 0] - 0.5*$extent) <= 1 && \
+                    abs([$pw sashpos 1] - 0.75*$extent) <= 1}]
+                set visible 1
+                foreach leaf [$m leaves] {
+                    set visible [expr {$visible && [winfo ismapped [$m widget $leaf]] && \
+                        [winfo ismapped [$m frame $leaf]]}]
+                }
+                set actual [lmap id [list $root $middle $a $b $top $bottom] {
+                    winfo geometry [$m widget $id]
+                }]
+                lappend result [expr {$ratiosOK && $visible && $baseline eq $actual}]
+            }
+            list $result [::sltest::check $m]
+        } -cleanup {::sltest::cleanup} -result {{1 1 1 1} 1}
+    }
+}
+
+test splitlayout-dock-14.2 {ancestor scheduling preserves a user's native sash position} -setup {
+    lassign [::sltest::docksetup] m root a b
+    lassign [$m split $b -orient vertical] top bottom
+    update
+    set pw [$m widget $root]
+} -body {
+    set wanted [expr {int([winfo width $pw]*0.35)}]
+    $pw sashpos 0 $wanted
+    event generate $pw <ButtonRelease-1>
+    update
+    list [expr {abs([$pw sashpos 0]-$wanted) <= 1}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+foreach {side orient rx ry first} {left horizontal 0.001 0.5 1 right horizontal 0.999 0.5 0 top vertical 0.5 0.001 1 bottom vertical 0.5 0.999 0} {
+    test splitlayout-dock-15.1-$side {outer rim inserts beyond an entire nested region at the root level} -setup {
+        set m [::sltest::setup]
+        $m configure -draghandles true
+        set root [$m root]
+        lassign [$m split $root -orient $orient] a b
+        set c [$m insert $b]
+        set boundary [expr {$first ? $a : $c}]
+        set opposite [expr {$orient eq {horizontal} ? {vertical} : {horizontal}}]
+        lassign [$m split $boundary -orient $opposite] d e
+        set f [$m frame $b]
+        update
+    } -body {
+        set dest [::sltest::point $m $rx $ry]
+        set g [::sltest::dockstart $m $b $dest]
+        set target [dict get [::sltest::dockstate $m] target]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        set expected [expr {$first ? [list $b $a $c] : [list $a $c $b]}]
+        list [dict get $target kind] [expr {[dict get $target target] eq $boundary}] \
+            [expr {[$m root] eq $root && [$m children $root] eq $expected}] \
+            [expr {[$m children $boundary] eq [list $d $e]}] [expr {[$m frame $b] eq $f}] \
+            [expr {$orient eq {horizontal} ? [winfo height [$m widget $b]] == [winfo height $m] : \
+                [winfo width [$m widget $b]] == [winfo width $m]}] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {outer 1 1 1 1 1 1}
+
+    test splitlayout-dock-15.2-$side {perpendicular outer drop wraps the root and collapses the old parent} -setup {
+        set m [::sltest::setup]
+        $m configure -draghandles true
+        set oldRoot [$m root]
+        set opposite [expr {$orient eq {horizontal} ? {vertical} : {horizontal}}]
+        lassign [$m split $oldRoot -orient $opposite] a b
+        lassign [$m split $b -orient $orient] c d
+        set f [$m frame $a]
+        update
+    } -body {
+        set dest [::sltest::point $m $rx $ry]
+        set g [::sltest::dockstart $m $a $dest]
+        set target [dict get [::sltest::dockstate $m] target]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        set root [$m root]
+        set expected [expr {$first ? [list $a $b] : [list $b $a]}]
+        list [dict get $target kind] [dict get $target side] \
+            [expr {[$m children $root] eq $expected}] [dict get [$m tree $root] orient] \
+            [expr {[$m children $b] eq [list $c $d]}] [expr {[$m frame $a] eq $f}] \
+            [catch {$m type $oldRoot}] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result [list outer $side 1 $orient 1 1 1 1]
+}
+
+test splitlayout-move-15.3 {edge destination supports a split subtree programmatically} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    lassign [$m split $b -orient vertical] d e
+} -body {
+    set result [$m move $a -top $b]
+    update
+    set wrapper [$m parent $a]
+    list [expr {$result eq $a}] [expr {[$m children $root] eq [list $wrapper $c]}] \
+        [expr {[$m children $wrapper] eq [list $a $b]}] [dict get [$m tree $wrapper] orient] \
+        [expr {[$m children $b] eq [list $d $e]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 vertical 1 1}
+
+test splitlayout-structure-16.1 {property validation and constructor default} -setup {
+    set m [::sltest::setup]
+} -body {
+    set default [$m configure -showstructure]
+    $m configure -showstructure yes
+    set invalid [catch {$m configure -showstructure invalid}]
+    list $default $invalid [$m configure -showstructure] [expr {[$m widget [$m root]] eq [$m frame [$m root]]}]
+} -cleanup {::sltest::cleanup} -result {0 1 1 1}
+
+test splitlayout-structure-16.2 {nested outlines have real insets and expose both geometry layers} -setup {
+    set m [::sltest::setup]
+    $m configure -showstructure true
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    update
+} -body {
+    set result {}
+    foreach id [list $root $b] {
+        set outer [$m widget $id]
+        set pw [$m panedwindow $id]
+        lappend result [expr {$outer ne $pw && [winfo parent $outer] eq $m && [winfo parent $pw] eq $m}] \
+            [expr {[winfo rootx $pw]-[winfo rootx $outer] == 3 && [winfo rooty $pw]-[winfo rooty $outer] == 3}] \
+            [expr {[winfo width $outer]-[winfo width $pw] == 6 && [winfo height $outer]-[winfo height $pw] == 6}] \
+            [expr {[$m node $outer] eq $id && [$m node $pw] eq $id && [$m container $pw] eq $outer}] \
+            [expr {[dict get [$m widgets $pw] container] eq $outer && [dict get [$m tree $id] panedwindow] eq $pw}]
+    }
+    lappend result [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1 1 1}
+
+test splitlayout-structure-16.3 {toggle preserves content, native widgets, and ratios without leaking wrappers} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -ratio 0.35] a b
+    set text [::sltest::fill $m $a retained]
+    update
+    set pw [$m panedwindow $root]
+    set ratio [$m ratio $root]
+} -body {
+    set ok 1
+    foreach handles {true false true false} {
+        $m configure -draghandles $handles -showstructure true
+        update
+        set wrapper [$m widget $root]
+        $m configure -showstructure false
+        update
+        if {[winfo exists $wrapper] || [$m widget $root] ne $pw || abs([$m ratio $root]-$ratio) > 0.02} {set ok 0}
+        ::sltest::check $m
+    }
+    list $ok [$text get 1.0 end-1c] [dict size [set [info object namespace $m]::Borders]]
+} -cleanup {::sltest::cleanup} -result {1 retained 0}
+
+test splitlayout-structure-16.4 {swap move collapse and clear remove only obsolete outlines} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true -showstructure true
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    set text [::sltest::fill $m $a retained]
+    set oldBorder [$m widget $b]
+    update
+} -body {
+    $m swap $a $c
+    $m move $c -right $root
+    update
+    set ok [::sltest::check $m]
+    $m remove $d
+    update
+    set removed [expr {![winfo exists $oldBorder]}]
+    set value [$text get 1.0 end-1c]
+    $m clear
+    update
+    list $ok $removed $value [dict size [set [info object namespace $m]::Borders]] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 retained 0 1}
+
+test splitlayout-structure-16.5 {drag highlights receiving split and cancellation restores outline} -setup {
+    lassign [::sltest::docksetup] m
+    $m configure -showstructure true
+    set root [$m root]
+    set source [lindex [$m leaves] 0]
+    set target [lindex [$m leaves] end]
+    update
+} -body {
+    set dest [::sltest::point [$m widget $target]]
+    set grip [::sltest::dockstart $m $source $dest]
+    set border [$m widget [$m parent $target]]
+    set active [$border cget -highlightbackground]
+    event generate $grip <Escape>
+    update
+    list $active [$border cget -highlightbackground] [grab current $m] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {{#448aff} #909090 {} 1}
+
+test splitlayout-structure-16.6 {outer docking with outlines keeps subtree and full-height destination} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true -showstructure true
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    update
+} -body {
+    set dest [::sltest::point $m 0.999 0.5]
+    set grip [::sltest::dockstart $m $a $dest]
+    set active [[$m widget $root] cget -highlightbackground]
+    ::sltest::dockevent $grip <ButtonRelease-1> $dest
+    update
+    list $active [expr {[$m children $root] eq [list $b $a]}] \
+        [expr {[$m children $b] eq [list $c $d]}] \
+        [expr {[winfo height [$m widget $a]] == [winfo height [$m panedwindow $root]]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {{#448aff} 1 1 1 1}
+
+test splitlayout-structure-16.7 {changing structure during drag cancels and releases resources} -setup {
+    lassign [::sltest::docksetup] m
+    set leaves [$m leaves]
+    update
+} -body {
+    set grip [::sltest::dockstart $m [lindex $leaves 0] [::sltest::point [$m widget [lindex $leaves end]]]]
+    $m configure -showstructure true
+    update
+    list [::sltest::dockstate $m] [grab current $m] [expr {[$m leaves] eq $leaves}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {{} {} 1 1}
+
+test splitlayout-structure-16.8 {constructor enables structure for subsequent splits} -setup {
+    ::sltest::cleanup
+    toplevel .sltest
+    set m [splitlayout .sltest.layout -showstructure true]
+    pack $m -fill both -expand 1
+    set root [$m root]
+    $m split $root
+    update
+} -body {
+    list [$m configure -showstructure] [expr {[$m widget $root] ne [$m panedwindow $root]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+foreach orient {horizontal vertical} {
+    test splitlayout-structure-16.9-$orient {outlined splits retain deferred sash behavior} -setup {
+        set m [::sltest::setup]
+        $m configure -showstructure true -opaqueresize false -sashpreview none
+        set root [$m root]
+        lassign [$m split $root -orient $orient] a b
+        update
+        set pw [$m panedwindow $root]
+        set before [$pw sashpos 0]
+    } -body {
+        lassign [::sltest::gesture $pw 0 40] x y
+        set unchanged [expr {[$pw sashpos 0] == $before}]
+        event generate $pw <ButtonRelease-1> -x $x -y $y
+        update
+        list $unchanged [expr {abs([$pw sashpos 0]-$before-40) <= 1}] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {1 1 1}
+}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

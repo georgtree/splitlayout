@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -28,6 +28,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
 .br
 \fBSPLITLAYOUTOBJ node\fP \fIpath\fP
+.br
+\fBSPLITLAYOUTOBJ panedwindow\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ parent\fP \fIid\fP
 .br
@@ -89,7 +91,7 @@ clear
 Destroys all layout content and creates one empty root leaf\&.
 .TP
 container
-Returns the geometry container for a managed node\&. The hull for the root, or the logical parent panedwindow for another node\&.
+Returns the geometry container for a managed node\&. The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .TP
 frame
 Returns the content frame of a leaf\&. The leaf content frame pathname\&.
@@ -108,6 +110,9 @@ Moves an existing leaf to an edge or sibling position without destroying its con
 .TP
 node
 Finds the logical node associated with an exact widget pathname\&.
+.TP
+panedwindow
+Returns the native panedwindow of a split, independently of structure visibility\&. The native ttk panedwindow pathname\&. Leaf identifiers raise an error\&.
 .TP
 parent
 Returns the logical parent of a node\&. The parent node identifier, or an empty string for the root\&.
@@ -140,7 +145,7 @@ type
 Returns the type of a logical node\&. The string leaf or split\&.
 .TP
 widget
-Returns the widget associated with a logical node\&. The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+Returns the widget associated with a logical node\&. The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure, or the content frame/native panedwindow otherwise\&. Use panedwindow to access a split's native widget\&.
 .TP
 widgets
 Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widget dictionary with path, parent, class, manager, container, and children\&.
@@ -158,6 +163,9 @@ Readable\&. Read-only hull class override; empty when the default ttk class is u
 -cursor
 Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
 .TP
+-draghandles
+Readable, writable\&. Boolean enabling manager-owned textless grips for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape or an outside drop cancels\&. Disabling removes grips and wrappers without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
+.TP
 -height
 Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
 .TP
@@ -172,6 +180,9 @@ Readable, writable\&. Hull relief, delegated to the ttk frame\&.
 .TP
 -sashpreview
 Readable, writable\&. Deferred sash preview: window, inline, or none; default window\&. Changing the value cancels an active deferred drag\&. Invalid values preserve the old value\&.
+.TP
+-showstructure
+Readable, writable\&. Boolean showing a thin outline and three-pixel inset around every split; default false\&. Applies to existing and future splits\&. Changing it cancels active gestures, preserves content, and rebuilds geometry\&. During docking the receiving split outline is highlighted\&.
 .TP
 -style
 Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
@@ -189,14 +200,17 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+-draghandles boolean
+Enable textless docking grips on all leaves; default false\&.
 .TP
 -height height
 Nonnegative requested hull height in pixels; default 600\&.
@@ -206,6 +220,9 @@ Enable live sash resizing; default true\&.
 .TP
 -sashpreview mode
 Deferred preview mode: window, inline, or none; default window\&.
+.TP
+-showstructure boolean
+Outline and inset all split regions; default false\&.
 .TP
 -width width
 Nonnegative requested hull width in pixels; default 800\&.
@@ -285,7 +302,7 @@ The new root leaf identifier\&.
 .RE
 .PP
 Returns the geometry container for a managed node\&.
-The hull for the root, or the logical parent panedwindow for another node\&.
+The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
@@ -302,10 +319,14 @@ Logical node identifier or exact managed widget pathname\&.
 .PP
 The container can differ from the actual Tk parent\&. Unknown identifiers and unmanaged paths raise an error\&.
 .PP
+A node identifier or wrapper path resolves to the outer geometry container\&. A content frame pathname
+resolves to its pane wrapper when handles are enabled\&. A native panedwindow path resolves to its
+enclosing split wrapper when showstructure is enabled\&.
+.PP
 \fBReturn value\fR
 .PP
 Returns the geometry container for a managed node\&.
-The hull for the root, or the logical parent panedwindow for another node\&.
+The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .PP
 .RS -4n
 \fBframe\fR (::splitlayout::splitlayout)
@@ -434,16 +455,16 @@ Insert after a non-root leaf or split in its existing parent\&.
 Insert before a non-root leaf or split in its existing parent\&.
 .TP
 -bottom target
-Place after a target leaf in a vertical split\&.
+Place after a target leaf or split in a vertical split\&.
 .TP
 -left target
-Place before a target leaf in a horizontal split\&.
+Place before a target leaf or split in a horizontal split\&.
 .TP
 -right target
-Place after a target leaf in a horizontal split\&.
+Place after a target leaf or split in a horizontal split\&.
 .TP
 -top target
-Place before a target leaf in a vertical split\&.
+Place before a target leaf or split in a vertical split\&.
 .TP
 leaf
 Existing source leaf identifier, retained by the move\&.
@@ -453,7 +474,10 @@ Existing source leaf identifier, retained by the move\&.
 .PP
 Exactly one destination option is required\&. Edge destinations reuse the target parent when its orientation
 matches\&. Otherwise the target leaf becomes a split, and its existing frame moves to a newly identified leaf,
-following split's identifier semantics\&. The source identifier, frame, widget paths, and state survive\&.
+following split's identifier semantics\&. A split target is instead wrapped in a newly identified split,
+preserving the target subtree; normal collapse may subsequently promote its sole remaining child\&. A split
+target may contain the source, including the root\&. The source identifier, frame, widget paths, and state
+survive\&.
 .PP
 Within one parent and orientation, panes are reordered with their existing weights\&. Other moves divide the
 target share equally between the source and target; remaining source siblings retain relative proportions\&.
@@ -479,7 +503,7 @@ Finds the logical node associated with an exact widget pathname\&.
 .RS 4n
 .TP
 path
-Managed content frame or panedwindow pathname\&.
+Managed content frame, pane wrapper, or panedwindow pathname\&.
 .RE
 .PP
 \fBDescription\fR
@@ -489,6 +513,29 @@ This method does not search ancestors; use locate for application widgets inside
 \fBReturn value\fR
 .PP
 The node identifier, or an empty string when no node matches\&.
+.PP
+.RS -4n
+\fBpanedwindow\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns the native panedwindow of a split, independently of structure visibility\&.
+The native ttk panedwindow pathname\&. Leaf identifiers raise an error\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ panedwindow\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Existing split identifier\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Returns the native panedwindow of a split, independently of structure visibility\&.
+The native ttk panedwindow pathname\&. Leaf identifiers raise an error\&.
 .PP
 .RS -4n
 \fBparent\fR (::splitlayout::splitlayout)
@@ -731,9 +778,11 @@ Subtree root identifier; empty selects the layout root\&. Optional, default ""\&
 .PP
 \fBDescription\fR
 .PP
-Each node dictionary contains id, type, parent, widget, and children\&. Leaf dictionaries also contain frame,
+Each node dictionary contains id, type, parent, widget, and children\&. With handles enabled, widget is the
+wrapper for a leaf\&. Leaf dictionaries also contain the application content frame as frame,
 with an empty children list\&. Split dictionaries contain orient and proportions; two-child splits also contain
-ratio\&. Split children are nested node dictionaries in pane order\&.
+ratio\&. With showstructure, widget is the enclosing split wrapper\&. The panedwindow field always names
+the native split widget\&. Split children are nested node dictionaries in pane order\&.
 .PP
 Proportions are refreshed from usable geometry unless application is pending\&.
 .PP
@@ -770,7 +819,8 @@ The string leaf or split\&.
 .RE
 .PP
 Returns the widget associated with a logical node\&.
-The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
+or the content frame/native panedwindow otherwise\&. Use panedwindow to access a split's native widget\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ widget\fP \fIid\fP
 .br
@@ -786,7 +836,8 @@ Existing logical node identifier\&.
 \fBReturn value\fR
 .PP
 Returns the widget associated with a logical node\&.
-The content frame pathname for a leaf, or panedwindow pathname for a split\&.
+The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
+or the content frame/native panedwindow otherwise\&. Use panedwindow to access a split's native widget\&.
 .PP
 .RS -4n
 \fBwidgets\fR (::splitlayout::splitlayout)
