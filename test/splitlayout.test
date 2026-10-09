@@ -7,13 +7,71 @@ namespace import ::splitlayout::splitlayout
 
 namespace eval ::sltest {
     variable errors {}
+    # Wait for an observable condition while allowing Tk and the window manager to run.
+    # A timeout is a test failure, not a reason to silently skip an assertion.
+    proc await {condition {description {window-system condition}} {timeout 3000}} {
+        set deadline [expr {[clock milliseconds]+$timeout}]
+        while {1} {
+            update
+            if {[uplevel 1 [list expr $condition]]} {
+                return
+            }
+            if {[clock milliseconds] >= $deadline} {
+                error "timed out waiting for $description (focus=[focus], grab=[grab current .])"
+            }
+            after 10 [list set ::sltest::wake 1]
+            vwait ::sltest::wake
+        }
+    }
+    # One update drains currently available events, not later WM replies. Require
+    # a quiet interval after mapping/placement before synthesizing input.
+    proc settle {w} {
+        await {[winfo ismapped $w]} "mapping $w"
+        set previous {}
+        set since [clock milliseconds]
+        set deadline [expr {$since+3000}]
+        while {1} {
+            update
+            set state [list [winfo geometry $w] [winfo rootx $w] [winfo rooty $w]]
+            foreach child [winfo children $w] {
+                lappend state $child [winfo ismapped $child] [winfo geometry $child]
+            }
+            set now [clock milliseconds]
+            if {$state ne $previous} {
+                set previous $state
+                set since $now
+            }
+            if {$now-$since >= 100} {
+                return
+            }
+            if {$now >= $deadline} {
+                return -code error "geometry did not settle for $w: $state"
+            }
+            after 10 [list set ::sltest::wake 1]
+            vwait ::sltest::wake
+        }
+    }
+    # Synthetic button events do not activate a toplevel through the WM like a
+    # real click. Establish display focus explicitly in the test harness only.
+    proc activate {w} {
+        set top [winfo toplevel $w]
+        raise $top
+        set target [focus -lastfor $top]
+        if {$target eq {}} {
+            set target $top
+        }
+        focus -force $target
+        await {[focus -displayof $w] eq $target} "focus in $top"
+    }
     proc setup {} {
         cleanup
         toplevel .sltest
-        wm geometry .sltest 800x600
+        wm geometry .sltest 800x600+20+20
         splitlayout .sltest.layout -width 800 -height 600
         pack .sltest.layout -fill both -expand 1
-        update
+        settle .sltest
+        activate .sltest
+        settle .sltest.layout
         return .sltest.layout
     }
     proc cleanup {} {
@@ -519,6 +577,7 @@ test splitlayout-flat-9.8 {delete nested subtree among several siblings} -setup 
 
 namespace eval ::sltest {
     proc gesture {pw sash amount {release 0}} {
+        activate $pw
         set p [$pw sashpos $sash]
         set x 20
         set y 20
@@ -672,6 +731,8 @@ test splitlayout-preview-11.2 {window preview is transient and leaves pane geome
     ::sltest::gesture $pw 0 70
     update
     set proxy [lindex [info commands $m.proxy*] 0]
+    if {$proxy eq {}} {error {preview was cancelled before mapping; check owner geometry events}}
+    ::sltest::await {[winfo exists $proxy] && [winfo ismapped $proxy]} {preview mapping}
     list [expr {[winfo toplevel $proxy] eq $proxy}] [wm overrideredirect $proxy] [wm transient $proxy]\
             [winfo ismapped $proxy] [expr {[$pw sashpos 0]==$old}] [expr {[winfo geometry [$m frame $b]] eq $geometry}]\
             [expr {abs([winfo rootx $proxy]-[winfo rootx $pw]-$old-70)<=1}]
@@ -738,13 +799,17 @@ test splitlayout-preview-11.5 {owner movement and hiding cancel window preview} 
     set old [$pw sashpos 0]
     ::sltest::gesture $pw 0 50
     update
-    wm geometry .sltest +100+90
-    update
+    set ownerPosition [list [winfo rootx .sltest] [winfo rooty .sltest]]
+    set nx [expr {[winfo x .sltest]+60}]
+    set ny [expr {[winfo y .sltest]+40}]
+    wm geometry .sltest +$nx+$ny
+    ::sltest::await {[list [winfo rootx .sltest] [winfo rooty .sltest]] ne $ownerPosition} {owner movement}
     set moved [llength [info commands $m.proxy*]]
+    ::sltest::settle .sltest
     ::sltest::gesture $pw 0 50
     update
     wm withdraw .sltest
-    update
+    ::sltest::await {![winfo ismapped .sltest]} {owner withdrawal}
     list $moved [llength [info commands $m.proxy*]] [expr {[$pw sashpos 0]==$old}]
 } -cleanup {::sltest::cleanup} -result {0 0 1}
 
@@ -1004,7 +1069,7 @@ namespace eval ::sltest {
         lassign [$m split $root] a b
         fill $m $a A
         fill $m $b B
-        update
+        settle $m
         return [list $m $root $a $b]
     }
     proc point {w {rx 0.5} {ry 0.5}} {
@@ -1015,6 +1080,7 @@ namespace eval ::sltest {
         return [dict get [set [info object namespace $m]::Panels] $leaf grip]
     }
     proc dockevent {grip event point} {
+        if {$event eq {<ButtonPress-1>}} {activate $grip}
         lassign $point x y
         event generate $grip $event -rootx $x -rooty $y -x [expr {$x-[winfo rootx $grip]}]\
                 -y [expr {$y-[winfo rooty $grip]}]

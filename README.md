@@ -115,4 +115,3 @@ The generated HTML documentation is available online:
 
 The repository also includes generated HTML under `docs/` and manual pages as `docs/*.n`. Open `docs/index.html` to
 browse the local HTML documentation.
-
