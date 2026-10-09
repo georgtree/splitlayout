@@ -38,6 +38,550 @@
             
   <section id="splitlayout">
 <span id="r-splitlayout"></span><span id="r-namespaceqz3a3asplitlayout"></span><h1>splitlayout<a class="headerlink" href="#splitlayout" title="Link to this heading">¶</a></h1>
+<section id="quick-start">
+<span id="r-splitlayout-quick-start"></span><span id="r-3a3asplitlayoutqzquick20start"></span><h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout
+
+<span class="nv">wm</span><span class="w"> </span>title<span class="w"> </span>.<span class="w"> </span><span class="k">{</span><span class="nv">Split</span><span class="w"> </span>layout<span class="w"> </span>example<span class="k">}</span>
+<span class="nv">wm</span><span class="w"> </span>geometry<span class="w"> </span>.<span class="w"> </span><span class="mi">900</span>x600
+
+<span class="nv">splitlayout</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">900</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">600</span>
+<span class="nv">pack</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="k">set</span><span class="w"> </span>root<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>root<span class="k">]</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>split<span class="w"> </span><span class="nv">$root</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>horizontal<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.4</span><span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>left<span class="w"> </span>right
+
+<span class="k">set</span><span class="w"> </span>leftFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$left</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>rightFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$right</span><span class="k">]</span>
+
+<span class="nv">text</span><span class="w"> </span><span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">-</span>wrap<span class="w"> </span>word
+<span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="nv">insert</span><span class="w"> </span>end<span class="w"> </span><span class="k">{</span><span class="nv">Content</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span>the<span class="w"> </span>left<span class="w"> </span>pane.<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$leftFrame.editor</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="nv">text</span><span class="w"> </span><span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">20</span><span class="w"> </span><span class="o">-</span>height<span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">-</span>wrap<span class="w"> </span>word
+<span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="nv">insert</span><span class="w"> </span>end<span class="w"> </span><span class="k">{</span><span class="nv">Content</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span>the<span class="w"> </span>right<span class="w"> </span>pane.<span class="w"> </span>Drag<span class="w"> </span>the<span class="w"> </span>sash<span class="w"> </span>to<span class="w"> </span>resize.<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$rightFrame.editor</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">splitlayout</span> <span class="pre">.layout</span> <span class="pre">...</span></code> command returns the widget pathname. Use that pathname both as the layout command
+and with Tk geometry managers. The constructor accepts <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>,
+<code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>, <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code>, <code class="docutils literal notranslate"><span class="pre">-structureopts</span></code>, and <code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code>.</p>
+</section>
+<section id="splitting-existing-content">
+<span id="r-splitlayout-splitting-existing-content"></span><span id="r-3a3asplitlayoutqzsplitting20existing20content"></span><h2>Splitting existing content<a class="headerlink" href="#splitting-existing-content" title="Link to this heading">¶</a></h2>
+<p>Continue from the quick-start example:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>split<span class="w"> </span><span class="nv">$right</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.65</span><span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>top<span class="w"> </span>bottom
+
+<span class="k">set</span><span class="w"> </span>bottomFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$bottom</span><span class="k">]</span>
+<span class="nv">ttk</span><span class="o">::</span>label<span class="w"> </span><span class="nv">$bottomFrame.status</span><span class="w"> </span><span class="o">-</span>text<span class="w"> </span><span class="k">{</span><span class="nv">New</span><span class="w"> </span>bottom<span class="w"> </span>pane<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$bottomFrame.status</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>The original right-hand editor remains in <code class="docutils literal notranslate"><span class="pre">$top</span></code>, with the same widget pathname and state. <code class="docutils literal notranslate"><span class="pre">$right</span></code> now
+identifies the parent split; <code class="docutils literal notranslate"><span class="pre">$top</span></code> and <code class="docutils literal notranslate"><span class="pre">$bottom</span></code> are new leaf identifiers. <code class="docutils literal notranslate"><span class="pre">-keep</span> <span class="pre">second</span></code> would retain the
+editor in the second child instead. Both children are returned in pane order.</p>
+</section>
+<section id="adding-panes-at-the-same-level">
+<span id="r-splitlayout-adding-panes-at-the-same-level"></span><span id="r-3a3asplitlayoutqzadding20panes20at20the20same20level"></span><h2>Adding panes at the same level<a class="headerlink" href="#adding-panes-at-the-same-level" title="Link to this heading">¶</a></h2>
+<p>Insert beside a leaf or a split, provided that it has a parent:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>middle<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>insert<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>middleFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
+<span class="nv">ttk</span><span class="o">::</span>label<span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>text<span class="w"> </span><span class="k">{</span><span class="nv">Middle</span><span class="w"> </span>pane<span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="c"># The root now has three children: left, middle, and the right-hand split.</span>
+<span class="nv">.layout</span><span class="w"> </span>proportions<span class="w"> </span><span class="nv">$root</span><span class="w"> </span><span class="k">{</span><span class="nv">2</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
+</pre></div>
+</div>
+<p>Insertion divides the target child’s existing share equally between that child and the new leaf. The <code class="docutils literal notranslate"><span class="pre">-side</span></code>
+option accepts <code class="docutils literal notranslate"><span class="pre">before</span></code> or <code class="docutils literal notranslate"><span class="pre">after</span></code>, with <code class="docutils literal notranslate"><span class="pre">after</span></code> as the default. To add panes when the root is still a leaf,
+split it first.</p>
+<p><code class="docutils literal notranslate"><span class="pre">proportions</span></code> accepts one finite positive weight per immediate child and normalizes the weights. The example
+assigns shares of 2/6, 1/6, and 3/6. For a split with exactly two children, <code class="docutils literal notranslate"><span class="pre">ratio</span></code> queries or sets the first
+child’s fraction:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>ratio<span class="w"> </span><span class="nv">$right</span><span class="w"> </span><span class="mf">0.7</span>
+<span class="k">set</span><span class="w"> </span>fraction<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>ratio<span class="w"> </span><span class="nv">$right</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>shares<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>proportions<span class="w"> </span><span class="nv">$root</span><span class="k">]</span>
+</pre></div>
+</div>
+<p>Geometry changes settle through Tk’s event loop. Immediately after setting proportions, a query can return the
+stored values before the sashes have moved.</p>
+</section>
+<section id="moving-panes">
+<span id="r-splitlayout-moving-panes"></span><span id="r-3a3asplitlayoutqzmoving20panes"></span><h2>Moving panes<a class="headerlink" href="#moving-panes" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">move</span></code> relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
+application state. Supply exactly one destination option:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Destination</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-left</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source to the left of a target leaf or split.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-right</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source to the right of a target leaf or split.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-top</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source above a target leaf or split.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-bottom</span> <span class="pre">target</span></code></p></td>
+<td><p>Place the source below a target leaf or split.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-before</span> <span class="pre">target</span></code></p></td>
+<td><p>Insert before a non-root leaf or split in its existing parent.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-after</span> <span class="pre">target</span></code></p></td>
+<td><p>Insert after a non-root leaf or split in its existing parent.</p></td>
+</tr>
+</tbody>
+</table>
+<p>For example, in the layout built above:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Insert the middle pane above the bottom pane in the existing vertical split.</span>
+<span class="nv">.layout</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$middle</span><span class="w"> </span><span class="o">-</span>top<span class="w"> </span><span class="nv">$bottom</span>
+
+<span class="c"># Insert it before the entire right-hand region in the root split.</span>
+<span class="nv">.layout</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$middle</span><span class="w"> </span><span class="o">-</span>before<span class="w"> </span><span class="nv">$right</span>
+</pre></div>
+</div>
+<p>Edge destinations reuse the target’s parent when it already has the required orientation. Otherwise, a target
+leaf becomes a new split containing the source and a new leaf for the target’s existing content. This follows
+<code class="docutils literal notranslate"><span class="pre">split</span></code>’s identifier semantics: the target identifier now denotes a split. Use <code class="docutils literal notranslate"><span class="pre">children</span></code>, <code class="docutils literal notranslate"><span class="pre">leaves</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">locate</span></code> to obtain the new target-content leaf identifier. If the target is already a split, a new parent split
+is created around the source and target subtree; the target keeps its identifier unless source removal leaves
+it with a sole child and normal collapse promotes that child. A split target may contain the source, including
+the root. For example, <code class="docutils literal notranslate"><span class="pre">.layout</span> <span class="pre">move</span> <span class="pre">$source</span> <span class="pre">-right</span> <span class="pre">[.layout</span> <span class="pre">root]</span></code> places the source beside the remaining
+layout in a new horizontal root.  The source identifier remains unchanged and is also the command’s return
+value.</p>
+<p>For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">splitlayout</span><span class="w"> </span>.example
+<span class="nv">pack</span><span class="w"> </span>.example<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>split<span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>root<span class="k">]</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>horizontal<span class="k">]</span><span class="w"> </span>a<span class="w"> </span>b
+<span class="k">set</span><span class="w"> </span>moved<span class="w"> </span><span class="k">[</span><span class="nv">.example</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>top<span class="w"> </span><span class="nv">$b</span><span class="k">]</span>
+<span class="c"># moved equals a; b is now the root vertical split.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">-before</span></code> and <code class="docutils literal notranslate"><span class="pre">-after</span></code> always use the existing parent orientation. They can describe a sash destination without
+pixel coordinates: insertion at a sash is <code class="docutils literal notranslate"><span class="pre">-before</span></code> its following child or <code class="docutils literal notranslate"><span class="pre">-after</span></code> its preceding child. A
+split target may contain the source; moving beside that ancestor moves the source outside its
+subtree. Insertion beside the root is an error, except that any move to oneself is a no-op.</p>
+<p>Reordering within the same parent preserves the pane weights associated with each node. Other moves divide the
+target’s share equally between the source and target. Remaining siblings in the source parent retain their
+relative weights. If only one child remains there, it replaces the old parent after insertion; that old parent
+identifier becomes invalid. Query <code class="docutils literal notranslate"><span class="pre">root</span></code> again after a move that can collapse the root.</p>
+<p>Moving to oneself or to an already adjacent position with the requested orientation does nothing. Invalid
+arguments are rejected before modifying the layout. A structural move cancels an active deferred sash gesture,
+rebuilds geometry once, and lets geometry settle through the normal event loop. No application content is
+destroyed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">move</span></code> changes pane placement; <code class="docutils literal notranslate"><span class="pre">swap</span></code> exchanges content at two existing positions.</p>
+</section>
+<section id="dragging-panes">
+<span id="r-splitlayout-dragging-panes"></span><span id="r-3a3asplitlayoutqzdragging20panes"></span><h2>Dragging panes<a class="headerlink" href="#dragging-panes" title="Link to this heading">¶</a></h2>
+<p>Enable minimal, manager-owned grips for every leaf with the global <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> property:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">splitlayout</span><span class="w"> </span>.docking<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false
+<span class="nv">pack</span><span class="w"> </span>.docking<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.docking</span><span class="w"> </span>split<span class="w"> </span><span class="k">[</span><span class="nv">.docking</span><span class="w"> </span>root<span class="k">]]</span><span class="w"> </span>first<span class="w"> </span>second
+
+<span class="c"># The existing content API is unchanged.</span>
+<span class="k">set</span><span class="w"> </span>f<span class="w"> </span><span class="k">[</span><span class="nv">.docking</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$first</span><span class="k">]</span>
+<span class="nv">text</span><span class="w"> </span><span class="nv">$f.editor</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$f.editor</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="c"># Hide all grips and reclaim their space, including for leaves created later.</span>
+<span class="nv">.docking</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>false
+</pre></div>
+</div>
+<p>The default is <code class="docutils literal notranslate"><span class="pre">false</span></code>. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
+no text or buttons. The grip uses ttk theme colors and a height scaled to Tk’s display scaling. Application
+widgets remain entirely inside the frame returned by <code class="docutils literal notranslate"><span class="pre">frame</span></code>; pack and grid configurations there survive
+toggles and moves.</p>
+<p>Press the left mouse button on a grip and move at least five pixels (the default <code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">-threshold</span></code>) to
+start dragging. The entire strip accepts the press; content widgets retain their own mouse bindings. The
+destination is selected within this megawidget:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Drop location</p></th>
+<th class="head"><p>Operation</p></th>
+<th class="head"><p>Preview</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Another leaf’s center</p></td>
+<td><p>Swap the two content frames.</p></td>
+<td><p>Outline of the destination pane.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Left, right, top, or bottom edge of another leaf</p></td>
+<td><p>Move beside that leaf using the corresponding edge option.</p></td>
+<td><p>Narrow band at the chosen edge.</p></td>
+</tr>
+<tr class="row-even"><td><p>Outer rim of the megawidget</p></td>
+<td><p>Move outside the entire layout region on that side.</p></td>
+<td><p>Full-height or full-width edge band.</p></td>
+</tr>
+<tr class="row-odd"><td><p>A native sash between panes</p></td>
+<td><p>Insert before the child following that sash.</p></td>
+<td><p>Insertion line at the sash.</p></td>
+</tr>
+<tr class="row-even"><td><p>Source leaf or outside the megawidget</p></td>
+<td><p>Cancel.</p></td>
+<td><p>No destination highlight.</p></td>
+</tr>
+</tbody>
+</table>
+<p>By default, the outermost 12 pixels <strong>inside</strong> the megawidget form an outer drop zone (limited to one eighth of
+its size). This zone takes precedence over sashes and local leaf edges. It allows moving a pane to the far
+right or left of an entire stacked region, or above/below an entire row. A matching root orientation reuses
+that split’s first or last position; otherwise a new root split is created. Drop just inside the window: points
+outside the megawidget still cancel.</p>
+<p>Farther inside, sashes take precedence over leaf edge zones. Local edge zones default to up to 24 pixels into a
+pane, limited to one quarter of its width or height; corners choose the nearest normalized edge. The preview is
+blue by default, is temporary, and does not resize or rearrange content during dragging. Release performs one
+<code class="docutils literal notranslate"><span class="pre">move</span></code> or <code class="docutils literal notranslate"><span class="pre">swap</span></code>; a click without dragging does nothing.  The <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code> setting controls deferred sash
+resizing only, not this docking preview.</p>
+<p>Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
+changes, or disabling <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> cancels the gesture. The grip temporarily takes keyboard focus and a local
+mouse grab so that release outside the grip and Escape are handled. Cleanup restores the prior focus when still
+owned by the grip and releases only its own grab. A new gesture does not replace an existing grab. Dragging
+between separate splitlayout instances or to other applications is not supported.</p>
+<p>With handles enabled, <code class="docutils literal notranslate"><span class="pre">widget</span> <span class="pre">leaf</span></code> returns the <strong>pane wrapper</strong>, whereas <code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">leaf</span></code> always returns the
+application content frame. <code class="docutils literal notranslate"><span class="pre">container</span> <span class="pre">leaf</span></code> resolves the wrapper’s outer geometry container; <code class="docutils literal notranslate"><span class="pre">container</span>
+<span class="pre">$contentFrame</span></code> resolves the wrapper that packs the content. <code class="docutils literal notranslate"><span class="pre">node</span></code> recognizes either pathname. <code class="docutils literal notranslate"><span class="pre">locate</span></code>
+resolves application widgets and manager-owned grips to their current leaf. Logical <code class="docutils literal notranslate"><span class="pre">tree</span></code> snapshots expose
+both <code class="docutils literal notranslate"><span class="pre">widget</span></code> and <code class="docutils literal notranslate"><span class="pre">frame</span></code>; actual <code class="docutils literal notranslate"><span class="pre">widgets</span></code> snapshots also include the wrappers, grip canvases, and any
+temporary preview frames.</p>
+<p>The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged. A move
+preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
+wrappers. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
+changes. Application content paths remain stable.</p>
+</section>
+<section id="swapping-and-removing-content">
+<span id="r-splitlayout-swapping-and-removing-content"></span><span id="r-3a3asplitlayoutqzswapping20and20removing20content"></span><h2>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading">¶</a></h2>
+<p>The following operations continue the example above:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Exchange complete content frames across different nesting levels.</span>
+<span class="nv">.layout</span><span class="w"> </span>swap<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="nv">$bottom</span>
+
+<span class="c"># Remove the middle pane and all widgets it contains.</span>
+<span class="k">set</span><span class="w"> </span>survivingParent<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>remove<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
+
+<span class="c"># Keep top, destroy its sibling subtree, and replace their parent with top.</span>
+<span class="nv">.layout</span><span class="w"> </span>retain<span class="w"> </span><span class="nv">$top</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">swap</span></code> exchanges content frames; node identifiers continue to identify the same logical positions. Cached frame
+and application-widget pathnames remain valid, but may now belong to a different leaf.</p>
+<p><code class="docutils literal notranslate"><span class="pre">remove</span></code> destroys the requested subtree. If its parent has only one child left, that child replaces the parent.
+<code class="docutils literal notranslate"><span class="pre">retain</span></code> destroys all siblings of the retained node and collapses its immediate parent; it does not collapse all
+ancestors. Retaining the root does nothing.</p>
+<p>To discard all content and start again:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>root<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>clear<span class="k">]</span>
+</pre></div>
+</div>
+<p>Previously removed node identifiers are invalid. Use the return values or query the layout again after
+structural changes. To destroy the entire layout, use <code class="docutils literal notranslate"><span class="pre">.layout</span> <span class="pre">destroy</span></code> or <code class="docutils literal notranslate"><span class="pre">destroy</span> <span class="pre">.layout</span></code>.</p>
+</section>
+<section id="visual-structure">
+<span id="r-splitlayout-visual-structure"></span><span id="r-3a3asplitlayoutqzvisual20structure"></span><h2>Visual structure<a class="headerlink" href="#visual-structure" title="Link to this heading">¶</a></h2>
+<p>Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true
+<span class="c"># Also accepted at construction:</span>
+<span class="nv">splitlayout</span><span class="w"> </span>.outlined<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true
+</pre></div>
+</div>
+<p>By default, each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel
+inset on each side.  Customize these dimensions and colors with <code class="docutils literal notranslate"><span class="pre">-structureopts</span></code> or the option database
+described below.  Flat siblings share one enclosing outline; a nested split has an additional inset outline
+around its children. A sole root leaf has no split outline. The setting is independent of drag handles and
+applies to future splits. During docking, the receiving group outline turns blue alongside the existing
+destination preview. For a local edge move that creates a new split, the highlighted outline is the current
+enclosing group. Escape, an invalid destination, and release restore the normal outline color.</p>
+<p>Changing <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code> cancels active gestures and rebuilds geometry while retaining content, native
+panedwindows, and split proportions (subject to available pixel space). Disabling it removes the outlines and
+their spacing.  Very small panes can still collapse under Tk’s normal geometry constraints.</p>
+<p>With this option enabled, <code class="docutils literal notranslate"><span class="pre">widget</span> <span class="pre">split</span></code> returns the enclosing outline frame. Use <code class="docutils literal notranslate"><span class="pre">panedwindow</span> <span class="pre">split</span></code> to obtain
+the native ttk panedwindow regardless of the option value, for example:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>split<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>root<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>pw<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>panedwindow<span class="w"> </span><span class="nv">$split</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>position<span class="w"> </span><span class="k">[</span><span class="nv">$pw</span><span class="w"> </span><span class="nv">sashpos</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">node</span></code> recognizes both paths. <code class="docutils literal notranslate"><span class="pre">container</span> <span class="pre">split</span></code> returns the outer geometry container, while <code class="docutils literal notranslate"><span class="pre">container</span> <span class="pre">$pw</span></code>
+returns the outline frame that packs the native panedwindow. <code class="docutils literal notranslate"><span class="pre">tree</span></code> includes both <code class="docutils literal notranslate"><span class="pre">widget</span></code> and <code class="docutils literal notranslate"><span class="pre">panedwindow</span></code>
+for splits; <code class="docutils literal notranslate"><span class="pre">widgets</span></code> exposes the actual geometry containers. Outline frames remain immediate Tk children of
+the hull.</p>
+</section>
+<section id="resizing">
+<span id="r-splitlayout-resizing"></span><span id="r-3a3asplitlayoutqzresizing"></span><h2>Resizing<a class="headerlink" href="#resizing" title="Link to this heading">¶</a></h2>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+<col style="width: 33.3%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">800</span></code></p></td>
+<td><p>Nonnegative requested hull width in pixels.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-height</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">600</span></code></p></td>
+<td><p>Nonnegative requested hull height in pixels.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Resize pane content continuously while dragging a sash.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+<td><p>Deferred preview mode: <code class="docutils literal notranslate"><span class="pre">window</span></code>, <code class="docutils literal notranslate"><span class="pre">inline</span></code>, or <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Show docking grips on all current and future leaves.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Outline and inset all current and future splits.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Enable deferred resizing at construction or through <code class="docutils literal notranslate"><span class="pre">configure</span></code>:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="w"> </span><span class="o">-</span>sashpreview<span class="w"> </span>window
+</pre></div>
+</div>
+<p>In deferred mode, dragging changes only the preview target. Releasing the mouse commits the sash position and
+resizes the content. Escape cancels the gesture. Changing layout structure or resizing mode, unmapping the
+pane, or changing geometry in a way that invalidates the gesture also cancels it.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Preview mode</p></th>
+<th class="head"><p>Behavior</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+<td><p>Uses a temporary borderless transient toplevel for the sash marker.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">inline</span></code></p></td>
+<td><p>Uses a frame inside the layout for the sash marker.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">none</span></code></p></td>
+<td><p>Defers resizing without displaying a marker.</p></td>
+</tr>
+</tbody>
+</table>
+<p>Preview motion is coalesced at idle. <code class="docutils literal notranslate"><span class="pre">window</span></code> can reduce content exposures on composited desktops, but
+appearance depends on Tk and the window manager; it does not guarantee atomic repainting of application
+widgets.</p>
+<p>These options apply to current and future splits. Deferred mode affects sash dragging; resizing the containing
+window and programmatic sizing still update the layout normally. Very small containers can collapse panes;
+there is no per-pane minimum-size API.</p>
+<p>The class uses <code class="docutils literal notranslate"><span class="pre">oo::configurable</span></code> properties directly, without creating option objects. Query a property with
+<code class="docutils literal notranslate"><span class="pre">configure</span> <span class="pre">-name</span></code>. With no arguments, <code class="docutils literal notranslate"><span class="pre">configure</span></code> returns a dictionary of property names and current values,
+rather than Tk-style option descriptors:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>preview<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>sashpreview<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>properties<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>configure<span class="k">]</span>
+<span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="w"> </span><span class="o">-</span>padding<span class="w"> </span><span class="mi">4</span>
+</pre></div>
+</div>
+<p>The hull properties <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-padding</span></code>, <code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code>, <code class="docutils literal notranslate"><span class="pre">-relief</span></code>, <code class="docutils literal notranslate"><span class="pre">-cursor</span></code>, <code class="docutils literal notranslate"><span class="pre">-takefocus</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">-style</span></code> delegate to the ttk frame. <code class="docutils literal notranslate"><span class="pre">-class</span></code> is read-only. The constructor accepts the six creation options
+listed above and the three appearance dictionaries described below; other writable properties can be set after
+construction. No Tk option-database resources are added for <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>, <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>.</p>
+<p>Native property setters run in argument order. If a later value is invalid, earlier successful changes remain
+in effect. Invalid resizing values leave that property’s value and any active drag unchanged; changing a valid
+resizing value cancels the active drag. Setting the same value preserves it.</p>
+</section>
+<section id="appearance-and-drag-detection">
+<span id="r-splitlayout-appearance-and-drag-detection"></span><span id="r-3a3asplitlayoutqzappearance20and20drag20detection"></span><h2>Appearance and drag detection<a class="headerlink" href="#appearance-and-drag-detection" title="Link to this heading">¶</a></h2>
+<p>Manager-owned decoration and drag detection settings follow graphtoolbar’s Tk option-database convention:
+package-specific resource names, defaults registered at <code class="docutils literal notranslate"><span class="pre">widgetDefault</span></code> priority, and dictionary properties for
+explicit per-instance overrides. No option instances are created.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout
+
+<span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutDockColor<span class="w"> </span>orange<span class="w"> </span>userDefault
+<span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutDockOuterWidth<span class="w"> </span><span class="mi">20</span><span class="w"> </span>userDefault
+<span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutDockEdgeWidth<span class="w"> </span><span class="mi">32</span><span class="w"> </span>userDefault
+<span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutStructureColor<span class="w"> </span>gray55<span class="w"> </span>userDefault
+<span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutStructureActiveColor<span class="w"> </span>orange<span class="w"> </span>userDefault
+
+<span class="nv">splitlayout</span><span class="o">::</span>splitlayout<span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true<span class="w">  </span><span class="o">-</span>dockopts<span class="w"> </span><span class="k">{</span><span class="nv">-threshold</span><span class="w"> </span><span class="mi">8</span><span class="k">}</span><span class="w"> </span><span class="o">-</span>structureopts<span class="w"> </span><span class="k">{</span><span class="nv">-padding</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
+<span class="nv">pack</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+
+<span class="c"># Partial updates keep all unspecified settings.</span>
+<span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>dockopts<span class="w"> </span><span class="k">{</span><span class="nv">-color</span><span class="w"> </span>purple<span class="w"> </span><span class="o">-</span>outerwidth<span class="w"> </span><span class="mi">24</span><span class="k">}</span>
+<span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>sashpreviewopts<span class="w"> </span><span class="k">{</span><span class="nv">-color</span><span class="w"> </span>gray40<span class="w"> </span><span class="o">-</span>width<span class="w"> </span><span class="mi">5</span><span class="k">}</span>
+<span class="k">set</span><span class="w"> </span>docking<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>dockopts<span class="k">]</span>
+</pre></div>
+</div>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Property</p></th>
+<th class="head"><p>Key</p></th>
+<th class="head"><p>Resource name</p></th>
+<th class="head"><p>Resource class</p></th>
+<th class="head"><p>Default</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#448aff</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-linewidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockLineWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockLineWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-edgewidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockEdgeWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockEdgeWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">24</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-outerwidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockOuterWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockOuterWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">12</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockThreshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockThreshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#909090</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-activecolor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureActiveColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureActiveColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#448aff</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-padding</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructurePadding</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructurePadding</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#606060</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>The database is queried against the layout hull once during construction. Standard Tk name/class patterns and
+priorities apply; for example, <code class="docutils literal notranslate"><span class="pre">*editor.layout.splitlayoutDockColor</span></code> scopes a resource to a layout below
+<code class="docutils literal notranslate"><span class="pre">.editor</span></code>.  Explicit constructor dictionary keys override database values. Later database changes affect newly
+created layouts only; use <code class="docutils literal notranslate"><span class="pre">configure</span></code> for an existing layout. Built-in defaults are still available if the
+application calls <code class="docutils literal notranslate"><span class="pre">option</span> <span class="pre">clear</span></code>.  The three dictionaries are accepted both at construction and by <code class="docutils literal notranslate"><span class="pre">configure</span></code>;
+an empty dictionary leaves current settings unchanged.</p>
+<p>All dimensions are integer <strong>screen pixels</strong>, from zero to 2147483647, without additional DPI scaling. Colors
+must be valid Tk colors. Preview line widths (<code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">-linewidth</span></code> and <code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">-width</span></code>) must be at
+least one.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">-color</span></code> colors all docking preview rectangles. <code class="docutils literal notranslate"><span class="pre">-linewidth</span></code> controls the center-swap outline and sash insertion line; edge-preview bands use the corresponding detection width. Preview strokes are clipped to the region.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-outerwidth</span></code> specifies the band inside the hull for docking beside the entire layout, capped at one eighth of each hull dimension. Zero disables outer docking zones.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-edgewidth</span></code> specifies each leaf’s local edge band, capped at one quarter of each leaf dimension. Zero disables local edge moves, allowing center swaps there instead. Native sash and outer-zone precedence remain unchanged.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-threshold</span></code> specifies the minimum movement along either screen axis before a grip drag activates. Zero activates on the first motion event; pressing and releasing without motion still does nothing.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code> controls the normal and receiving-group outline colors, border thickness, and inner spacing. The inset per side is <code class="docutils literal notranslate"><span class="pre">-borderwidth</span> <span class="pre">+</span> <span class="pre">-padding</span></code>. A zero border width hides the outline; padding can also be zero.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code> controls the manager’s deferred-resize marker in both <code class="docutils literal notranslate"><span class="pre">window</span></code> and <code class="docutils literal notranslate"><span class="pre">inline</span></code> modes; <code class="docutils literal notranslate"><span class="pre">none</span></code> remains invisible.</p></li>
+</ul>
+<p>Dictionary updates validate all supplied values before changing anything. An invalid key, color, or distance
+leaves that dictionary and any active gesture intact. Successful changes cancel active gestures; unchanged
+assignments do nothing. Structure changes rebuild geometry while retaining content and proportions. Each
+dictionary update is atomic; separate property/value pairs retain the usual ordered <code class="docutils literal notranslate"><span class="pre">oo::configurable</span></code>
+behavior.</p>
+<p>These settings do not alter ttk styles, grip colors, or native sash appearance and hit areas. The existing
+behavior properties (<code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>, <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, and <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>) remain separate
+from database styling.</p>
+</section>
+<section id="inspecting-the-layout">
+<span id="r-splitlayout-inspecting-the-layout"></span><span id="r-3a3asplitlayoutqzinspecting20the20layout"></span><h2>Inspecting the layout<a class="headerlink" href="#inspecting-the-layout" title="Link to this heading">¶</a></h2>
+<p>Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nb">lindex</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>leaves<span class="k">]</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>contentFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+
+<span class="k">set</span><span class="w"> </span>logicalParent<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>parent<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>geometryContainer<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>container<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>actualParent<span class="w"> </span><span class="k">[</span><span class="nv">winfo</span><span class="w"> </span>parent<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span>
+
+<span class="k">set</span><span class="w"> </span>layoutTree<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>tree<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>widgetTree<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>widgets<span class="k">]</span>
+</pre></div>
+</div>
+<p>For a non-root node identifier, <code class="docutils literal notranslate"><span class="pre">container</span></code> returns its parent panedwindow. Its actual Tk parent remains
+<code class="docutils literal notranslate"><span class="pre">.layout</span></code>.  With handles enabled, passing the content frame pathname instead returns its pane wrapper. <code class="docutils literal notranslate"><span class="pre">winfo</span>
+<span class="pre">manager</span></code> reports the manager name, not the pathname of that geometry container.</p>
+<p><code class="docutils literal notranslate"><span class="pre">node</span></code> maps an exact managed frame or panedwindow pathname to its node identifier. <code class="docutils literal notranslate"><span class="pre">locate</span></code> accepts a descendant
+application widget and walks its Tk parents to find the containing leaf:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>node<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span>
+<span class="c"># For any existing application widget inside a content frame:</span>
+<span class="k">set</span><span class="w"> </span>applicationWidget<span class="w"> </span><span class="k">[</span><span class="nb">lindex</span><span class="w"> </span><span class="k">[</span><span class="nv">winfo</span><span class="w"> </span>children<span class="w"> </span><span class="nv">$contentFrame</span><span class="k">]</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
+<span class="k">if</span><span class="w"> </span><span class="k">{</span><span class="nv">$applicationWidget</span><span class="w"> </span><span class="nv">ne</span><span class="w"> </span><span class="k">{}}</span><span class="w"> </span><span class="k">{</span>
+<span class="w">    </span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>locate<span class="w"> </span><span class="nv">$applicationWidget</span><span class="k">]</span>
+<span class="k">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">tree</span></code> returns nested dictionaries containing <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">parent</span></code>, <code class="docutils literal notranslate"><span class="pre">widget</span></code>, and <code class="docutils literal notranslate"><span class="pre">children</span></code>. Leaves also
+contain <code class="docutils literal notranslate"><span class="pre">frame</span></code>. Splits contain <code class="docutils literal notranslate"><span class="pre">panedwindow</span></code>, <code class="docutils literal notranslate"><span class="pre">orient</span></code>, and <code class="docutils literal notranslate"><span class="pre">proportions</span></code>, plus <code class="docutils literal notranslate"><span class="pre">ratio</span></code> when they have two
+children. Split <code class="docutils literal notranslate"><span class="pre">children</span></code> are nested node dictionaries in pane order.</p>
+<p><code class="docutils literal notranslate"><span class="pre">widgets</span></code> returns nested dictionaries containing <code class="docutils literal notranslate"><span class="pre">path</span></code>, <code class="docutils literal notranslate"><span class="pre">parent</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span></code>, <code class="docutils literal notranslate"><span class="pre">manager</span></code>, <code class="docutils literal notranslate"><span class="pre">container</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">children</span></code>.  It includes application widgets. The container is resolved for layout nodes and for widgets
+managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup.</p>
+<p>Both snapshots are for inspection. They do not serialize application widget state or provide a restore
+operation.</p>
+</section>
 <section id="classes">
 <span id="r-splitlayout-classes"></span><span id="r-3a3asplitlayoutqzclasses"></span><h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
 <section id="r-symbolqz3a3asplitlayout3a3asplitlayout">
@@ -47,8 +591,9 @@
 of property names and values; with one property name it returns that value. Set properties
 with option/value pairs. Pairs are applied in order, and a failed setter leaves earlier
 successful assignments in effect. Use <code class="docutils literal notranslate"><span class="pre">configure</span> <span class="pre">-name</span></code> instead of <code class="docutils literal notranslate"><span class="pre">cget</span> <span class="pre">-name</span></code>.</p>
-<p>Hull properties delegate directly to the ttk frame. No option objects or option-database
-resources are created for the layout properties.</p>
+<p>Hull properties delegate directly to the ttk frame. Layout behavior properties use oo::configurable
+directly, without option objects. Appearance dictionaries take their initial values from the Tk option
+database; see the namespace resource reference.</p>
 <p class="rubric">Method summary</p>
 <dl class="simple">
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"><span class="std std-ref">constructor</span></a></dt><dd><p>Constructor for the class.</p>
@@ -113,64 +658,82 @@ resources are created for the layout properties.</p>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-cursor</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Readable, writable. Hull cursor, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean enabling manager-owned textless grips for every leaf; default false. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash. Escape or an outside drop cancels. Disabling removes grips and wrappers without destroying content. This setting is independent of -opaqueresize and applies to future leaves as well.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-dockopts</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth, and -threshold. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-height</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Requested hull height, delegated to the ttk frame; constructor default 600.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling manager-owned textless grips for every leaf; default false. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash. Escape or an outside drop cancels. Disabling removes grips and wrappers without destroying content. This setting is independent of -opaqueresize and applies to future leaves as well.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Requested hull height, delegated to the ttk frame; constructor default 600.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline preview modes. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean showing a thin outline and three-pixel inset around every split; default false. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
+<dd class="field-even"><p>Readable, writable. Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
 </dd>
 </dl>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h4>
 <p>Creates a split layout with one empty root leaf.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?</em>
-<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?</em>
+<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Enable textless docking grips on all leaves; default false.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Docking colors, preview line width, and detection distances; option-database defaults.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span> <span class="pre">height</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Nonnegative requested hull height in pixels; default 600.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Enable textless docking grips on all leaves; default false.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Enable live sash resizing; default true.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-height</span> <span class="pre">height</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Nonnegative requested hull height in pixels; default 600.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Deferred preview mode: window, inline, or none; default window.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Enable live sash resizing; default true.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Deferred preview mode: window, inline, or none; default window.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Deferred sash preview color and width; option-database defaults.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-showstructure</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Outline and inset all split regions; default false.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Nonnegative requested hull width in pixels; default 800.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>New, non-root Tk widget pathname.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Nonnegative requested hull width in pixels; default 800.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>New, non-root Tk widget pathname.</p>
 </dd>
 </dl>
 <p class="rubric">Description</p>
@@ -605,6 +1168,16 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
     <h3><a href="index.html">Table of Contents</a></h3>
     <ul>
 <li><a class="reference internal" href="#">splitlayout</a><ul>
+<li><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
+<li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
+<li><a class="reference internal" href="#dragging-panes">Dragging panes</a></li>
+<li><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
+<li><a class="reference internal" href="#visual-structure">Visual structure</a></li>
+<li><a class="reference internal" href="#resizing">Resizing</a></li>
+<li><a class="reference internal" href="#appearance-and-drag-detection">Appearance and drag detection</a></li>
+<li><a class="reference internal" href="#inspecting-the-layout">Inspecting the layout</a></li>
 <li><a class="reference internal" href="#classes">Classes</a><ul>
 <li><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout"><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code></a><ul>
 <li><a class="reference internal" href="#constructor"><code class="docutils literal notranslate"><span class="pre">constructor</span></code></a></li>

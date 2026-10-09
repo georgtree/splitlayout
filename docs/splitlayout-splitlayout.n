@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -56,6 +56,507 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ widgets\fP \fI?path?\fP
 .br
 .SH SPLITLAYOUT
+.SH "QUICK START"
+.PP
+.RS 4n
+.nf
+package require splitlayout
+
+wm title \&. {Split layout example}
+wm geometry \&. 900x600
+
+splitlayout \&.layout -width 900 -height 600
+pack \&.layout -fill both -expand 1
+
+set root [\&.layout root]
+lassign [\&.layout split $root -orient horizontal -ratio 0\&.4 -keep first] left right
+
+set leftFrame [\&.layout frame $left]
+set rightFrame [\&.layout frame $right]
+
+text $leftFrame\&.editor -width 20 -height 10 -wrap word
+$leftFrame\&.editor insert end {Content in the left pane\&.}
+pack $leftFrame\&.editor -fill both -expand 1
+
+text $rightFrame\&.editor -width 20 -height 10 -wrap word
+$rightFrame\&.editor insert end {Content in the right pane\&. Drag the sash to resize\&.}
+pack $rightFrame\&.editor -fill both -expand 1
+.fi
+.RE
+.PP
+The splitlayout \&.layout \&.\&.\&. command returns the widget pathname\&. Use that pathname both as the layout command
+and with Tk geometry managers\&. The constructor accepts -width, -height, -opaqueresize, -sashpreview,
+-draghandles, -showstructure, -dockopts, -structureopts, and -sashpreviewopts\&.
+.SH "SPLITTING EXISTING CONTENT"
+.PP
+Continue from the quick-start example:
+.PP
+.RS 4n
+.nf
+lassign [\&.layout split $right -orient vertical -ratio 0\&.65 -keep first] top bottom
+
+set bottomFrame [\&.layout frame $bottom]
+ttk::label $bottomFrame\&.status -text {New bottom pane}
+pack $bottomFrame\&.status -fill both -expand 1
+.fi
+.RE
+.PP
+The original right-hand editor remains in $top, with the same widget pathname and state\&. $right now
+identifies the parent split; $top and $bottom are new leaf identifiers\&. -keep second would retain the
+editor in the second child instead\&. Both children are returned in pane order\&.
+.SH "ADDING PANES AT THE SAME LEVEL"
+.PP
+Insert beside a leaf or a split, provided that it has a parent:
+.PP
+.RS 4n
+.nf
+set middle [\&.layout insert $left -side after]
+set middleFrame [\&.layout frame $middle]
+ttk::label $middleFrame\&.label -text {Middle pane}
+pack $middleFrame\&.label -fill both -expand 1
+
+# The root now has three children: left, middle, and the right-hand split\&.
+\&.layout proportions $root {2 1 3}
+.fi
+.RE
+.PP
+Insertion divides the target child's existing share equally between that child and the new leaf\&. The -side
+option accepts before or after, with after as the default\&. To add panes when the root is still a leaf,
+split it first\&.
+.PP
+proportions accepts one finite positive weight per immediate child and normalizes the weights\&. The example
+assigns shares of 2/6, 1/6, and 3/6\&. For a split with exactly two children, ratio queries or sets the first
+child's fraction:
+.PP
+.RS 4n
+.nf
+\&.layout ratio $right 0\&.7
+set fraction [\&.layout ratio $right]
+set shares [\&.layout proportions $root]
+.fi
+.RE
+.PP
+Geometry changes settle through Tk's event loop\&. Immediately after setting proportions, a query can return the
+stored values before the sashes have moved\&.
+.SH "MOVING PANES"
+.PP
+move relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
+application state\&. Supply exactly one destination option:
+.PP
+.RS 4n
+.nf
+┌────────────────┬────────────────────────────────────────────────────────────────┐
+│ Destination    │ Effect                                                         │
+├────────────────┼────────────────────────────────────────────────────────────────┤
+│ -left target   │ Place the source to the left of a target leaf or split\&.        │
+│ -right target  │ Place the source to the right of a target leaf or split\&.       │
+│ -top target    │ Place the source above a target leaf or split\&.                 │
+│ -bottom target │ Place the source below a target leaf or split\&.                 │
+│ -before target │ Insert before a non-root leaf or split in its existing parent\&. │
+│ -after target  │ Insert after a non-root leaf or split in its existing parent\&.  │
+└────────────────┴────────────────────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+For example, in the layout built above:
+.PP
+.RS 4n
+.nf
+# Insert the middle pane above the bottom pane in the existing vertical split\&.
+\&.layout move $middle -top $bottom
+
+# Insert it before the entire right-hand region in the root split\&.
+\&.layout move $middle -before $right
+.fi
+.RE
+.PP
+Edge destinations reuse the target's parent when it already has the required orientation\&. Otherwise, a target
+leaf becomes a new split containing the source and a new leaf for the target's existing content\&. This follows
+split's identifier semantics: the target identifier now denotes a split\&. Use children, leaves, or
+locate to obtain the new target-content leaf identifier\&. If the target is already a split, a new parent split
+is created around the source and target subtree; the target keeps its identifier unless source removal leaves
+it with a sole child and normal collapse promotes that child\&. A split target may contain the source, including
+the root\&. For example, \&.layout move $source -right [\&.layout root] places the source beside the remaining
+layout in a new horizontal root\&.  The source identifier remains unchanged and is also the command's return
+value\&.
+.PP
+For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
+.PP
+.RS 4n
+.nf
+splitlayout \&.example
+pack \&.example -fill both -expand 1
+lassign [\&.example split [\&.example root] -orient horizontal] a b
+set moved [\&.example move $a -top $b]
+# moved equals a; b is now the root vertical split\&.
+.fi
+.RE
+.PP
+-before and -after always use the existing parent orientation\&. They can describe a sash destination without
+pixel coordinates: insertion at a sash is -before its following child or -after its preceding child\&. A
+split target may contain the source; moving beside that ancestor moves the source outside its
+subtree\&. Insertion beside the root is an error, except that any move to oneself is a no-op\&.
+.PP
+Reordering within the same parent preserves the pane weights associated with each node\&. Other moves divide the
+target's share equally between the source and target\&. Remaining siblings in the source parent retain their
+relative weights\&. If only one child remains there, it replaces the old parent after insertion; that old parent
+identifier becomes invalid\&. Query root again after a move that can collapse the root\&.
+.PP
+Moving to oneself or to an already adjacent position with the requested orientation does nothing\&. Invalid
+arguments are rejected before modifying the layout\&. A structural move cancels an active deferred sash gesture,
+rebuilds geometry once, and lets geometry settle through the normal event loop\&. No application content is
+destroyed\&.
+.PP
+move changes pane placement; swap exchanges content at two existing positions\&.
+.SH "DRAGGING PANES"
+.PP
+Enable minimal, manager-owned grips for every leaf with the global -draghandles property:
+.PP
+.RS 4n
+.nf
+splitlayout \&.docking -draghandles true -opaqueresize false
+pack \&.docking -fill both -expand 1
+lassign [\&.docking split [\&.docking root]] first second
+
+# The existing content API is unchanged\&.
+set f [\&.docking frame $first]
+text $f\&.editor
+pack $f\&.editor -fill both -expand 1
+
+# Hide all grips and reclaim their space, including for leaves created later\&.
+\&.docking configure -draghandles false
+.fi
+.RE
+.PP
+The default is false\&. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
+no text or buttons\&. The grip uses ttk theme colors and a height scaled to Tk's display scaling\&. Application
+widgets remain entirely inside the frame returned by frame; pack and grid configurations there survive
+toggles and moves\&.
+.PP
+Press the left mouse button on a grip and move at least five pixels (the default -dockopts -threshold) to
+start dragging\&. The entire strip accepts the press; content widgets retain their own mouse bindings\&. The
+destination is selected within this megawidget:
+.PP
+.RS 4n
+.nf
+┌────────────────────────────────────────┬─────────────────────────────────────────────────┬───────────────────────────┐
+│ Drop location                          │ Operation                                       │ Preview                   │
+├────────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────────────┤
+│ Another leaf's center                  │ Swap the two content frames\&.                    │ Outline of the            │
+│                                        │                                                 │ destination pane\&.         │
+│ Left, right, top, or bottom edge of    │ Move beside that leaf using the corresponding   │ Narrow band at the chosen │
+│ another leaf                           │ edge option\&.                                    │ edge\&.                     │
+│ Outer rim of the megawidget            │ Move outside the entire layout region on that   │ Full-height or full-width │
+│                                        │ side\&.                                           │ edge band\&.                │
+│ A native sash between panes            │ Insert before the child following that sash\&.    │ Insertion line at the     │
+│                                        │                                                 │ sash\&.                     │
+│ Source leaf or outside the megawidget  │ Cancel\&.                                         │ No destination highlight\&. │
+└────────────────────────────────────────┴─────────────────────────────────────────────────┴───────────────────────────┘
+.fi
+.RE
+.PP
+By default, the outermost 12 pixels \fBinside\fP the megawidget form an outer drop zone (limited to one eighth of
+its size)\&. This zone takes precedence over sashes and local leaf edges\&. It allows moving a pane to the far
+right or left of an entire stacked region, or above/below an entire row\&. A matching root orientation reuses
+that split's first or last position; otherwise a new root split is created\&. Drop just inside the window: points
+outside the megawidget still cancel\&.
+.PP
+Farther inside, sashes take precedence over leaf edge zones\&. Local edge zones default to up to 24 pixels into a
+pane, limited to one quarter of its width or height; corners choose the nearest normalized edge\&. The preview is
+blue by default, is temporary, and does not resize or rearrange content during dragging\&. Release performs one
+move or swap; a click without dragging does nothing\&.  The -sashpreview setting controls deferred sash
+resizing only, not this docking preview\&.
+.PP
+Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
+changes, or disabling -draghandles cancels the gesture\&. The grip temporarily takes keyboard focus and a local
+mouse grab so that release outside the grip and Escape are handled\&. Cleanup restores the prior focus when still
+owned by the grip and releases only its own grab\&. A new gesture does not replace an existing grab\&. Dragging
+between separate splitlayout instances or to other applications is not supported\&.
+.PP
+With handles enabled, widget leaf returns the \fBpane wrapper\fP, whereas frame leaf always returns the
+application content frame\&. container leaf resolves the wrapper's outer geometry container; container
+$contentFrame resolves the wrapper that packs the content\&. node recognizes either pathname\&. locate
+resolves application widgets and manager-owned grips to their current leaf\&. Logical tree snapshots expose
+both widget and frame; actual widgets snapshots also include the wrappers, grip canvases, and any
+temporary preview frames\&.
+.PP
+The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged\&. A move
+preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
+wrappers\&. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
+changes\&. Application content paths remain stable\&.
+.SH "SWAPPING AND REMOVING CONTENT"
+.PP
+The following operations continue the example above:
+.PP
+.RS 4n
+.nf
+# Exchange complete content frames across different nesting levels\&.
+\&.layout swap $left $bottom
+
+# Remove the middle pane and all widgets it contains\&.
+set survivingParent [\&.layout remove $middle]
+
+# Keep top, destroy its sibling subtree, and replace their parent with top\&.
+\&.layout retain $top
+.fi
+.RE
+.PP
+swap exchanges content frames; node identifiers continue to identify the same logical positions\&. Cached frame
+and application-widget pathnames remain valid, but may now belong to a different leaf\&.
+.PP
+remove destroys the requested subtree\&. If its parent has only one child left, that child replaces the parent\&.
+retain destroys all siblings of the retained node and collapses its immediate parent; it does not collapse all
+ancestors\&. Retaining the root does nothing\&.
+.PP
+To discard all content and start again:
+.PP
+.RS 4n
+.nf
+set root [\&.layout clear]
+.fi
+.RE
+.PP
+Previously removed node identifiers are invalid\&. Use the return values or query the layout again after
+structural changes\&. To destroy the entire layout, use \&.layout destroy or destroy \&.layout\&.
+.SH "VISUAL STRUCTURE"
+.PP
+Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:
+.PP
+.RS 4n
+.nf
+\&.layout configure -showstructure true
+# Also accepted at construction:
+splitlayout \&.outlined -draghandles true -showstructure true
+.fi
+.RE
+.PP
+By default, each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel
+inset on each side\&.  Customize these dimensions and colors with -structureopts or the option database
+described below\&.  Flat siblings share one enclosing outline; a nested split has an additional inset outline
+around its children\&. A sole root leaf has no split outline\&. The setting is independent of drag handles and
+applies to future splits\&. During docking, the receiving group outline turns blue alongside the existing
+destination preview\&. For a local edge move that creates a new split, the highlighted outline is the current
+enclosing group\&. Escape, an invalid destination, and release restore the normal outline color\&.
+.PP
+Changing -showstructure cancels active gestures and rebuilds geometry while retaining content, native
+panedwindows, and split proportions (subject to available pixel space)\&. Disabling it removes the outlines and
+their spacing\&.  Very small panes can still collapse under Tk's normal geometry constraints\&.
+.PP
+With this option enabled, widget split returns the enclosing outline frame\&. Use panedwindow split to obtain
+the native ttk panedwindow regardless of the option value, for example:
+.PP
+.RS 4n
+.nf
+set split [\&.layout root]
+set pw [\&.layout panedwindow $split]
+set position [$pw sashpos 0]
+.fi
+.RE
+.PP
+node recognizes both paths\&. container split returns the outer geometry container, while container $pw
+returns the outline frame that packs the native panedwindow\&. tree includes both widget and panedwindow
+for splits; widgets exposes the actual geometry containers\&. Outline frames remain immediate Tk children of
+the hull\&.
+.SH RESIZING
+.PP
+.RS 4n
+.nf
+┌────────────────┬─────────┬─────────────────────────────────────────────────────────┐
+│ Option         │ Default │ Meaning                                                 │
+├────────────────┼─────────┼─────────────────────────────────────────────────────────┤
+│ -width         │ 800     │ Nonnegative requested hull width in pixels\&.             │
+│ -height        │ 600     │ Nonnegative requested hull height in pixels\&.            │
+│ -opaqueresize  │ true    │ Resize pane content continuously while dragging a sash\&. │
+│ -sashpreview   │ window  │ Deferred preview mode: window, inline, or none\&.         │
+│ -draghandles   │ false   │ Show docking grips on all current and future leaves\&.    │
+│ -showstructure │ false   │ Outline and inset all current and future splits\&.        │
+└────────────────┴─────────┴─────────────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+Enable deferred resizing at construction or through configure:
+.PP
+.RS 4n
+.nf
+\&.layout configure -opaqueresize false -sashpreview window
+.fi
+.RE
+.PP
+In deferred mode, dragging changes only the preview target\&. Releasing the mouse commits the sash position and
+resizes the content\&. Escape cancels the gesture\&. Changing layout structure or resizing mode, unmapping the
+pane, or changing geometry in a way that invalidates the gesture also cancels it\&.
+.PP
+.RS 4n
+.nf
+┌──────────────┬─────────────────────────────────────────────────────────────────────┐
+│ Preview mode │ Behavior                                                            │
+├──────────────┼─────────────────────────────────────────────────────────────────────┤
+│ window       │ Uses a temporary borderless transient toplevel for the sash marker\&. │
+│ inline       │ Uses a frame inside the layout for the sash marker\&.                 │
+│ none         │ Defers resizing without displaying a marker\&.                        │
+└──────────────┴─────────────────────────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+Preview motion is coalesced at idle\&. window can reduce content exposures on composited desktops, but
+appearance depends on Tk and the window manager; it does not guarantee atomic repainting of application
+widgets\&.
+.PP
+These options apply to current and future splits\&. Deferred mode affects sash dragging; resizing the containing
+window and programmatic sizing still update the layout normally\&. Very small containers can collapse panes;
+there is no per-pane minimum-size API\&.
+.PP
+The class uses oo::configurable properties directly, without creating option objects\&. Query a property with
+configure -name\&. With no arguments, configure returns a dictionary of property names and current values,
+rather than Tk-style option descriptors:
+.PP
+.RS 4n
+.nf
+set preview [\&.layout configure -sashpreview]
+set properties [\&.layout configure]
+\&.layout configure -opaqueresize false -padding 4
+.fi
+.RE
+.PP
+The hull properties -width, -height, -padding, -borderwidth, -relief, -cursor, -takefocus, and
+-style delegate to the ttk frame\&. -class is read-only\&. The constructor accepts the six creation options
+listed above and the three appearance dictionaries described below; other writable properties can be set after
+construction\&. No Tk option-database resources are added for -opaqueresize, -sashpreview, -draghandles, or
+-showstructure\&.
+.PP
+Native property setters run in argument order\&. If a later value is invalid, earlier successful changes remain
+in effect\&. Invalid resizing values leave that property's value and any active drag unchanged; changing a valid
+resizing value cancels the active drag\&. Setting the same value preserves it\&.
+.SH "APPEARANCE AND DRAG DETECTION"
+.PP
+Manager-owned decoration and drag detection settings follow graphtoolbar's Tk option-database convention:
+package-specific resource names, defaults registered at widgetDefault priority, and dictionary properties for
+explicit per-instance overrides\&. No option instances are created\&.
+.PP
+.RS 4n
+.nf
+package require splitlayout
+
+option add *splitlayoutDockColor orange userDefault
+option add *splitlayoutDockOuterWidth 20 userDefault
+option add *splitlayoutDockEdgeWidth 32 userDefault
+option add *splitlayoutStructureColor gray55 userDefault
+option add *splitlayoutStructureActiveColor orange userDefault
+
+splitlayout::splitlayout \&.layout -draghandles true -showstructure true  -dockopts {-threshold 8} -structureopts {-padding 3}
+pack \&.layout -fill both -expand 1
+
+# Partial updates keep all unspecified settings\&.
+\&.layout configure -dockopts {-color purple -outerwidth 24}
+\&.layout configure -sashpreviewopts {-color gray40 -width 5}
+set docking [\&.layout configure -dockopts]
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+┌──────────────────┬──────────────┬─────────────────────────────────┬─────────────────────────────────┬─────────┐
+│ Property         │ Key          │ Resource name                   │ Resource class                  │ Default │
+├──────────────────┼──────────────┼─────────────────────────────────┼─────────────────────────────────┼─────────┤
+│ -dockopts        │ -color       │ splitlayoutDockColor            │ SplitlayoutDockColor            │ #448aff │
+│ -dockopts        │ -linewidth   │ splitlayoutDockLineWidth        │ SplitlayoutDockLineWidth        │ 3       │
+│ -dockopts        │ -edgewidth   │ splitlayoutDockEdgeWidth        │ SplitlayoutDockEdgeWidth        │ 24      │
+│ -dockopts        │ -outerwidth  │ splitlayoutDockOuterWidth       │ SplitlayoutDockOuterWidth       │ 12      │
+│ -dockopts        │ -threshold   │ splitlayoutDockThreshold        │ SplitlayoutDockThreshold        │ 5       │
+│ -structureopts   │ -color       │ splitlayoutStructureColor       │ SplitlayoutStructureColor       │ #909090 │
+│ -structureopts   │ -activecolor │ splitlayoutStructureActiveColor │ SplitlayoutStructureActiveColor │ #448aff │
+│ -structureopts   │ -borderwidth │ splitlayoutStructureBorderWidth │ SplitlayoutStructureBorderWidth │ 1       │
+│ -structureopts   │ -padding     │ splitlayoutStructurePadding     │ SplitlayoutStructurePadding     │ 2       │
+│ -sashpreviewopts │ -color       │ splitlayoutSashPreviewColor     │ SplitlayoutSashPreviewColor     │ #606060 │
+│ -sashpreviewopts │ -width       │ splitlayoutSashPreviewWidth     │ SplitlayoutSashPreviewWidth     │ 3       │
+└──────────────────┴──────────────┴─────────────────────────────────┴─────────────────────────────────┴─────────┘
+.fi
+.RE
+.PP
+The database is queried against the layout hull once during construction\&. Standard Tk name/class patterns and
+priorities apply; for example, *editor\&.layout\&.splitlayoutDockColor scopes a resource to a layout below
+\&.editor\&.  Explicit constructor dictionary keys override database values\&. Later database changes affect newly
+created layouts only; use configure for an existing layout\&. Built-in defaults are still available if the
+application calls option clear\&.  The three dictionaries are accepted both at construction and by configure;
+an empty dictionary leaves current settings unchanged\&.
+.PP
+All dimensions are integer \fBscreen pixels\fP, from zero to 2147483647, without additional DPI scaling\&. Colors
+must be valid Tk colors\&. Preview line widths (-dockopts -linewidth and -sashpreviewopts -width) must be at
+least one\&.
+.TP
+\(bu
+-dockopts -color colors all docking preview rectangles\&. -linewidth controls the center-swap outline and sash insertion line; edge-preview bands use the corresponding detection width\&. Preview strokes are clipped to the region\&.
+.TP
+\(bu
+-outerwidth specifies the band inside the hull for docking beside the entire layout, capped at one eighth of each hull dimension\&. Zero disables outer docking zones\&.
+.TP
+\(bu
+-edgewidth specifies each leaf's local edge band, capped at one quarter of each leaf dimension\&. Zero disables local edge moves, allowing center swaps there instead\&. Native sash and outer-zone precedence remain unchanged\&.
+.TP
+\(bu
+-threshold specifies the minimum movement along either screen axis before a grip drag activates\&. Zero activates on the first motion event; pressing and releasing without motion still does nothing\&.
+.TP
+\(bu
+-structureopts controls the normal and receiving-group outline colors, border thickness, and inner spacing\&. The inset per side is -borderwidth + -padding\&. A zero border width hides the outline; padding can also be zero\&.
+.TP
+\(bu
+-sashpreviewopts controls the manager's deferred-resize marker in both window and inline modes; none remains invisible\&.
+.PP
+Dictionary updates validate all supplied values before changing anything\&. An invalid key, color, or distance
+leaves that dictionary and any active gesture intact\&. Successful changes cancel active gestures; unchanged
+assignments do nothing\&. Structure changes rebuild geometry while retaining content and proportions\&. Each
+dictionary update is atomic; separate property/value pairs retain the usual ordered oo::configurable
+behavior\&.
+.PP
+These settings do not alter ttk styles, grip colors, or native sash appearance and hit areas\&. The existing
+behavior properties (-draghandles, -showstructure, -opaqueresize, and -sashpreview) remain separate
+from database styling\&.
+.SH "INSPECTING THE LAYOUT"
+.PP
+Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
+.PP
+.RS 4n
+.nf
+set leaf [lindex [\&.layout leaves] 0]
+set contentFrame [\&.layout frame $leaf]
+
+set logicalParent [\&.layout parent $leaf]
+set geometryContainer [\&.layout container $leaf]
+set actualParent [winfo parent $contentFrame]
+
+set layoutTree [\&.layout tree]
+set widgetTree [\&.layout widgets]
+.fi
+.RE
+.PP
+For a non-root node identifier, container returns its parent panedwindow\&. Its actual Tk parent remains
+\&.layout\&.  With handles enabled, passing the content frame pathname instead returns its pane wrapper\&. winfo
+manager reports the manager name, not the pathname of that geometry container\&.
+.PP
+node maps an exact managed frame or panedwindow pathname to its node identifier\&. locate accepts a descendant
+application widget and walks its Tk parents to find the containing leaf:
+.PP
+.RS 4n
+.nf
+set leaf [\&.layout node $contentFrame]
+# For any existing application widget inside a content frame:
+set applicationWidget [lindex [winfo children $contentFrame] 0]
+if {$applicationWidget ne {}} {
+    set leaf [\&.layout locate $applicationWidget]
+}
+.fi
+.RE
+.PP
+tree returns nested dictionaries containing id, type, parent, widget, and children\&. Leaves also
+contain frame\&. Splits contain panedwindow, orient, and proportions, plus ratio when they have two
+children\&. Split children are nested node dictionaries in pane order\&.
+.PP
+widgets returns nested dictionaries containing path, parent, class, manager, container, and
+children\&.  It includes application widgets\&. The container is resolved for layout nodes and for widgets
+managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup\&.
+.PP
+Both snapshots are for inspection\&. They do not serialize application widget state or provide a restore
+operation\&.
 .SH CLASSES
 .PP
 .RS -4n
@@ -69,8 +570,9 @@ of property names and values; with one property name it returns that value\&. Se
 with option/value pairs\&. Pairs are applied in order, and a failed setter leaves earlier
 successful assignments in effect\&. Use configure -name instead of cget -name\&.
 .PP
-Hull properties delegate directly to the ttk frame\&. No option objects or option-database
-resources are created for the layout properties\&.
+Hull properties delegate directly to the ttk frame\&. Layout behavior properties use oo::configurable
+directly, without option objects\&. Appearance dictionaries take their initial values from the Tk option
+database; see the namespace resource reference\&.
 .PP
 \fBMethod summary\fR
 .RS 4n
@@ -163,6 +665,9 @@ Readable\&. Read-only hull class override; empty when the default ttk class is u
 -cursor
 Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
 .TP
+-dockopts
+Readable, writable\&. Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth, and -threshold\&. Defaults come from the Tk option database\&. Partial updates retain other keys\&.
+.TP
 -draghandles
 Readable, writable\&. Boolean enabling manager-owned textless grips for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape or an outside drop cancels\&. Disabling removes grips and wrappers without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
 .TP
@@ -181,8 +686,14 @@ Readable, writable\&. Hull relief, delegated to the ttk frame\&.
 -sashpreview
 Readable, writable\&. Deferred sash preview: window, inline, or none; default window\&. Changing the value cancels an active deferred drag\&. Invalid values preserve the old value\&.
 .TP
+-sashpreviewopts
+Readable, writable\&. Dictionary of deferred sash preview settings: -color and -width\&. Applies to window and inline preview modes\&. Defaults come from the Tk option database\&. Partial updates retain other keys\&.
+.TP
 -showstructure
-Readable, writable\&. Boolean showing a thin outline and three-pixel inset around every split; default false\&. Applies to existing and future splits\&. Changing it cancels active gestures, preserves content, and rebuilds geometry\&. During docking the receiving split outline is highlighted\&.
+Readable, writable\&. Boolean showing an outline and inset around every split; default false\&. Appearance is set by -structureopts\&. Applies to existing and future splits\&. Changing it cancels active gestures, preserves content, and rebuilds geometry\&. During docking the receiving split outline is highlighted\&.
+.TP
+-structureopts
+Readable, writable\&. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding\&. Defaults come from the Tk option database\&. Partial updates retain other keys\&.
 .TP
 -style
 Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
@@ -200,14 +711,17 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+-dockopts dictionary
+Docking colors, preview line width, and detection distances; option-database defaults\&.
 .TP
 -draghandles boolean
 Enable textless docking grips on all leaves; default false\&.
@@ -221,8 +735,14 @@ Enable live sash resizing; default true\&.
 -sashpreview mode
 Deferred preview mode: window, inline, or none; default window\&.
 .TP
+-sashpreviewopts dictionary
+Deferred sash preview color and width; option-database defaults\&.
+.TP
 -showstructure boolean
 Outline and inset all split regions; default false\&.
+.TP
+-structureopts dictionary
+Split outline colors, border width, and spacing; option-database defaults\&.
 .TP
 -width width
 Nonnegative requested hull width in pixels; default 800\&.

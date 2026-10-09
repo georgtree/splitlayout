@@ -13,12 +13,473 @@ namespace eval ::splitlayout {
         -includeprivate false
     }
 
-    variable _ruff_preamble {}
+    variable _ruff_preamble {
+        ## Quick start
+        ```tcl
+        package require splitlayout
+
+        wm title . {Split layout example}
+        wm geometry . 900x600
+
+        splitlayout .layout -width 900 -height 600
+        pack .layout -fill both -expand 1
+
+        set root [.layout root]
+        lassign [.layout split $root -orient horizontal -ratio 0.4 -keep first] left right
+
+        set leftFrame [.layout frame $left]
+        set rightFrame [.layout frame $right]
+
+        text $leftFrame.editor -width 20 -height 10 -wrap word
+        $leftFrame.editor insert end {Content in the left pane.}
+        pack $leftFrame.editor -fill both -expand 1
+
+        text $rightFrame.editor -width 20 -height 10 -wrap word
+        $rightFrame.editor insert end {Content in the right pane. Drag the sash to resize.}
+        pack $rightFrame.editor -fill both -expand 1
+        ```
+
+        The `splitlayout .layout ...` command returns the widget pathname. Use that pathname both as the layout command
+        and with Tk geometry managers. The constructor accepts `-width`, `-height`, `-opaqueresize`, `-sashpreview`,
+        `-draghandles`, `-showstructure`, `-dockopts`, `-structureopts`, and `-sashpreviewopts`.
+
+        ## Splitting existing content
+        Continue from the quick-start example:
+
+        ```tcl
+        lassign [.layout split $right -orient vertical -ratio 0.65 -keep first] top bottom
+
+        set bottomFrame [.layout frame $bottom]
+        ttk::label $bottomFrame.status -text {New bottom pane}
+        pack $bottomFrame.status -fill both -expand 1
+        ```
+
+        The original right-hand editor remains in `$top`, with the same widget pathname and state. `$right` now
+        identifies the parent split; `$top` and `$bottom` are new leaf identifiers. `-keep second` would retain the
+        editor in the second child instead. Both children are returned in pane order.
+
+        ## Adding panes at the same level
+        Insert beside a leaf or a split, provided that it has a parent:
+
+        ```tcl
+        set middle [.layout insert $left -side after]
+        set middleFrame [.layout frame $middle]
+        ttk::label $middleFrame.label -text {Middle pane}
+        pack $middleFrame.label -fill both -expand 1
+
+        # The root now has three children: left, middle, and the right-hand split.
+        .layout proportions $root {2 1 3}
+        ```
+
+        Insertion divides the target child's existing share equally between that child and the new leaf. The `-side`
+        option accepts `before` or `after`, with `after` as the default. To add panes when the root is still a leaf,
+        split it first.
+
+        `proportions` accepts one finite positive weight per immediate child and normalizes the weights. The example
+        assigns shares of 2/6, 1/6, and 3/6. For a split with exactly two children, `ratio` queries or sets the first
+        child's fraction:
+
+        ```tcl
+        .layout ratio $right 0.7
+        set fraction [.layout ratio $right]
+        set shares [.layout proportions $root]
+        ```
+
+        Geometry changes settle through Tk's event loop. Immediately after setting proportions, a query can return the
+        stored values before the sashes have moved.
+
+        ## Moving panes
+        `move` relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
+        application state. Supply exactly one destination option:
+
+        | Destination      | Effect                                                         |
+        |------------------|----------------------------------------------------------------|
+        | `-left target`   | Place the source to the left of a target leaf or split.        |
+        | `-right target`  | Place the source to the right of a target leaf or split.       |
+        | `-top target`    | Place the source above a target leaf or split.                 |
+        | `-bottom target` | Place the source below a target leaf or split.                 |
+        | `-before target` | Insert before a non-root leaf or split in its existing parent. |
+        | `-after target`  | Insert after a non-root leaf or split in its existing parent.  |
+
+        For example, in the layout built above:
+
+        ```tcl
+        # Insert the middle pane above the bottom pane in the existing vertical split.
+        .layout move $middle -top $bottom
+
+        # Insert it before the entire right-hand region in the root split.
+        .layout move $middle -before $right
+        ```
+
+        Edge destinations reuse the target's parent when it already has the required orientation. Otherwise, a target
+        leaf becomes a new split containing the source and a new leaf for the target's existing content. This follows
+        `split`'s identifier semantics: the target identifier now denotes a split. Use `children`, `leaves`, or
+        `locate` to obtain the new target-content leaf identifier. If the target is already a split, a new parent split
+        is created around the source and target subtree; the target keeps its identifier unless source removal leaves
+        it with a sole child and normal collapse promotes that child. A split target may contain the source, including
+        the root. For example, `.layout move $source -right [.layout root]` places the source beside the remaining
+        layout in a new horizontal root.  The source identifier remains unchanged and is also the command's return
+        value.
+
+        For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
+
+        ```tcl
+        splitlayout .example
+        pack .example -fill both -expand 1
+        lassign [.example split [.example root] -orient horizontal] a b
+        set moved [.example move $a -top $b]
+        # moved equals a; b is now the root vertical split.
+        ```
+
+        `-before` and `-after` always use the existing parent orientation. They can describe a sash destination without
+        pixel coordinates: insertion at a sash is `-before` its following child or `-after` its preceding child. A
+        split target may contain the source; moving beside that ancestor moves the source outside its
+        subtree. Insertion beside the root is an error, except that any move to oneself is a no-op.
+
+        Reordering within the same parent preserves the pane weights associated with each node. Other moves divide the
+        target's share equally between the source and target. Remaining siblings in the source parent retain their
+        relative weights. If only one child remains there, it replaces the old parent after insertion; that old parent
+        identifier becomes invalid. Query `root` again after a move that can collapse the root.
+
+        Moving to oneself or to an already adjacent position with the requested orientation does nothing. Invalid
+        arguments are rejected before modifying the layout. A structural move cancels an active deferred sash gesture,
+        rebuilds geometry once, and lets geometry settle through the normal event loop. No application content is
+        destroyed.
+
+        `move` changes pane placement; `swap` exchanges content at two existing positions.
+
+        ## Dragging panes
+        Enable minimal, manager-owned grips for every leaf with the global `-draghandles` property:
+
+        ```tcl
+        splitlayout .docking -draghandles true -opaqueresize false
+        pack .docking -fill both -expand 1
+        lassign [.docking split [.docking root]] first second
+
+        # The existing content API is unchanged.
+        set f [.docking frame $first]
+        text $f.editor
+        pack $f.editor -fill both -expand 1
+
+        # Hide all grips and reclaim their space, including for leaves created later.
+        .docking configure -draghandles false
+        ```
+
+        The default is `false`. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
+        no text or buttons. The grip uses ttk theme colors and a height scaled to Tk's display scaling. Application
+        widgets remain entirely inside the frame returned by `frame`; pack and grid configurations there survive
+        toggles and moves.
+
+        Press the left mouse button on a grip and move at least five pixels (the default `-dockopts -threshold`) to
+        start dragging. The entire strip accepts the press; content widgets retain their own mouse bindings. The
+        destination is selected within this megawidget:
+
+        | Drop location                                    | Operation                                                  | Preview                              |
+        |--------------------------------------------------|------------------------------------------------------------|--------------------------------------|
+        | Another leaf's center                            | Swap the two content frames.                               | Outline of the destination pane.     |
+        | Left, right, top, or bottom edge of another leaf | Move beside that leaf using the corresponding edge option. | Narrow band at the chosen edge.      |
+        | Outer rim of the megawidget                      | Move outside the entire layout region on that side.        | Full-height or full-width edge band. |
+        | A native sash between panes                      | Insert before the child following that sash.               | Insertion line at the sash.          |
+        | Source leaf or outside the megawidget            | Cancel.                                                    | No destination highlight.            |
+
+        By default, the outermost 12 pixels **inside** the megawidget form an outer drop zone (limited to one eighth of
+        its size). This zone takes precedence over sashes and local leaf edges. It allows moving a pane to the far
+        right or left of an entire stacked region, or above/below an entire row. A matching root orientation reuses
+        that split's first or last position; otherwise a new root split is created. Drop just inside the window: points
+        outside the megawidget still cancel.
+
+        Farther inside, sashes take precedence over leaf edge zones. Local edge zones default to up to 24 pixels into a
+        pane, limited to one quarter of its width or height; corners choose the nearest normalized edge. The preview is
+        blue by default, is temporary, and does not resize or rearrange content during dragging. Release performs one
+        `move` or `swap`; a click without dragging does nothing.  The `-sashpreview` setting controls deferred sash
+        resizing only, not this docking preview.
+
+        Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
+        changes, or disabling `-draghandles` cancels the gesture. The grip temporarily takes keyboard focus and a local
+        mouse grab so that release outside the grip and Escape are handled. Cleanup restores the prior focus when still
+        owned by the grip and releases only its own grab. A new gesture does not replace an existing grab. Dragging
+        between separate splitlayout instances or to other applications is not supported.
+
+        With handles enabled, `widget leaf` returns the **pane wrapper**, whereas `frame leaf` always returns the
+        application content frame. `container leaf` resolves the wrapper's outer geometry container; `container
+        $contentFrame` resolves the wrapper that packs the content. `node` recognizes either pathname. `locate`
+        resolves application widgets and manager-owned grips to their current leaf. Logical `tree` snapshots expose
+        both `widget` and `frame`; actual `widgets` snapshots also include the wrappers, grip canvases, and any
+        temporary preview frames.
+
+        The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged. A move
+        preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
+        wrappers. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
+        changes. Application content paths remain stable.
+
+        ## Swapping and removing content
+        The following operations continue the example above:
+
+        ```tcl
+        # Exchange complete content frames across different nesting levels.
+        .layout swap $left $bottom
+
+        # Remove the middle pane and all widgets it contains.
+        set survivingParent [.layout remove $middle]
+
+        # Keep top, destroy its sibling subtree, and replace their parent with top.
+        .layout retain $top
+        ```
+
+        `swap` exchanges content frames; node identifiers continue to identify the same logical positions. Cached frame
+        and application-widget pathnames remain valid, but may now belong to a different leaf.
+
+        `remove` destroys the requested subtree. If its parent has only one child left, that child replaces the parent.
+        `retain` destroys all siblings of the retained node and collapses its immediate parent; it does not collapse all
+        ancestors. Retaining the root does nothing.
+
+        To discard all content and start again:
+
+        ```tcl
+        set root [.layout clear]
+        ```
+
+        Previously removed node identifiers are invalid. Use the return values or query the layout again after
+        structural changes. To destroy the entire layout, use `.layout destroy` or `destroy .layout`.
+
+        ## Visual structure
+        Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:
+
+        ```tcl
+        .layout configure -showstructure true
+        # Also accepted at construction:
+        splitlayout .outlined -draghandles true -showstructure true
+        ```
+
+        By default, each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel
+        inset on each side.  Customize these dimensions and colors with `-structureopts` or the option database
+        described below.  Flat siblings share one enclosing outline; a nested split has an additional inset outline
+        around its children. A sole root leaf has no split outline. The setting is independent of drag handles and
+        applies to future splits. During docking, the receiving group outline turns blue alongside the existing
+        destination preview. For a local edge move that creates a new split, the highlighted outline is the current
+        enclosing group. Escape, an invalid destination, and release restore the normal outline color.
+
+        Changing `-showstructure` cancels active gestures and rebuilds geometry while retaining content, native
+        panedwindows, and split proportions (subject to available pixel space). Disabling it removes the outlines and
+        their spacing.  Very small panes can still collapse under Tk's normal geometry constraints.
+
+        With this option enabled, `widget split` returns the enclosing outline frame. Use `panedwindow split` to obtain
+        the native ttk panedwindow regardless of the option value, for example:
+
+        ```tcl
+        set split [.layout root]
+        set pw [.layout panedwindow $split]
+        set position [$pw sashpos 0]
+        ```
+
+        `node` recognizes both paths. `container split` returns the outer geometry container, while `container $pw`
+        returns the outline frame that packs the native panedwindow. `tree` includes both `widget` and `panedwindow`
+        for splits; `widgets` exposes the actual geometry containers. Outline frames remain immediate Tk children of
+        the hull.
+
+        ## Resizing
+        | Option           | Default  | Meaning                                                 |
+        |------------------|----------|---------------------------------------------------------|
+        | `-width`         | `800`    | Nonnegative requested hull width in pixels.             |
+        | `-height`        | `600`    | Nonnegative requested hull height in pixels.            |
+        | `-opaqueresize`  | `true`   | Resize pane content continuously while dragging a sash. |
+        | `-sashpreview`   | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
+        | `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
+        | `-showstructure` | `false`  | Outline and inset all current and future splits.        |
+
+        Enable deferred resizing at construction or through `configure`:
+
+        ```tcl
+        .layout configure -opaqueresize false -sashpreview window
+        ```
+
+        In deferred mode, dragging changes only the preview target. Releasing the mouse commits the sash position and
+        resizes the content. Escape cancels the gesture. Changing layout structure or resizing mode, unmapping the
+        pane, or changing geometry in a way that invalidates the gesture also cancels it.
+
+        | Preview mode | Behavior                                                            |
+        |--------------|---------------------------------------------------------------------|
+        | `window`     | Uses a temporary borderless transient toplevel for the sash marker. |
+        | `inline`     | Uses a frame inside the layout for the sash marker.                 |
+        | `none`       | Defers resizing without displaying a marker.                        |
+
+        Preview motion is coalesced at idle. `window` can reduce content exposures on composited desktops, but
+        appearance depends on Tk and the window manager; it does not guarantee atomic repainting of application
+        widgets.
+
+        These options apply to current and future splits. Deferred mode affects sash dragging; resizing the containing
+        window and programmatic sizing still update the layout normally. Very small containers can collapse panes;
+        there is no per-pane minimum-size API.
+
+        The class uses `oo::configurable` properties directly, without creating option objects. Query a property with
+        `configure -name`. With no arguments, `configure` returns a dictionary of property names and current values,
+        rather than Tk-style option descriptors:
+
+        ```tcl
+        set preview [.layout configure -sashpreview]
+        set properties [.layout configure]
+        .layout configure -opaqueresize false -padding 4
+        ```
+
+        The hull properties `-width`, `-height`, `-padding`, `-borderwidth`, `-relief`, `-cursor`, `-takefocus`, and
+        `-style` delegate to the ttk frame. `-class` is read-only. The constructor accepts the six creation options
+        listed above and the three appearance dictionaries described below; other writable properties can be set after
+        construction. No Tk option-database resources are added for `-opaqueresize`, `-sashpreview`, `-draghandles`, or
+        `-showstructure`.
+
+        Native property setters run in argument order. If a later value is invalid, earlier successful changes remain
+        in effect. Invalid resizing values leave that property's value and any active drag unchanged; changing a valid
+        resizing value cancels the active drag. Setting the same value preserves it.
+
+        ## Appearance and drag detection
+        Manager-owned decoration and drag detection settings follow graphtoolbar's Tk option-database convention:
+        package-specific resource names, defaults registered at `widgetDefault` priority, and dictionary properties for
+        explicit per-instance overrides. No option instances are created.
+
+        ```tcl
+        package require splitlayout
+
+        option add *splitlayoutDockColor orange userDefault
+        option add *splitlayoutDockOuterWidth 20 userDefault
+        option add *splitlayoutDockEdgeWidth 32 userDefault
+        option add *splitlayoutStructureColor gray55 userDefault
+        option add *splitlayoutStructureActiveColor orange userDefault
+
+        splitlayout::splitlayout .layout -draghandles true -showstructure true \
+            -dockopts {-threshold 8} -structureopts {-padding 3}
+        pack .layout -fill both -expand 1
+
+        # Partial updates keep all unspecified settings.
+        .layout configure -dockopts {-color purple -outerwidth 24}
+        .layout configure -sashpreviewopts {-color gray40 -width 5}
+        set docking [.layout configure -dockopts]
+        ```
+
+        | Property           | Key            | Resource name                     | Resource class                    | Default   |
+        |--------------------|----------------|-----------------------------------|-----------------------------------|-----------|
+        | `-dockopts`        | `-color`       | `splitlayoutDockColor`            | `SplitlayoutDockColor`            | `#448aff` |
+        | `-dockopts`        | `-linewidth`   | `splitlayoutDockLineWidth`        | `SplitlayoutDockLineWidth`        | `3`       |
+        | `-dockopts`        | `-edgewidth`   | `splitlayoutDockEdgeWidth`        | `SplitlayoutDockEdgeWidth`        | `24`      |
+        | `-dockopts`        | `-outerwidth`  | `splitlayoutDockOuterWidth`       | `SplitlayoutDockOuterWidth`       | `12`      |
+        | `-dockopts`        | `-threshold`   | `splitlayoutDockThreshold`        | `SplitlayoutDockThreshold`        | `5`       |
+        | `-structureopts`   | `-color`       | `splitlayoutStructureColor`       | `SplitlayoutStructureColor`       | `#909090` |
+        | `-structureopts`   | `-activecolor` | `splitlayoutStructureActiveColor` | `SplitlayoutStructureActiveColor` | `#448aff` |
+        | `-structureopts`   | `-borderwidth` | `splitlayoutStructureBorderWidth` | `SplitlayoutStructureBorderWidth` | `1`       |
+        | `-structureopts`   | `-padding`     | `splitlayoutStructurePadding`     | `SplitlayoutStructurePadding`     | `2`       |
+        | `-sashpreviewopts` | `-color`       | `splitlayoutSashPreviewColor`     | `SplitlayoutSashPreviewColor`     | `#606060` |
+        | `-sashpreviewopts` | `-width`       | `splitlayoutSashPreviewWidth`     | `SplitlayoutSashPreviewWidth`     | `3`       |
+
+        The database is queried against the layout hull once during construction. Standard Tk name/class patterns and
+        priorities apply; for example, `*editor.layout.splitlayoutDockColor` scopes a resource to a layout below
+        `.editor`.  Explicit constructor dictionary keys override database values. Later database changes affect newly
+        created layouts only; use `configure` for an existing layout. Built-in defaults are still available if the
+        application calls `option clear`.  The three dictionaries are accepted both at construction and by `configure`;
+        an empty dictionary leaves current settings unchanged.
+
+        All dimensions are integer **screen pixels**, from zero to 2147483647, without additional DPI scaling. Colors
+        must be valid Tk colors. Preview line widths (`-dockopts -linewidth` and `-sashpreviewopts -width`) must be at
+        least one.
+
+        - `-dockopts -color` colors all docking preview rectangles. `-linewidth` controls the center-swap outline and
+        sash insertion line; edge-preview bands use the corresponding detection width. Preview strokes are clipped to
+        the region.
+        - `-outerwidth` specifies the band inside the hull for docking beside the entire layout, capped at one eighth
+        of each hull dimension. Zero disables outer docking zones.
+        - `-edgewidth` specifies each leaf's local edge band, capped at one quarter of each leaf dimension. Zero
+        disables local edge moves, allowing center swaps there instead. Native sash and outer-zone precedence remain
+        unchanged.
+        - `-threshold` specifies the minimum movement along either screen axis before a grip drag activates. Zero
+        activates on the first motion event; pressing and releasing without motion still does nothing.
+        - `-structureopts` controls the normal and receiving-group outline colors, border thickness, and inner spacing.
+        The inset per side is `-borderwidth + -padding`. A zero border width hides the outline; padding can also be
+        zero.
+        - `-sashpreviewopts` controls the manager's deferred-resize marker in both `window` and `inline` modes; `none`
+        remains invisible.
+
+        Dictionary updates validate all supplied values before changing anything. An invalid key, color, or distance
+        leaves that dictionary and any active gesture intact. Successful changes cancel active gestures; unchanged
+        assignments do nothing. Structure changes rebuild geometry while retaining content and proportions. Each
+        dictionary update is atomic; separate property/value pairs retain the usual ordered `oo::configurable`
+        behavior.
+
+        These settings do not alter ttk styles, grip colors, or native sash appearance and hit areas. The existing
+        behavior properties (`-draghandles`, `-showstructure`, `-opaqueresize`, and `-sashpreview`) remain separate
+        from database styling.
+
+        ## Inspecting the layout
+        Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
+
+        ```tcl
+        set leaf [lindex [.layout leaves] 0]
+        set contentFrame [.layout frame $leaf]
+
+        set logicalParent [.layout parent $leaf]
+        set geometryContainer [.layout container $leaf]
+        set actualParent [winfo parent $contentFrame]
+
+        set layoutTree [.layout tree]
+        set widgetTree [.layout widgets]
+        ```
+
+        For a non-root node identifier, `container` returns its parent panedwindow. Its actual Tk parent remains
+        `.layout`.  With handles enabled, passing the content frame pathname instead returns its pane wrapper. `winfo
+        manager` reports the manager name, not the pathname of that geometry container.
+
+        `node` maps an exact managed frame or panedwindow pathname to its node identifier. `locate` accepts a descendant
+        application widget and walks its Tk parents to find the containing leaf:
+
+        ```tcl
+        set leaf [.layout node $contentFrame]
+        # For any existing application widget inside a content frame:
+        set applicationWidget [lindex [winfo children $contentFrame] 0]
+        if {$applicationWidget ne {}} {
+            set leaf [.layout locate $applicationWidget]
+        }
+        ```
+
+        `tree` returns nested dictionaries containing `id`, `type`, `parent`, `widget`, and `children`. Leaves also
+        contain `frame`. Splits contain `panedwindow`, `orient`, and `proportions`, plus `ratio` when they have two
+        children. Split `children` are nested node dictionaries in pane order.
+
+        `widgets` returns nested dictionaries containing `path`, `parent`, `class`, `manager`, `container`, and
+        `children`.  It includes application widgets. The container is resolved for layout nodes and for widgets
+        managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup.
+
+        Both snapshots are for inspection. They do not serialize application widget state or provide a restore
+        operation.
+    }
+
+    # Names are package-specific; native ttk resources and styles are untouched.
+    variable appearanceResources {
+        dockopts {
+            -color {splitlayoutDockColor color #448aff}
+            -linewidth {splitlayoutDockLineWidth positive 3}
+            -edgewidth {splitlayoutDockEdgeWidth nonnegative 24}
+            -outerwidth {splitlayoutDockOuterWidth nonnegative 12}
+            -threshold {splitlayoutDockThreshold nonnegative 5}
+        }
+        structureopts {
+            -color {splitlayoutStructureColor color #909090}
+            -activecolor {splitlayoutStructureActiveColor color #448aff}
+            -borderwidth {splitlayoutStructureBorderWidth nonnegative 1}
+            -padding {splitlayoutStructurePadding nonnegative 2}
+        }
+        sashpreviewopts {
+            -color {splitlayoutSashPreviewColor color #606060}
+            -width {splitlayoutSashPreviewWidth positive 3}
+        }
+    }
+    dict for {group entries} $appearanceResources {
+        dict for {key spec} $entries {
+            option add *[lindex $spec 0] [lindex $spec 2] widgetDefault
+        }
+    }
+    unset group entries key spec
 }
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders
+            Borders Settings
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -32,8 +493,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 with option/value pairs. Pairs are applied in order, and a failed setter leaves earlier
                 successful assignments in effect. Use `configure -name` instead of `cget -name`.
 
-                Hull properties delegate directly to the ttk frame. No option objects or option-database
-                resources are created for the layout properties.
+                Hull properties delegate directly to the ttk frame. Layout behavior properties use oo::configurable
+                directly, without option objects. Appearance dictionaries take their initial values from the Tk option
+                database; see the namespace resource reference.
             }
             propertydescriptions {
                 -opaqueresize {
@@ -51,9 +513,21 @@ oo::configurable create ::splitlayout::splitlayout {
                     This setting is independent of -opaqueresize and applies to future leaves as well.
                 }
                 -showstructure {
-                    Boolean showing a thin outline and three-pixel inset around every split; default false.
+                    Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts.
                     Applies to existing and future splits. Changing it cancels active gestures, preserves content,
                     and rebuilds geometry. During docking the receiving split outline is highlighted.
+                }
+                -dockopts {
+                    Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth,
+                    and -threshold. Defaults come from the Tk option database. Partial updates retain other keys.
+                }
+                -structureopts {
+                    Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding.
+                    Defaults come from the Tk option database. Partial updates retain other keys.
+                }
+                -sashpreviewopts {
+                    Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline
+                    preview modes. Defaults come from the Tk option database. Partial updates retain other keys.
                 }
                 -width {
                     Requested hull width, delegated to the ttk frame; constructor default 800.
@@ -131,12 +605,88 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error "expected boolean value but got '$value'"
         }
         set value [expr {!!$value}]
-        if {![info exists Structure] || $value != $Structure} {
+        if {![info exists Structure] || ($value != $Structure)} {
             my CancelDrag
-            if {[info exists Root]} {my CaptureAll}
+            if {[info exists Root]} {
+                my CaptureAll
+            }
             set Structure $value
-            if {[info exists Root]} {my Rebuild}
+            if {[info exists Root]} {
+                my Rebuild
+            }
         }
+    }
+    property dockopts -get {
+        return [dict get $Settings dockopts]
+    } -set {
+        my SetAppearance dockopts $value
+    }
+    property structureopts -get {
+        return [dict get $Settings structureopts]
+    } -set {
+        my SetAppearance structureopts $value
+    }
+    property sashpreviewopts -get {
+        return [dict get $Settings sashpreviewopts]
+    } -set {
+        my SetAppearance sashpreviewopts $value
+    }
+    method SetAppearance {group value} {
+        # Validates and applies an appearance dictionary without creating option instances.
+        #  group - Resource group: dockopts, structureopts, or sashpreviewopts.
+        #  value - Dictionary of keys to override; unspecified keys retain current values.
+        #
+        # On first assignment, query the hull's option database using package-specific resource names and classes.
+        # Explicit keys override database defaults before validation. Built-in defaults also survive option clear.
+        # Validation completes before cancellation or mutation. Successful changes cancel gestures; structure changes
+        # rebuild geometry with retained proportions. Setting unchanged values has no effect.
+        # Returns: Nothing.
+        set schema [dict get $::splitlayout::appearanceResources $group]
+        set candidate {}
+        if {[dict exists $Settings $group]} {
+            set candidate [dict get $Settings $group]
+        } else {
+            dict for {key spec} $schema {
+                lassign $spec resource type fallback
+                set initial [option get $W $resource [string toupper $resource 0 0]]
+                if {$initial eq {}} {
+                    set initial $fallback
+                }
+                dict set candidate $key $initial
+            }
+        }
+        dict for {key setting} $value {
+            if {![dict exists $schema $key]} {
+                return -code error "unknown -$group key '$key'"
+            }
+            dict set candidate $key $setting
+        }
+        dict for {key setting} $candidate {
+            set type [lindex [dict get $schema $key] 1]
+            if {$type eq {color}} {
+                if {[catch {winfo rgb $W $setting}]} {
+                    return -code error "invalid color for -$group $key: '$setting'"
+                }
+            } else {
+                set minimum [expr {$type eq {positive} ? 1 : 0}]
+                if {![string is entier -strict $setting] || ($setting < $minimum) ||( $setting > 2147483647)} {
+                    return -code error "expected integer pixels from $minimum to 2147483647 for -$group $key"
+                }
+                dict set candidate $key [expr {$setting + 0}]
+            }
+        }
+        if {[dict exists $Settings $group] && ($candidate eq [dict get $Settings $group])} {
+            return
+        }
+        my CancelDrag
+        if {($group eq {structureopts}) && [info exists Root]} {
+            my CaptureAll
+        }
+        dict set Settings $group $candidate
+        if {($group eq {structureopts}) && [info exists Root]} {
+            my Rebuild
+        }
+        return
     }
     property width -get {
         return [$Hull cget -width]
@@ -189,6 +739,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # A name beginning with a dot creates an instance. Creation options are -width, -height, -opaqueresize,
         # -sashpreview, -showstructure, and -draghandles, with the same meanings and defaults as in the constructor.
+        # Appearance dictionaries -dockopts, -structureopts, and -sashpreviewopts are also accepted.
         # Other names and their remaining arguments are delegated to the inherited unknown handler.
         #
         # Returns: The widget pathname on creation; otherwise the inherited handler result.
@@ -208,6 +759,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -sashpreview mode - Deferred preview mode: window, inline, or none; default window.
         #  -draghandles boolean - Enable textless docking grips on all leaves; default false.
         #  -showstructure boolean - Outline and inset all split regions; default false.
+        #  -dockopts dictionary - Docking colors, preview line width, and detection distances; option-database defaults.
+        #  -structureopts dictionary - Split outline colors, border width, and spacing; option-database defaults.
+        #  -sashpreviewopts dictionary - Deferred sash preview color and width; option-database defaults.
         #
         # The hull is a ttk frame. Managed content frames and panedwindows are its immediate Tk children; their logical
         # layout hierarchy is stored separately. The object command takes the widget pathname. Existing widgets or
@@ -215,7 +769,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
-        #  ?-draghandles boolean? ?-showstructure boolean?
+        #  ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary?
+        #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
+        set Settings {}
         set Drag {}
         set Dock {}
         set Borders {}
@@ -227,6 +783,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set Serial 0
         set options [argparse -inline -pfirst {
             path
+            {-dockopts= -default {}}
+            {-structureopts= -default {}}
+            {-sashpreviewopts= -default {}}
             {-width= -default 800 -type integer}
             {-height= -default 600 -type integer}
             {-showstructure= -default false -type boolean}
@@ -253,6 +812,9 @@ oo::configurable create ::splitlayout::splitlayout {
         ttk::frame $W -width [dict get $options width] -height [dict get $options height]
         set Owned 1
         rename ::$W $Hull
+        foreach group {dockopts structureopts sashpreviewopts} {
+            my configure -$group [dict get $options $group]
+        }
         pack propagate $W 0
         set Tag [info object namespace [self]]::bindings
         bind $Tag <Unmap> [namespace code {my CancelDock}]
@@ -876,7 +1438,8 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set pw [my panedwindow $id]
         if {[dict exists $Borders $id]} {
-            pack $pw -in [my widget $id] -fill both -expand 1 -padx 2 -pady 2
+            pack $pw -in [my widget $id] -fill both -expand 1 -padx [dict get $Settings structureopts -padding]\
+                -pady [dict get $Settings structureopts -padding]
         }
         foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
             my Attach $child
@@ -1279,8 +1842,8 @@ oo::configurable create ::splitlayout::splitlayout {
     method SyncBorders {} {
         # Synchronizes optional split outlines after all geometry widgets have been detached.
         #
-        # Wrappers are hull children, just like native panedwindows and content frames. A one-pixel outline plus
-        # two pixels of inner spacing separates nested regions without changing widget ancestry.
+        # Wrappers are hull children, just like native panedwindows and content frames. The configured outline width plus
+        # inner spacing separates nested regions without changing widget ancestry.
         # Returns: Nothing.
         dict for {id border} $Borders {
             if {!$Structure || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
@@ -1293,9 +1856,13 @@ oo::configurable create ::splitlayout::splitlayout {
             if {([dict get $data type] ne {split}) || [dict exists $Borders $id]} {
                 continue
             }
-            set border [frame $W.outline[incr Serial] -borderwidth 0 -highlightthickness 1\
-                                -highlightbackground #909090 -highlightcolor #909090 -takefocus 0]
+            set border [frame $W.outline[incr Serial] -borderwidth 0 -takefocus 0]
             dict set Borders $id $border
+        }
+        dict for {id border} $Borders {
+            $border configure -highlightthickness [dict get $Settings structureopts -borderwidth]\
+                -highlightbackground [dict get $Settings structureopts -color]\
+                -highlightcolor [dict get $Settings structureopts -color]
         }
     }
     method HighlightSplit {target} {
@@ -1317,7 +1884,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         dict for {id border} $Borders {
             if {[winfo exists $border]} {
-                set color [expr {$id eq $receiver ? {#448aff} : {#909090}}]
+                set color [dict get $Settings structureopts [expr {$id eq $receiver ? {-activecolor} : {-color}}]]
                 $border configure -highlightbackground $color -highlightcolor $color
             }
         }
@@ -1449,19 +2016,20 @@ oo::configurable create ::splitlayout::splitlayout {
         #  y - Pointer screen y coordinate.
         #
         # Reuse a matching root split by inserting before its first or after its last child. Otherwise an edge move
-        # wraps the root. The twelve-pixel rim is limited to one eighth of the hull size; outside points cancel.
+        # wraps the root. The configurable outer rim is limited to one eighth of the hull size; outside points cancel.
         # Returns: A move destination dictionary, or empty if no outer destination applies.
         if {[my type $Root] ne {split}} {
             return
         }
+        if {[dict get $Settings dockopts -outerwidth] == 0} {return {}}
         lassign [my DockBounds $W] px py width height
         set rx [expr {$x-$px}]
         set ry [expr {$y-$py}]
         if {($rx < 0) || ($ry < 0) || ($rx >= $width) || ($ry >= $height)} {
             return
         }
-        set ex [expr {max(1,min(12,$width/8))}]
-        set ey [expr {max(1,min(12,$height/8))}]
+        set ex [expr {max(1,min([dict get $Settings dockopts -outerwidth],$width/8))}]
+        set ey [expr {max(1,min([dict get $Settings dockopts -outerwidth],$height/8))}]
         set side {}
         set nearest 1.0
         foreach candidate {left right top bottom} distance [list [expr {double($rx)/$ex}]\
@@ -1543,9 +2111,9 @@ oo::configurable create ::splitlayout::splitlayout {
             set target [lindex [my children $id] [expr {$sash+1}]]
             set pos [$pw sashpos $sash]
             if {[dict get $data orient] eq {horizontal}} {
-                set rect [list [expr {$px+$pos}] $py 3 $height]
+                set rect [list [expr {$px+$pos}] $py [expr {min([dict get $Settings dockopts -linewidth],$width-$pos)}] $height]
             } else {
-                set rect [list $px [expr {$py+$pos}] $width 3]
+                set rect [list $px [expr {$py+$pos}] $width [expr {min([dict get $Settings dockopts -linewidth],$height-$pos)}]]
             }
             return [dict create op move target $target side before kind sash rect $rect]
         }
@@ -1563,15 +2131,15 @@ oo::configurable create ::splitlayout::splitlayout {
             if {$id eq [dict get $Dock source]} {
                 return
             }
-            set ex [expr {max(1,min(24,$width/4))}]
-            set ey [expr {max(1,min(24,$height/4))}]
+            set ex [expr {max(1,min([dict get $Settings dockopts -edgewidth],$width/4))}]
+            set ey [expr {max(1,min([dict get $Settings dockopts -edgewidth],$height/4))}]
             set side {}
             set nearest 2.0
             foreach candidate {left right top bottom} distance [list [expr {double($rx)/$ex}]\
                                                                         [expr {double($width-1-$rx)/$ex}]\
                                                                         [expr {double($ry)/$ey}]\
                                                                         [expr {double($height-1-$ry)/$ey}]] {
-                if {($distance < 1.0) && ($distance < $nearest)} {
+                if {[dict get $Settings dockopts -edgewidth] > 0 && ($distance < 1.0) && ($distance < $nearest)} {
                     set side $candidate
                     set nearest $distance
                 }
@@ -1603,7 +2171,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  x - Pointer screen x coordinate.
         #  y - Pointer screen y coordinate.
         #
-        # A five-pixel threshold distinguishes clicks from drags. No layout changes happen here.
+        # The dockopts threshold distinguishes clicks from drags. No layout changes happen here.
         # Returns: Tcl break completion during a gesture; nothing otherwise.
         if {$Dock eq {}} {
             return
@@ -1614,7 +2182,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         if {![dict get $Dock active]} {
             lassign [dict get $Dock start] sx sy
-            if {max(abs($x-$sx),abs($y-$sy)) < 5} {
+            if {max(abs($x-$sx),abs($y-$sy)) < [dict get $Settings dockopts -threshold]} {
                 return -code break
             }
             dict set Dock active 1
@@ -1634,7 +2202,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set overlays [dict get $Dock overlays]
         if {$overlays eq {}} {
             for {set i 0} {$i < 4} {incr i} {
-                lappend overlays [frame $W.drop[incr Serial] -background #448aff -borderwidth 0 -takefocus 0]
+                lappend overlays [frame $W.drop[incr Serial] -background [dict get $Settings dockopts -color]\
+                                          -borderwidth 0 -takefocus 0]
             }
             dict set Dock overlays $overlays
         }
@@ -1648,7 +2217,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set x [expr {$x-[winfo rootx $W]}]
         set y [expr {$y-[winfo rooty $W]}]
         if {[dict get $target kind] eq {center}} {
-            set t [expr {min(3,$width,$height)}]
+            set t [expr {min([dict get $Settings dockopts -linewidth],$width,$height)}]
             set boxes [list [list $x $y $width $t] [list $x [expr {$y+$height-$t}] $width $t] [list $x $y $t $height]\
                                [list [expr {$x+$width-$t}] $y $t $height]]
         } else {
@@ -1760,13 +2329,14 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$Preview ne {none}} {
             set proxy $W.proxy[incr Serial]
             if {$Preview eq {window}} {
-                toplevel $proxy -background #606060 -borderwidth 0 -takefocus 0
+                toplevel $proxy -background [dict get $Settings sashpreviewopts -color] -borderwidth 0 -takefocus 0
                 wm withdraw $proxy
                 wm overrideredirect $proxy 1
                 wm transient $proxy $Owner
                 wm resizable $proxy 0 0
             } else {
-                frame $proxy -background #606060 -borderwidth 1 -relief raised -takefocus 0
+                frame $proxy -background [dict get $Settings sashpreviewopts -color] -borderwidth 1 -relief raised\
+                        -takefocus 0
             }
         }
         set Drag [dict create pw $pw id $id sash $sash orient $orient start $coordinate position [$pw sashpos $sash]\
@@ -1823,8 +2393,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # Displays the deferred sash preview at its latest target.
         #
         # Clears the preview idle token. The none mode creates no visual surface. The window mode positions a separate
-        # toplevel; inline places a frame relative to the hull. The three-pixel marker is constrained to the split
-        # bounds, and unchanged geometry is skipped. Content panes are not resized.
+        # toplevel; inline places a frame relative to the hull. The configurable-width marker is constrained to the
+        # split bounds, and unchanged geometry is skipped. Content panes are not resized.
         #
         # Returns: Nothing.
         if {$Drag eq {}} {
@@ -1841,12 +2411,13 @@ oo::configurable create ::splitlayout::splitlayout {
         set position [dict get $Drag target]
         set width [winfo width $pw]
         set height [winfo height $pw]
+        set thickness [dict get $Settings sashpreviewopts -width]
         if {[dict get $Drag orient] eq {horizontal}} {
-            set x [expr {$x+max(0,min($width-3,$position))}]
-            set width [expr {min(3,$width)}]
+            set x [expr {$x+max(0,min($width-$thickness,$position))}]
+            set width [expr {min($thickness,$width)}]
         } else {
-            set y [expr {$y+max(0,min($height-3,$position))}]
-            set height [expr {min(3,$height)}]
+            set y [expr {$y+max(0,min($height-$thickness,$position))}]
+            set height [expr {min($thickness,$height)}]
         }
         set geometry [list $x $y $width $height]
         if {$geometry eq [dict get $Drag shownGeometry]} {

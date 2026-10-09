@@ -26,9 +26,15 @@ set commonNroff [list -title $title -sortnamespaces false -preamble $startPageNr
 set namespaces [list ::splitlayout]
 set namespacesNroff $namespaces
 
-ruff::document $namespaces -outdir $docDir -format sphinx -outfile splitlayout.rst -outdir [file join $docDir sphinx]\
-        {*}$commonSphinx
-ruff::document $namespacesNroff -outdir $docDir -format nroff -outfile splitlayout.n {*}$commonNroff
+set savedPreambles {}
+try {
+    set savedPreambles [::splitlayoutDoc::PreparePreambles $namespaces]
+    ruff::document $namespaces -format sphinx -outfile splitlayout.rst -outdir [file join $docDir sphinx]\
+            {*}$commonSphinx
+    ruff::document $namespacesNroff -format nroff -outdir $docDir -outfile splitlayout.n {*}$commonNroff
+} finally {
+    ::splitlayoutDoc::RestorePreambles $savedPreambles
+}
 
 ::fileutil::appendToFile [file join $docDir sphinx conf.py] {html_theme = "classic"
 extensions = [
