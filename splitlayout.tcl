@@ -45,7 +45,6 @@ namespace eval ::splitlayout {
 
         ## Splitting existing content
         Continue from the quick-start example:
-
         ```tcl
         lassign [.layout split $right -orient vertical -ratio 0.65 -keep first] top bottom
 
@@ -60,7 +59,6 @@ namespace eval ::splitlayout {
 
         ## Adding panes at the same level
         Insert beside a leaf or a split, provided that it has a parent:
-
         ```tcl
         set middle [.layout insert $left -side after]
         set middleFrame [.layout frame $middle]
@@ -78,7 +76,6 @@ namespace eval ::splitlayout {
         `proportions` accepts one finite positive weight per immediate child and normalizes the weights. The example
         assigns shares of 2/6, 1/6, and 3/6. For a split with exactly two children, `ratio` queries or sets the first
         child's fraction:
-
         ```tcl
         .layout ratio $right 0.7
         set fraction [.layout ratio $right]
@@ -89,12 +86,11 @@ namespace eval ::splitlayout {
         stored values before the sashes have moved.
 
         ## Minimum content sizes
-
         ```tcl
         $manager minsize $leaf 200 120
-        puts [$manager minsize $leaf]               ;# 200 120 (content area)
+        puts [$manager minsize $leaf]                ;# 200 120 (content area)
         puts [$manager requiredsize [$manager root]] ;# Recursive outer minimum
-        $manager minsize $leaf 0 0                  ;# Clear the content-area minimum
+        $manager minsize $leaf 0 0                   ;# Clear the content-area minimum
         ```
 
         `minsize id ?width height?` accepts a leaf or an owned floating token. Both dimensions must be supplied together
@@ -143,7 +139,6 @@ namespace eval ::splitlayout {
         | `-after target`  | Insert after a non-root leaf or split in its existing parent.  |
 
         For example, in the layout built above:
-
         ```tcl
         # Insert the middle pane above the bottom pane in the existing vertical split.
         .layout move $middle -top $bottom
@@ -163,7 +158,6 @@ namespace eval ::splitlayout {
         value.
 
         For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
-
         ```tcl
         splitlayout .example
         pack .example -fill both -expand 1
@@ -191,7 +185,6 @@ namespace eval ::splitlayout {
 
         ## Dragging panes
         Enable minimal, manager-owned grips for every leaf with the global `-draghandles` property:
-
         ```tcl
         splitlayout .docking -draghandles true -opaqueresize false
         pack .docking -fill both -expand 1
@@ -221,8 +214,8 @@ namespace eval ::splitlayout {
         | Left, right, top, or bottom edge of another leaf | Move beside that leaf using the corresponding edge option. | Narrow band at the chosen edge.      |
         | Outer rim of the megawidget                      | Move outside the entire layout region on that side.        | Full-height or full-width edge band. |
         | A native sash between panes                      | Insert before the child following that sash.               | Insertion line at the sash.          |
-        | Source leaf                                     | Cancel.                                                    | No destination highlight.            |
-        | Outside the megawidget, on screen                | Undock the leaf into a new window.                          | Floating window outline.             |
+        | Source leaf                                      | Cancel.                                                    | No destination highlight.            |
+        | Outside the megawidget, on screen                | Undock the leaf into a new window.                         | Floating window outline.             |
 
         By default, the outermost 12 pixels **inside** the megawidget form an outer drop zone (limited to one eighth of
         its size). This zone takes precedence over sashes and local leaf edges. It allows moving a pane to the far
@@ -252,8 +245,8 @@ namespace eval ::splitlayout {
 
         The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged. A move
         preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
-        wrappers. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
-        changes. Application content paths remain stable.
+        wrappers. Disabling handles removes wrappers unless leaf borders still need them; do not cache wrapper or
+        grip paths across layout changes. Application content paths remain stable.
 
         Floating windows also have a full-width internal grip when `-draghandles` is enabled. Drag this grip to move
         the floating window and preview destinations in its owner layout. Drop on an edge, sash, or outer rim to dock
@@ -264,10 +257,10 @@ namespace eval ::splitlayout {
 
         Each grip has two monochrome bitmap buttons, with tooltips:
 
-        | Button | Docked leaf | Floating content |
-        |--------|-------------|------------------|
-        | Arrow | Undock | Dock at the default destination defined by `dock` |
-        | Cross | Delete content with `remove` | Delete content with `remove` |
+        | Button | Docked leaf                  | Floating content                                  |
+        |--------|------------------------------|---------------------------------------------------|
+        | Arrow  | Undock                       | Dock at the default destination defined by `dock` |
+        | Cross  | Delete content with `remove` | Delete content with `remove`                      |
 
         The cross **always destroys content**. It never consults `-onclose`; that policy controls only the native
         floating window close request (including Alt+F4). Buttons accept keyboard focus and do not start dragging. The
@@ -281,8 +274,8 @@ namespace eval ::splitlayout {
         theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
 
         ### Leaf outlines
-
         Enable `-leafborder true` to surround each leaf's header and content with one independent outline.
+
         The header and content share the same inner left and right edges. Floating windows use the same settings.
         With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted.
         `-headerborderwidth` sets separator thickness and `-headerrelief` its native bottom-edge relief. Flat or zero
@@ -309,7 +302,6 @@ namespace eval ::splitlayout {
         The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
         dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
         thickness are global properties; they do not override ttk button styles:
-
         ```tcl
         $manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
         $manager title $leaf "Waveforms"
@@ -334,7 +326,6 @@ namespace eval ::splitlayout {
 
         `-buttonimages` is a dictionary with `dock`, `undock`, and `delete` keys. Values are existing Tk image names,
         not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:
-
         ```tcl
         set undockImage [image create photo -file undock.png]
         set dockImage [image create photo -file dock.svg -format svg]
@@ -364,7 +355,6 @@ namespace eval ::splitlayout {
 
         ## Swapping and removing content
         The following operations continue the example above:
-
         ```tcl
         # Exchange complete content frames across different nesting levels.
         .layout swap $left $bottom
@@ -384,7 +374,6 @@ namespace eval ::splitlayout {
         ancestors. Retaining the root does nothing.
 
         To discard all content and start again:
-
         ```tcl
         set root [.layout clear]
         ```
@@ -394,7 +383,6 @@ namespace eval ::splitlayout {
 
         ## Visual structure
         Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:
-
         ```tcl
         .layout configure -showstructure true
         # Also accepted at construction:
@@ -428,27 +416,7 @@ namespace eval ::splitlayout {
         the hull.
 
         ## Resizing
-        | Option           | Default  | Meaning                                                 |
-        |------------------|----------|---------------------------------------------------------|
-        | `-width`         | `800`    | Nonnegative requested hull width in pixels.             |
-        | `-height`        | `600`    | Nonnegative requested hull height in pixels.            |
-        | `-opaqueresize`  | `true`   | Resize pane content continuously while dragging a sash. |
-        | `-sashpreview`   | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
-        | `-buttonside` | `right` | Place header buttons on the left or right; title alignment is independent. |
-        | `-titlealign` | `center` | Align the optional header title left, center, or right. |
-        | `-buttonimages` | Empty values | Optional dock, undock, and delete Tk image overrides. |
-        | `-headerrelief` | `flat` | Rectangular header relief. |
-        | `-leafborder` | `false` | Outline each leaf, including floating windows. |
-        | `-leafborderwidth` | `1` | Nonnegative leaf outline thickness in pixels. |
-        | `-leafrelief` | `solid` | Leaf outline relief, independent of the header. |
-        | `-leafopts` | option database | Leaf border base color (`-color`). |
-        | `-headerborderwidth` | `1` | Nonnegative header border thickness in pixels. |
-        | `-tooltips` | `true` | Use Tklib tooltips when available. |
-        | `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
-        | `-showstructure` | `false`  | Outline and inset all current and future splits.        |
-
         Enable deferred resizing at construction or through `configure`:
-
         ```tcl
         .layout configure -opaqueresize false -sashpreview window
         ```
@@ -466,6 +434,27 @@ namespace eval ::splitlayout {
         Preview motion is coalesced at idle. `window` can reduce content exposures on composited desktops, but
         appearance depends on Tk and the window manager; it does not guarantee atomic repainting of application
         widgets.
+
+        ## Options
+
+        | Option               | Default         | Meaning                                                                    |
+        |----------------------|-----------------|----------------------------------------------------------------------------|
+        | `-width`             | `800`           | Nonnegative requested hull width in pixels.                                |
+        | `-height`            | `600`           | Nonnegative requested hull height in pixels.                               |
+        | `-opaqueresize`      | `true`          | Resize pane content continuously while dragging a sash.                    |
+        | `-sashpreview`       | `window`        | Deferred preview mode: `window`, `inline`, or `none`.                      |
+        | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
+        | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
+        | `-buttonimages`      | Empty values    | Optional dock, undock, and delete Tk image overrides.                      |
+        | `-headerrelief`      | `flat`          | Rectangular header relief.                                                 |
+        | `-leafborder`        | `false`         | Outline each leaf, including floating windows.                             |
+        | `-leafborderwidth`   | `1`             | Nonnegative leaf outline thickness in pixels.                              |
+        | `-leafrelief`        | `solid`         | Leaf outline relief, independent of the header.                            |
+        | `-leafopts`          | option database | Leaf border base color (`-color`).                                         |
+        | `-headerborderwidth` | `1`             | Nonnegative header border thickness in pixels.                             |
+        | `-tooltips`          | `true`          | Use Tklib tooltips when available.                                         |
+        | `-draghandles`       | `false`         | Show docking grips on all current and future leaves.                       |
+        | `-showstructure`     | `false`         | Outline and inset all current and future splits.                           |
 
         These options apply to current and future splits. Deferred mode affects sash dragging; resizing the containing
         window and programmatic sizing still update the layout normally. Very small containers can collapse panes;
@@ -522,7 +511,7 @@ namespace eval ::splitlayout {
         | `-dockopts`        | `-edgewidth`   | `splitlayoutDockEdgeWidth`        | `SplitlayoutDockEdgeWidth`        | `24`      |
         | `-dockopts`        | `-outerwidth`  | `splitlayoutDockOuterWidth`       | `SplitlayoutDockOuterWidth`       | `12`      |
         | `-dockopts`        | `-threshold`   | `splitlayoutDockThreshold`        | `SplitlayoutDockThreshold`        | `5`       |
-        | `-leafopts` | `-color` | `splitlayoutLeafColor` | `SplitlayoutLeafColor` | `#909090` |
+        | `-leafopts`        | `-color`       | `splitlayoutLeafColor`            | `SplitlayoutLeafColor`            | `#909090` |
         | `-structureopts`   | `-color`       | `splitlayoutStructureColor`       | `SplitlayoutStructureColor`       | `#909090` |
         | `-structureopts`   | `-activecolor` | `splitlayoutStructureActiveColor` | `SplitlayoutStructureActiveColor` | `#448aff` |
         | `-structureopts`   | `-borderwidth` | `splitlayoutStructureBorderWidth` | `SplitlayoutStructureBorderWidth` | `1`       |
@@ -568,12 +557,10 @@ namespace eval ::splitlayout {
         from database styling.
 
         ## Floating managed content
-
         `undock` promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
         and collapses a parent with only one remaining child. The application widgets, paths, bindings, and content
         state are retained. `dock` returns that owned content to a new leaf. Arbitrary windows and other managers'
-        floating content are not accepted. This first version exposes commands; drag gestures still operate within the
-        docked layout.
+        floating content are not accepted. For mouse-driven docking and undocking, see Dragging panes.
 
         ```tcl
         set content [$manager frame $leaf]
@@ -598,11 +585,12 @@ namespace eval ::splitlayout {
         orientation and relative order (following siblings take precedence at equal distance). The first surviving
         sibling node is used, including if it has become a split. Node identity represents a position: swapping its
         content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
-        anchors are skipped. Explicit destinations override this restoration. If no anchor remains, `dock` places the
-        content to the right of the current root. Undocking the sole root creates an empty placeholder leaf to preserve
-        the nonempty-tree invariant. An implicit dock replaces that placeholder if it is still the root, has no header
-        title, and its content frame has no child widgets. If you populate it, both contents are retained. Explicit
-        destinations always follow the requested placement instead of replacing the placeholder.
+        anchors are skipped. Original sash proportions are not restored. Explicit destinations override this
+        restoration. If no anchor remains, `dock` places the content to the right of the current root. Undocking the
+        sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces
+        that placeholder if it is still the root, has no header title, and its content frame has no child widgets. If
+        you populate it, both contents are retained. Explicit destinations always follow the requested placement
+        instead of replacing the placeholder.
 
         `undock` accepts `-title` (default `splitlayout`), `-geometry` (default current content size and position), and
         `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current
@@ -619,8 +607,9 @@ namespace eval ::splitlayout {
         `wm` geometry manager.
 
         Content frames are **classic `labelframe` widgets with class `Frame`**, borderless while docked, because Tk's
-        `wm manage` cannot promote `ttk::frame`. The hull, leaf wrappers, and panedwindows retain their ttk
-        behavior. Code using `frame $leaf` for `pack`, `grid`, or child creation continues to work; ttk-only frame
+        `wm manage` cannot promote `ttk::frame`. The hull, panedwindows, and header buttons retain their ttk behavior;
+        leaf wrappers use classic frames for configurable borders. Code using `frame $leaf` for `pack`, `grid`, or
+        child creation continues to work; ttk-only frame
         options such as `-style` are no longer available on that content frame. Place themed widgets inside it when
         needed. Actual parentage remains the layout hull throughout the round trip.
 
@@ -638,7 +627,6 @@ namespace eval ::splitlayout {
 
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
-
         ```tcl
         set leaf [lindex [.layout leaves] 0]
         set contentFrame [.layout frame $leaf]
@@ -657,7 +645,6 @@ namespace eval ::splitlayout {
 
         `node` maps an exact managed frame or panedwindow pathname to its node identifier. `locate` accepts a descendant
         application widget and walks its Tk parents to find the containing leaf:
-
         ```tcl
         set leaf [.layout node $contentFrame]
         # For any existing application widget inside a content frame:

@@ -155,9 +155,9 @@ stored values before the sashes have moved\&.
 .RS 4n
 .nf
 $manager minsize $leaf 200 120
-puts [$manager minsize $leaf]               ;# 200 120 (content area)
+puts [$manager minsize $leaf]                ;# 200 120 (content area)
 puts [$manager requiredsize [$manager root]] ;# Recursive outer minimum
-$manager minsize $leaf 0 0                  ;# Clear the content-area minimum
+$manager minsize $leaf 0 0                   ;# Clear the content-area minimum
 .fi
 .RE
 .PP
@@ -338,8 +338,8 @@ temporary preview frames\&.
 .PP
 The wrapper and grip stay at their leaf position during a swap; only content frames are exchanged\&. A move
 preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
-wrappers\&. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
-changes\&. Application content paths remain stable\&.
+wrappers\&. Disabling handles removes wrappers unless leaf borders still need them; do not cache wrapper or
+grip paths across layout changes\&. Application content paths remain stable\&.
 .PP
 Floating windows also have a full-width internal grip when -draghandles is enabled\&. Drag this grip to move
 the floating window and preview destinations in its owner layout\&. Drop on an edge, sash, or outer rim to dock
@@ -374,6 +374,7 @@ theme\&. Preview styling and hit areas continue to use -dockopts and its option-
 .SS "LEAF OUTLINES"
 .PP
 Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
+.PP
 The header and content share the same inner left and right edges\&. Floating windows use the same settings\&.
 With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted\&.
 -headerborderwidth sets separator thickness and -headerrelief its native bottom-edge relief\&. Flat or zero
@@ -532,31 +533,6 @@ for splits; widgets exposes the actual geometry containers\&. Outline frames rem
 the hull\&.
 .SH RESIZING
 .PP
-.RS 4n
-.nf
-┌────────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────┐
-│ Option             │ Default         │ Meaning                                                                    │
-├────────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────┤
-│ -width             │ 800             │ Nonnegative requested hull width in pixels\&.                                │
-│ -height            │ 600             │ Nonnegative requested hull height in pixels\&.                               │
-│ -opaqueresize      │ true            │ Resize pane content continuously while dragging a sash\&.                    │
-│ -sashpreview       │ window          │ Deferred preview mode: window, inline, or none\&.                            │
-│ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
-│ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
-│ -buttonimages      │ Empty values    │ Optional dock, undock, and delete Tk image overrides\&.                      │
-│ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
-│ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
-│ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
-│ -leafrelief        │ solid           │ Leaf outline relief, independent of the header\&.                            │
-│ -leafopts          │ option database │ Leaf border base color (-color)\&.                                           │
-│ -headerborderwidth │ 1               │ Nonnegative header border thickness in pixels\&.                             │
-│ -tooltips          │ true            │ Use Tklib tooltips when available\&.                                         │
-│ -draghandles       │ false           │ Show docking grips on all current and future leaves\&.                       │
-│ -showstructure     │ false           │ Outline and inset all current and future splits\&.                           │
-└────────────────────┴─────────────────┴────────────────────────────────────────────────────────────────────────────┘
-.fi
-.RE
-.PP
 Enable deferred resizing at construction or through configure:
 .PP
 .RS 4n
@@ -584,6 +560,32 @@ pane, or changing geometry in a way that invalidates the gesture also cancels it
 Preview motion is coalesced at idle\&. window can reduce content exposures on composited desktops, but
 appearance depends on Tk and the window manager; it does not guarantee atomic repainting of application
 widgets\&.
+.SH OPTIONS
+.PP
+.RS 4n
+.nf
+┌────────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────┐
+│ Option             │ Default         │ Meaning                                                                    │
+├────────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────┤
+│ -width             │ 800             │ Nonnegative requested hull width in pixels\&.                                │
+│ -height            │ 600             │ Nonnegative requested hull height in pixels\&.                               │
+│ -opaqueresize      │ true            │ Resize pane content continuously while dragging a sash\&.                    │
+│ -sashpreview       │ window          │ Deferred preview mode: window, inline, or none\&.                            │
+│ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
+│ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
+│ -buttonimages      │ Empty values    │ Optional dock, undock, and delete Tk image overrides\&.                      │
+│ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
+│ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
+│ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
+│ -leafrelief        │ solid           │ Leaf outline relief, independent of the header\&.                            │
+│ -leafopts          │ option database │ Leaf border base color (-color)\&.                                           │
+│ -headerborderwidth │ 1               │ Nonnegative header border thickness in pixels\&.                             │
+│ -tooltips          │ true            │ Use Tklib tooltips when available\&.                                         │
+│ -draghandles       │ false           │ Show docking grips on all current and future leaves\&.                       │
+│ -showstructure     │ false           │ Outline and inset all current and future splits\&.                           │
+└────────────────────┴─────────────────┴────────────────────────────────────────────────────────────────────────────┘
+.fi
+.RE
 .PP
 These options apply to current and future splits\&. Deferred mode affects sash dragging; resizing the containing
 window and programmatic sizing still update the layout normally\&. Very small containers can collapse panes;
@@ -700,8 +702,7 @@ from database styling\&.
 undock promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
 and collapses a parent with only one remaining child\&. The application widgets, paths, bindings, and content
 state are retained\&. dock returns that owned content to a new leaf\&. Arbitrary windows and other managers'
-floating content are not accepted\&. This first version exposes commands; drag gestures still operate within the
-docked layout\&.
+floating content are not accepted\&. For mouse-driven docking and undocking, see Dragging panes\&.
 .PP
 .RS 4n
 .nf
@@ -728,11 +729,12 @@ With no destination, dock tries the sibling positions saved by undock, nearest f
 orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
 sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
 content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
-anchors are skipped\&. Explicit destinations override this restoration\&. If no anchor remains, dock places the
-content to the right of the current root\&. Undocking the sole root creates an empty placeholder leaf to preserve
-the nonempty-tree invariant\&. An implicit dock replaces that placeholder if it is still the root, has no header
-title, and its content frame has no child widgets\&. If you populate it, both contents are retained\&. Explicit
-destinations always follow the requested placement instead of replacing the placeholder\&.
+anchors are skipped\&. Original sash proportions are not restored\&. Explicit destinations override this
+restoration\&. If no anchor remains, dock places the content to the right of the current root\&. Undocking the
+sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces
+that placeholder if it is still the root, has no header title, and its content frame has no child widgets\&. If
+you populate it, both contents are retained\&. Explicit destinations always follow the requested placement
+instead of replacing the placeholder\&.
 .PP
 undock accepts -title (default splitlayout), -geometry (default current content size and position), and
 -onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current
@@ -749,8 +751,9 @@ leaves, node, and locate) exclude floating content; widgets still exposes its ac
 wm geometry manager\&.
 .PP
 Content frames are \fBclassic labelframe widgets with class Frame\fP, borderless while docked, because Tk's
-wm manage cannot promote ttk::frame\&. The hull, leaf wrappers, and panedwindows retain their ttk
-behavior\&. Code using frame $leaf for pack, grid, or child creation continues to work; ttk-only frame
+wm manage cannot promote ttk::frame\&. The hull, panedwindows, and header buttons retain their ttk behavior;
+leaf wrappers use classic frames for configurable borders\&. Code using frame $leaf for pack, grid, or
+child creation continues to work; ttk-only frame
 options such as -style are no longer available on that content frame\&. Place themed widgets inside it when
 needed\&. Actual parentage remains the layout hull throughout the round trip\&.
 .PP
