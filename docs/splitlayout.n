@@ -40,6 +40,9 @@ Live resizing or deferred resizing with a configurable sash preview\&.
 .TP
 \(bu
 Inspection of both the logical layout tree and the actual Tk widget hierarchy\&.
+.TP
+\(bu
+Undocking owned content into native windows and docking it back without recreating widgets\&.
 .SH "GENERAL CONCEPT"
 .PP
 A layout starts with one empty \fBleaf\fP\&. Each leaf owns a content frame into which the application places its widgets\&.
@@ -64,7 +67,7 @@ are descendants of their content frame\&. Splitting, promoting, or swapping cont
 geometry container, while its actual Tk parent and widget pathnames stay the same\&.
 .PP
 Removing a content frame destroys that frame and its application widgets\&. Destroying the layout destroys all its
-content\&. Surviving frames retain their widgets and state\&.
+content, including floating windows\&. Surviving frames retain their widgets and state\&.
 .SH REQUIREMENTS
 .TP
 \(bu
@@ -151,6 +154,28 @@ The generated HTML documentation is available online:
 .PP
 The repository also includes generated HTML under docs/ and manual pages as docs/*\&.n\&. Open docs/index\&.html to
 browse the local HTML documentation\&.
+.SH "DOCKING AND UNDOCKING"
+.PP
+.RS 4n
+.nf
+set floating [$manager undock $leaf -title "Waveform" -geometry 600x400+100+100]
+set newLeaf [$manager dock $floating -right $target]
+.fi
+.RE
+.PP
+Only content owned by the same manager is accepted\&. The content frame and all its widgets survive; the old leaf ID
+and, after docking, the floating token expire\&. Use $manager floating to list floating tokens, $manager floating $token
+to inspect one, and $manager frame $token to access its native window\&.
+.PP
+Docking supports all six move destinations\&. Without a destination, it docks beside the current root or replaces an
+untouched empty placeholder created by undocking the sole root\&. Closing a floating window redocks it by default;
+undock -onclose destroy or remove $token explicitly destroys its content\&. clear affects the docked tree only\&.
+Destroying the manager destroys its floating windows too, because their actual Tk ancestry remains unchanged\&.
+.PP
+Content containers are now classic borderless frame widgets so Tk can promote them with wm manage\&.
+The surrounding hull, grips, and panedwindows retain their themed behavior\&. Ttk-only content-frame options such as
+-style must instead be applied to a themed child\&. See the Ruff API documentation for full lifecycle, destination,
+and bindtag semantics\&. These are public commands; floating-window drag gestures are not part of this addition\&.
 
 
 .SH SEE ALSO

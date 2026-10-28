@@ -1767,6 +1767,201 @@ foreach mode {inline window} {
     } -cleanup {::sltest::cleanup} -result {orange 7}
 }
 
+test splitlayout-float-18.1 {undock retains widgets and removes the leaf, collapsing its parent} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true -showstructure true
+    set root [$m root]
+    lassign [$m split $root] a b
+    set text [::sltest::fill $m $a retained]
+    set frame [$m frame $a]
+    update
+} -body {
+    set f [$m undock $a -title Waveform -geometry 320x240+80+60]
+    ::sltest::await {[winfo ismapped $frame]} {floating content mapping}
+    list [catch {$m type $a}] [expr {[$m root] eq $b}] [$text get 1.0 end-1c] \
+        [expr {[$m frame $f] eq $frame}] [winfo manager $frame] [expr {[winfo toplevel $text] eq $frame}] \
+        [expr {[winfo parent $frame] eq $m}] [dict get [$m floating $f] title] \
+        [$m node $frame] [$m locate $text] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 retained 1 wm 1 1 Waveform {} {} 1}
+
+test splitlayout-float-18.2 {sole-root round trips replace untouched placeholders without accumulating leaves} -setup {
+    set m [::sltest::setup]
+    set text [::sltest::fill $m [$m root] A]
+    set frame [$m frame [$m root]]
+} -body {
+    set ok 1
+    for {set i 0} {$i < 4} {incr i} {
+        set old [$m root]
+        set f [$m undock $old]
+        set placeholder [$m root]
+        set leaf [$m dock $f]
+        update
+        if {[$m root] ne $leaf || [$m frame $leaf] ne $frame || [llength [$m leaves]] != 1 ||
+            [$m floating] ne {} || ![catch {$m type $placeholder}] || ![catch {$m type $old}]} {set ok 0}
+        ::sltest::check $m
+    }
+    list $ok [$text get 1.0 end-1c] [expr {[winfo toplevel $frame] eq {.sltest}}]
+} -cleanup {::sltest::cleanup} -result {1 A 1}
+
+foreach side {left right top bottom before after} {
+    test splitlayout-float-18.3-$side {all docking destinations preserve source and target content} -setup {
+        set m [::sltest::setup]
+        $m configure -draghandles true -showstructure true
+        set root [$m root]
+        lassign [$m split $root] a b
+        set c [$m insert $b]
+        set text [::sltest::fill $m $a source]
+        set targetText [::sltest::fill $m $b target]
+        set frame [$m frame $a]
+        set targetFrame [$m frame $b]
+        update
+        set f [$m undock $a]
+    } -body {
+        set leaf [$m dock $f -$side $b]
+        update
+        set targetLeaf [$m locate $targetText]
+        set children [$m children [$m parent $leaf]]
+        set expectedBefore [expr {$side in {left top before}}]
+        list [expr {[$m frame $leaf] eq $frame && [$m frame $targetLeaf] eq $targetFrame}] \
+            [expr {([lsearch -exact $children $leaf] < [lsearch -exact $children $targetLeaf]) == $expectedBefore}] \
+            [llength [$m leaves]] [$text get 1.0 end-1c] [$m floating] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {1 1 3 source {} 1}
+}
+
+test splitlayout-float-18.4 {split targets keep their subtree when wrapped on docking} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $b -orient vertical] c d
+    set f [$m undock $a]
+} -body {
+    set leaf [$m dock $f -right $b]
+    update
+    list [expr {[$m children [$m root]] eq [list $b $leaf]}] \
+        [expr {[$m children $b] eq [list $c $d]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-float-18.5 {populated placeholder is never discarded by implicit docking} -setup {
+    set m [::sltest::setup]
+    set f [$m undock [$m root]]
+    set text [::sltest::fill $m [$m root] new]
+} -body {
+    $m dock $f
+    update
+    list [llength [$m leaves]] [$text get 1.0 end-1c] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {2 new 1}
+
+test splitlayout-float-18.6 {close defaults to docking and explicit destroy discards floating content} -setup {
+    set m [::sltest::setup]
+    set text [::sltest::fill $m [$m root] keep]
+} -body {
+    set f [$m undock [$m root]]
+    set frame [$m frame $f]
+    uplevel #0 [wm protocol $frame WM_DELETE_WINDOW]
+    set kept [expr {[winfo exists $text] && [$m floating] eq {}}]
+    set f [$m undock [$m locate $text] -onclose destroy]
+    uplevel #0 [wm protocol [$m frame $f] WM_DELETE_WINDOW]
+    list $kept [winfo exists $text] [$m floating] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 0 {} 1}
+
+test splitlayout-float-18.7 {clear retains floating content; remove and external destruction clean the registry} -setup {
+    set m [::sltest::setup]
+    set f [$m undock [$m root]]
+    set frame [$m frame $f]
+} -body {
+    $m clear
+    set retained [expr {[$m frame $f] eq $frame}]
+    $m remove $f
+    set removed [expr {![winfo exists $frame] && [$m floating] eq {}}]
+    set f [$m undock [$m root]]
+    destroy [$m frame $f]
+    update
+    list $retained $removed [$m floating] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 {} 1}
+
+test splitlayout-float-18.8 {manager destruction destroys floating windows and callbacks} -setup {
+    set m [::sltest::setup]
+    set f [$m undock [$m root]]
+    set frame [$m frame $f]
+    set ns [info object namespace $m]
+} -body {
+    $m destroy
+    update
+    list [winfo exists $frame] [info commands $m] [bind ${ns}::bindingsFloating]
+} -cleanup {::sltest::cleanup} -result {0 {} {}}
+
+test splitlayout-float-18.9 {invalid geometry rolls promotion back with the tree and content intact} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true -showstructure true
+    set root [$m root]
+    lassign [$m split $root] a b
+    set text [::sltest::fill $m $a kept]
+    update
+} -body {
+    set error [catch {$m undock $a -geometry invalid}]
+    update
+    list $error [expr {[$m children $root] eq [list $a $b]}] [$text get 1.0 end-1c] \
+        [expr {[winfo toplevel $text] eq {.sltest}}] [$m floating] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 kept 1 {} 1}
+
+test splitlayout-float-18.10 {invalid, stale, foreign, and arbitrary destinations preserve floating windows} -setup {
+    set m [::sltest::setup]
+    set f [$m undock [$m root]]
+    set frame [$m frame $f]
+    set other [splitlayout .sltest.other]
+    set foreign [$other undock [$other root]]
+    toplevel .sltest.external
+} -body {
+    set results {}
+    foreach args [list [list $f -left missing] [list $f -before [$m root]] \
+        [list $f -left [$m root] -right [$m root]] [list $foreign] [list .sltest.external] [list $frame]] {
+        lappend results [catch {$m dock {*}$args}]
+    }
+    set intact [expr {[winfo manager $frame] eq {wm} && [$m floating] eq [list $f]}]
+    $m dock $f
+    lappend results [catch {$m dock $f}]
+    list $results $intact [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1 1 1} 1 1}
+
+test splitlayout-float-18.11 {custom toplevel bindtags round trip and preserve application edits while floating} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+    set text [::sltest::fill $m $leaf kept]
+    set frame [$m frame $leaf]
+    bindtags $text [linsert [bindtags $text] 1 AppTag]
+    bindtags $frame [linsert [bindtags $frame] 1 FrameTag]
+    set before [bindtags $text]
+    set beforeFrame [bindtags $frame]
+} -body {
+    set f [$m undock $leaf]
+    set adjusted [expr {$frame in [bindtags $text] && {.sltest} ni [bindtags $text]}]
+    $m dock $f
+    set restored [expr {[bindtags $text] eq $before && [bindtags $frame] eq $beforeFrame}]
+    set f [$m undock [$m locate $text]]
+    bindtags $text [linsert [bindtags $text] 1 NewTag]
+    $m dock $f
+    list $adjusted $restored [expr {{NewTag} in [bindtags $text] && {.sltest} in [bindtags $text]}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-float-18.12 {default bindtags and grid content survive promotion and redocking} -setup {
+    set m [::sltest::setup]
+    set frame [$m frame [$m root]]
+    ttk::entry $frame.entry
+    $frame.entry insert 0 retained
+    bindtags $frame.entry [bindtags $frame.entry]
+    grid $frame.entry -sticky nsew
+    grid columnconfigure $frame 0 -weight 1
+    grid rowconfigure $frame 0 -weight 1
+} -body {
+    set f [$m undock [$m root]]
+    set tagsAdjusted [expr {$frame in [bindtags $frame.entry] && {.sltest} ni [bindtags $frame.entry]}]
+    $m configure -draghandles true -showstructure true
+    $m dock $f
+    update
+    list [$frame.entry get] [winfo manager $frame.entry] [grid columnconfigure $frame 0 -weight] \
+        [expr {[bindtags $frame] eq [list $frame Frame .sltest all]}] $tagsAdjusted [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {retained grid 1 1 1 1}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

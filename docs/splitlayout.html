@@ -58,6 +58,7 @@ without recreating the surviving application widgets.</p>
 <li><p>Relative pane proportions and interactive sash resizing.</p></li>
 <li><p>Live resizing or deferred resizing with a configurable sash preview.</p></li>
 <li><p>Inspection of both the logical layout tree and the actual Tk widget hierarchy.</p></li>
+<li><p>Undocking owned content into native windows and docking it back without recreating widgets.</p></li>
 </ul>
 </section>
 <section id="general-concept">
@@ -80,7 +81,7 @@ Grip canvases are children of their wrappers. Application widgets
 are descendants of their content frame. Splitting, promoting, or swapping content changes its logical placement and
 geometry container, while its actual Tk parent and widget pathnames stay the same.</p>
 <p>Removing a content frame destroys that frame and its application widgets. Destroying the layout destroys all its
-content. Surviving frames retain their widgets and state.</p>
+content, including floating windows. Surviving frames retain their widgets and state.</p>
 </section>
 </section>
 <section id="requirements">
@@ -142,6 +143,24 @@ available to the selected interpreter. Tests require a graphical display.</p>
 </ul>
 <p>The repository also includes generated HTML under <code class="docutils literal notranslate"><span class="pre">docs/</span></code> and manual pages as <code class="docutils literal notranslate"><span class="pre">docs/*.n</span></code>. Open <code class="docutils literal notranslate"><span class="pre">docs/index.html</span></code> to
 browse the local HTML documentation.</p>
+</section>
+<section id="docking-and-undocking">
+<span id="r-docking-and-undocking"></span><span id="r-docking20and20undocking"></span><h2>Docking and undocking<a class="headerlink" href="#docking-and-undocking" title="Link to this heading">¶</a></h2>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>floating<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">undock</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span><span class="s2">&quot;Waveform&quot;</span><span class="w"> </span><span class="o">-</span>geometry<span class="w"> </span><span class="mi">600</span>x400<span class="o">+</span><span class="mi">100</span><span class="o">+</span><span class="mi">100</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>newLeaf<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">dock</span><span class="w"> </span><span class="nv">$floating</span><span class="w"> </span><span class="o">-</span>right<span class="w"> </span><span class="nv">$target</span><span class="k">]</span>
+</pre></div>
+</div>
+<p>Only content owned by the same manager is accepted. The content frame and all its widgets survive; the old leaf ID
+and, after docking, the floating token expire. Use <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">floating</span></code> to list floating tokens, <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">floating</span> <span class="pre">$token</span></code>
+to inspect one, and <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">frame</span> <span class="pre">$token</span></code> to access its native window.</p>
+<p>Docking supports all six <code class="docutils literal notranslate"><span class="pre">move</span></code> destinations. Without a destination, it docks beside the current root or replaces an
+untouched empty placeholder created by undocking the sole root. Closing a floating window redocks it by default;
+<code class="docutils literal notranslate"><span class="pre">undock</span> <span class="pre">-onclose</span> <span class="pre">destroy</span></code> or <code class="docutils literal notranslate"><span class="pre">remove</span> <span class="pre">$token</span></code> explicitly destroys its content. <code class="docutils literal notranslate"><span class="pre">clear</span></code> affects the docked tree only.
+Destroying the manager destroys its floating windows too, because their actual Tk ancestry remains unchanged.</p>
+<p>Content containers are now classic borderless <code class="docutils literal notranslate"><span class="pre">frame</span></code> widgets so Tk can promote them with <code class="docutils literal notranslate"><span class="pre">wm</span> <span class="pre">manage</span></code>.
+The surrounding hull, grips, and panedwindows retain their themed behavior. Ttk-only content-frame options such as
+<code class="docutils literal notranslate"><span class="pre">-style</span></code> must instead be applied to a themed child. See the Ruff API documentation for full lifecycle, destination,
+and bindtag semantics. These are public commands; floating-window drag gestures are not part of this addition.</p>
 <hr class="docutils" />
 <p class="centered">
 <strong>Copyright (c) George Yashin</strong></p></section>
@@ -166,6 +185,7 @@ browse the local HTML documentation.</p>
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
 <li><a class="reference internal" href="#installing">Installing</a></li>
 <li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#docking-and-undocking">Docking and undocking</a></li>
 </ul>
 </li>
 </ul>

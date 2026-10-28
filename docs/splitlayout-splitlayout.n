@@ -17,6 +17,10 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
+\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target?\fP
+.br
+\fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
+.br
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ insert\fP \fInode ?-side side?\fP
@@ -50,6 +54,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
 .br
 \fBSPLITLAYOUTOBJ type\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ undock\fP \fIleaf ?-title title? ?-geometry geometry? ?-onclose action?\fP
 .br
 \fBSPLITLAYOUTOBJ widget\fP \fIid\fP
 .br
@@ -511,6 +517,64 @@ behavior\&.
 These settings do not alter ttk styles, grip colors, or native sash appearance and hit areas\&. The existing
 behavior properties (-draghandles, -showstructure, -opaqueresize, and -sashpreview) remain separate
 from database styling\&.
+.SH "FLOATING MANAGED CONTENT"
+.PP
+undock promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
+and collapses a parent with only one remaining child\&. The application widgets, paths, bindings, and content state
+are retained\&. dock returns that owned content to a new leaf\&. Arbitrary windows and other managers' floating
+content are not accepted\&. This first version exposes commands; drag gestures still operate within the docked layout\&.
+.PP
+.RS 4n
+.nf
+set content [$manager frame $leaf]
+set floating [$manager undock $leaf -title "Waveform" -geometry 600x400+100+100]
+
+# The content frame is now itself the native toplevel\&.
+wm title $content "Floating waveform"
+set info [$manager floating $floating]
+set allFloating [$manager floating]
+
+# Return it beside an existing leaf or split; the original leaf ID has expired\&.
+set newLeaf [$manager dock $floating -right $target]
+.fi
+.RE
+.PP
+The docking destinations are -left, -right, -top, -bottom, -before, and -after, with the same placement
+rules as move\&. Specify at most one\&. Edge destinations accept leaves or splits; sibling destinations require a
+non-root target\&. Docking reuses a matching parent orientation, converts a leaf target into a split when necessary,
+or wraps a split target in a new parent\&. Existing pane shares are divided equally at the insertion point\&.
+.PP
+With no destination, dock places the content to the right of the current root\&. Undocking the sole root creates
+an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces that placeholder if
+it is still the root and its content frame has no child widgets\&. If you populate it, both contents are retained\&.
+Explicit destinations always follow the requested placement instead of replacing the placeholder\&.
+.PP
+undock accepts -title (default splitlayout), -geometry (default current content size and position), and
+-onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current layout
+by default; it does not remember an old location that may no longer exist\&. Use -onclose destroy to discard the
+content on close, or $manager remove $floating to destroy it explicitly\&. $manager clear and removing the docked
+root clear only the docked tree; floating windows remain owned by the manager\&. Destroying the manager or an actual
+Tk ancestor destroys all owned floating windows as well\&. Direct destruction of a floating frame removes its record\&.
+.PP
+Floating tokens are opaque, manager-specific handles\&. They expire on docking or removal, and must not be reused\&.
+floating lists these tokens; floating $token returns a dictionary with id, frame, title, geometry, state,
+and onclose\&. frame $token returns the retained frame\&. Docked-tree commands (tree, leaves, node, and locate)
+exclude floating content; widgets still exposes its actual Tk ancestry and wm geometry manager\&.
+.PP
+Content frames are now \fBclassic borderless frame widgets\fP, because Tk's wm manage cannot promote ttk::frame\&.
+The hull, leaf wrappers, and panedwindows retain their ttk behavior\&. Code using frame $leaf for pack, grid, or
+child creation continues to work; ttk-only frame options such as -style are no longer available on that content
+frame\&. Place themed widgets inside it when needed\&. Actual parentage remains the layout hull throughout the round trip\&.
+.PP
+Tk default bindtags follow the changed toplevel\&. The manager also retargets explicit bindtag entries naming the old
+toplevel, restoring unchanged custom lists on docking and preserving other edits made while floating\&. Binding scripts
+containing literal window paths are not rewritten\&. Applications that cache winfo toplevel should query it again after
+a docking transition\&. Preserve manager-owned bindtags if changing a floating frame's bindtags directly\&.
+.PP
+Window promotion uses Tk's wm manage/wm forget, so native activation, positioning, and decorations depend on the
+platform/window manager\&. Invalid destinations are rejected before unmanaging the floating window\&. Failure to promote
+or apply the requested geometry restores the docked layout\&. Windows and Aqua behavior should be verified on their
+native Tk builds; X11 test results alone do not establish macOS compatibility\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -555,6 +619,8 @@ widgets returns nested dictionaries containing path, parent, class, manager, con
 children\&.  It includes application widgets\&. The container is resolved for layout nodes and for widgets
 managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup\&.
 .PP
+Floating content is described separately by floating; widgets still includes its actual Tk subtree\&.
+.PP
 Both snapshots are for inspection\&. They do not serialize application widget state or provide a restore
 operation\&.
 .SH CLASSES
@@ -590,13 +656,19 @@ children
 Returns the immediate logical children of a node\&. Child identifiers in pane order, or an empty list for a leaf\&.
 .TP
 clear
-Destroys all layout content and creates one empty root leaf\&.
+Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
 .TP
 container
 Returns the geometry container for a managed node\&. The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .TP
+dock
+Returns owned floating content to a new leaf in the docked layout\&. The new docked leaf identifier\&.
+.TP
+floating
+Lists floating content or describes one floating window owned by this manager\&.
+.TP
 frame
-Returns the content frame of a leaf\&. The leaf content frame pathname\&.
+Returns the retained content frame of a docked leaf or floating window\&. The content frame pathname, unchanged across docking transitions\&.
 .TP
 insert
 Inserts an empty leaf beside an existing non-root node\&.
@@ -626,7 +698,7 @@ ratio
 Queries or sets the first pane fraction of a two-child split\&.
 .TP
 remove
-Removes a node and all content in its subtree\&.
+Removes a docked subtree or destroys owned floating content\&.
 .TP
 retain
 Keeps a node while removing its siblings and collapsing its parent\&.
@@ -645,6 +717,9 @@ Returns a recursive snapshot of the logical layout hierarchy\&. A nested diction
 .TP
 type
 Returns the type of a logical node\&. The string leaf or split\&.
+.TP
+undock
+Removes a leaf from the layout and promotes its retained content to a floating window\&.
 .TP
 widget
 Returns the widget associated with a logical node\&. The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure, or the content frame/native panedwindow otherwise\&. Use panedwindow to access a split's native widget\&.
@@ -807,7 +882,7 @@ Child identifiers in pane order, or an empty list for a leaf\&.
 \fBclear\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Destroys all layout content and creates one empty root leaf\&.
+Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ clear\fP
 .br
@@ -849,11 +924,86 @@ Returns the geometry container for a managed node\&.
 The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .PP
 .RS -4n
+\fBdock\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Returns owned floating content to a new leaf in the docked layout\&.
+The new docked leaf identifier\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-after target
+Dock after a non-root node in its existing parent\&.
+.TP
+-before target
+Dock before a non-root node in its existing parent\&.
+.TP
+-bottom target
+Dock below a leaf or split\&.
+.TP
+-left target
+Dock to the left of a leaf or split\&.
+.TP
+-right target
+Dock to the right of a leaf or split\&.
+.TP
+-top target
+Dock above a leaf or split\&.
+.TP
+floating
+Token returned by this manager's undock command\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+At most one destination is allowed\&. With no destination, replaces an untouched empty placeholder left by
+undocking the root, or docks to the right of the current root\&. Explicit destinations follow move semantics:
+reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split\&.
+The floating token expires; all content widgets retain their pathnames and state\&. Arbitrary windows and
+other managers' tokens are rejected\&. Custom toplevel bindtags are adjusted; literal paths in scripts are not\&.
+.PP
+\fBReturn value\fR
+.PP
+Returns owned floating content to a new leaf in the docked layout\&.
+The new docked leaf identifier\&.
+.PP
+.RS -4n
+\fBfloating\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Lists floating content or describes one floating window owned by this manager\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Floating token returned by undock; omit to list tokens\&. Optional, default ""\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Floating content is absent from tree, leaves, node, and locate\&. Its actual widgets remain visible in widgets\&.
+The snapshot contains id, frame, title, geometry, state, and onclose\&. Tokens expire on docking or removal\&.
+.PP
+\fBReturn value\fR
+.PP
+A list of floating tokens, or a dictionary describing one floating window\&.
+.PP
+.RS -4n
 \fBframe\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Returns the content frame of a leaf\&.
-The leaf content frame pathname\&.
+Returns the retained content frame of a docked leaf or floating window\&.
+The content frame pathname, unchanged across docking transitions\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
 .br
@@ -863,7 +1013,7 @@ The leaf content frame pathname\&.
 .RS 4n
 .TP
 id
-Existing leaf identifier\&.
+Existing leaf identifier or floating token\&.
 .RE
 .PP
 \fBDescription\fR
@@ -872,8 +1022,8 @@ Raises an error if the node is unknown or is a split\&.
 .PP
 \fBReturn value\fR
 .PP
-Returns the content frame of a leaf\&.
-The leaf content frame pathname\&.
+Returns the retained content frame of a docked leaf or floating window\&.
+The content frame pathname, unchanged across docking transitions\&.
 .PP
 .RS -4n
 \fBinsert\fR (::splitlayout::splitlayout)
@@ -1148,7 +1298,7 @@ The stored first pane fraction\&.
 \fBremove\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Removes a node and all content in its subtree\&.
+Removes a docked subtree or destroys owned floating content\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ remove\fP \fIid\fP
 .br
@@ -1158,7 +1308,7 @@ Removes a node and all content in its subtree\&.
 .RS 4n
 .TP
 id
-Existing node identifier to remove\&.
+Existing node identifier or floating token to remove\&.
 .RE
 .PP
 \fBDescription\fR
@@ -1168,7 +1318,7 @@ weights\&. If only one child remains, that child replaces the parent split\&. Su
 .PP
 \fBReturn value\fR
 .PP
-The surviving parent split, its promoted sole child, or the new empty root\&.
+The surviving parent split, its promoted child, or new root; empty for floating removal\&.
 .PP
 .RS -4n
 \fBretain\fR (::splitlayout::splitlayout)
@@ -1333,6 +1483,42 @@ Existing logical node identifier\&.
 .PP
 Returns the type of a logical node\&.
 The string leaf or split\&.
+.PP
+.RS -4n
+\fBundock\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Removes a leaf from the layout and promotes its retained content to a floating window\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ undock\fP \fIleaf ?-title title? ?-geometry geometry? ?-onclose action?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-geometry geometry
+Optional Tk window geometry; defaults to the current content size and screen position\&.
+.TP
+-onclose action
+Window close action: dock or destroy; default dock\&.
+.TP
+-title title
+Window title; default splitlayout\&.
+.TP
+leaf
+Existing docked leaf identifier\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Content widgets and their pathnames survive\&. The former leaf identifier expires and single-child parents
+collapse\&. Undocking the sole root leaves an empty placeholder leaf\&. Only this manager's content is accepted\&.
+The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows\&.
+.PP
+\fBReturn value\fR
+.PP
+An opaque floating token, accepted by dock, floating, frame, and remove\&.
 .PP
 .RS -4n
 \fBwidget\fR (::splitlayout::splitlayout)

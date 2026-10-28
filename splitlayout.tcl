@@ -406,6 +406,63 @@ namespace eval ::splitlayout {
         behavior properties (`-draghandles`, `-showstructure`, `-opaqueresize`, and `-sashpreview`) remain separate
         from database styling.
 
+        ## Floating managed content
+
+        `undock` promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
+        and collapses a parent with only one remaining child. The application widgets, paths, bindings, and content state
+        are retained. `dock` returns that owned content to a new leaf. Arbitrary windows and other managers' floating
+        content are not accepted. This first version exposes commands; drag gestures still operate within the docked layout.
+
+        ```tcl
+        set content [$manager frame $leaf]
+        set floating [$manager undock $leaf -title "Waveform" -geometry 600x400+100+100]
+
+        # The content frame is now itself the native toplevel.
+        wm title $content "Floating waveform"
+        set info [$manager floating $floating]
+        set allFloating [$manager floating]
+
+        # Return it beside an existing leaf or split; the original leaf ID has expired.
+        set newLeaf [$manager dock $floating -right $target]
+        ```
+
+        The docking destinations are `-left`, `-right`, `-top`, `-bottom`, `-before`, and `-after`, with the same placement
+        rules as `move`. Specify at most one. Edge destinations accept leaves or splits; sibling destinations require a
+        non-root target. Docking reuses a matching parent orientation, converts a leaf target into a split when necessary,
+        or wraps a split target in a new parent. Existing pane shares are divided equally at the insertion point.
+
+        With no destination, `dock` places the content to the right of the current root. Undocking the sole root creates
+        an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces that placeholder if
+        it is still the root and its content frame has no child widgets. If you populate it, both contents are retained.
+        Explicit destinations always follow the requested placement instead of replacing the placeholder.
+
+        `undock` accepts `-title` (default `splitlayout`), `-geometry` (default current content size and position), and
+        `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current layout
+        by default; it does not remember an old location that may no longer exist. Use `-onclose destroy` to discard the
+        content on close, or `$manager remove $floating` to destroy it explicitly. `$manager clear` and removing the docked
+        root clear only the docked tree; floating windows remain owned by the manager. Destroying the manager or an actual
+        Tk ancestor destroys all owned floating windows as well. Direct destruction of a floating frame removes its record.
+
+        Floating tokens are opaque, manager-specific handles. They expire on docking or removal, and must not be reused.
+        `floating` lists these tokens; `floating $token` returns a dictionary with `id`, `frame`, `title`, `geometry`, `state`,
+        and `onclose`. `frame $token` returns the retained frame. Docked-tree commands (`tree`, `leaves`, `node`, and `locate`)
+        exclude floating content; `widgets` still exposes its actual Tk ancestry and `wm` geometry manager.
+
+        Content frames are now **classic borderless `frame` widgets**, because Tk's `wm manage` cannot promote `ttk::frame`.
+        The hull, leaf wrappers, and panedwindows retain their ttk behavior. Code using `frame $leaf` for `pack`, `grid`, or
+        child creation continues to work; ttk-only frame options such as `-style` are no longer available on that content
+        frame. Place themed widgets inside it when needed. Actual parentage remains the layout hull throughout the round trip.
+
+        Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the old
+        toplevel, restoring unchanged custom lists on docking and preserving other edits made while floating. Binding scripts
+        containing literal window paths are not rewritten. Applications that cache `winfo toplevel` should query it again after
+        a docking transition. Preserve manager-owned bindtags if changing a floating frame's bindtags directly.
+
+        Window promotion uses Tk's `wm manage`/`wm forget`, so native activation, positioning, and decorations depend on the
+        platform/window manager. Invalid destinations are rejected before unmanaging the floating window. Failure to promote
+        or apply the requested geometry restores the docked layout. Windows and Aqua behavior should be verified on their
+        native Tk builds; X11 test results alone do not establish macOS compatibility.
+
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
 
@@ -445,6 +502,8 @@ namespace eval ::splitlayout {
         `children`.  It includes application widgets. The container is resolved for layout nodes and for widgets
         managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup.
 
+        Floating content is described separately by floating; widgets still includes its actual Tk subtree.
+
         Both snapshots are for inspection. They do not serialize application widget state or provide a restore
         operation.
     }
@@ -479,7 +538,7 @@ namespace eval ::splitlayout {
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders Settings
+            Borders Settings Floating VacantRoot
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -771,6 +830,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
         #  ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary?
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
+        set Floating {}
+        set VacantRoot {}
         set Settings {}
         set Drag {}
         set Dock {}
@@ -817,6 +878,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         pack propagate $W 0
         set Tag [info object namespace [self]]::bindings
+        bind ${Tag}Floating <Destroy> [namespace code {my FloatingDestroyed %W}]
         bind $Tag <Unmap> [namespace code {my CancelDock}]
         bind $Tag <Configure> [namespace code {my DockGeometry}]
         bind $Tag <Destroy> [namespace code {my HullDestroyed %W}]
@@ -850,7 +912,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 set index [lsearch -exact $tags ${Tag}Owner]
                 if {$index >= 0} {bindtags $Owner [lreplace $tags $index $index]}
             }
-            foreach tag [list $Tag ${Tag}Sash ${Tag}Deferred ${Tag}Owner] {
+            foreach tag [list $Tag ${Tag}Sash ${Tag}Deferred ${Tag}Owner ${Tag}Floating] {
                 foreach event [bind $tag] {
                     bind $tag $event {}
                 }
@@ -902,7 +964,7 @@ oo::configurable create ::splitlayout::splitlayout {
     method NewLeaf {parent {frame {}}} {
         # Allocates a leaf record and optionally creates its content frame.
         #  parent - Logical parent identifier, or empty for a root.
-        #  frame - Existing content frame to reuse; empty creates a new ttk frame.
+        #  frame - Existing content frame to reuse; empty creates a new classic frame that supports wm manage.
         #
         # A newly created frame is an immediate Tk child of the hull. This helper does not attach the leaf to its parent
         # or rebuild the layout.
@@ -910,11 +972,260 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: The new leaf identifier.
         set id n[incr Serial]
         if {$frame eq {}} {
-            set frame [ttk::frame $W.content$Serial]
+            set frame [::frame $W.content$Serial -borderwidth 0 -highlightthickness 0]
             bind $frame <Map> [namespace code [list my ContentMapped $frame]]
         }
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
         return $id
+    }
+    method floating {{id {}}} {
+        # Lists floating content or describes one floating window owned by this manager.
+        #  id - Floating token returned by undock; omit to list tokens.
+        #
+        # Floating content is absent from tree, leaves, node, and locate. Its actual widgets remain visible in widgets.
+        # The snapshot contains id, frame, title, geometry, state, and onclose. Tokens expire on docking or removal.
+        # Returns: A list of floating tokens, or a dictionary describing one floating window.
+        if {$id eq {}} {return [dict keys $Floating]}
+        set frame [my FloatingFrame $id]
+        return [dict create id $id frame $frame title [wm title $frame] geometry [wm geometry $frame]\
+            state [wm state $frame] onclose [dict get $Floating $id onclose]]
+    }
+    method FloatingFrame {id} {
+        # Validates a floating token and returns its retained content frame.
+        #  id - Floating token owned by this manager.
+        #
+        # Widget paths, stale tokens, and tokens belonging to another manager are rejected.
+        # Returns: The existing content frame pathname.
+        if {![dict exists $Floating $id]} {return -code error "unknown floating content '$id'"}
+        return [dict get $Floating $id frame]
+    }
+    method BindingSnapshot {frame} {
+        # Collects binding-tag lists in a content subtree before changing its toplevel.
+        #  frame - Root content frame.
+        #
+        # Explicit lists can equal the defaults, so inspect all widgets. RetargetBindings avoids assigning tags when
+        # Tk has already updated them automatically.
+        # Returns: A dictionary mapping widget paths to their bindtag lists.
+        set result {}
+        set pending [list $frame]
+        while {[llength $pending]} {
+            set path [lindex $pending end]
+            set pending [lrange $pending 0 end-1]
+            dict set result $path [bindtags $path]
+            lappend pending {*}[winfo children $path]
+        }
+        return $result
+    }
+    method RetargetBindings {snapshot from to {saved {}}} {
+        # Retargets explicit toplevel bindtags without rewriting application binding scripts.
+        #  snapshot - Bindtags collected before the transition.
+        #  from - Previous toplevel pathname.
+        #  to - New toplevel pathname.
+        #  saved - Optional undock changes, used to restore unchanged custom lists exactly on docking.
+        #
+        # Application changes made while floating are preserved except for the obsolete toplevel tag. Widget tags
+        # themselves are retained, and a content-frame widget tag is not duplicated when it becomes a toplevel.
+        # Returns: A dictionary of original and adjusted lists for restoration on docking.
+        set changes {}
+        dict for {path tags} $snapshot {
+            if {![winfo exists $path]} {continue}
+            if {[dict exists $saved $path] && $tags eq [lindex [dict get $saved $path] 1]} {
+                set adjusted [lindex [dict get $saved $path] 0]
+            } elseif {$path eq $from && $tags eq [list $path [winfo class $path] all]} {
+                # A former toplevel's default list gains its containing toplevel on docking.
+                set adjusted [list $path [winfo class $path] $to all]
+            } else {
+                set adjusted {}
+                foreach tag $tags {
+                    if {$tag eq $from && $tag ne $path} {
+                        if {$to ne $path} {lappend adjusted $to}
+                    } else {lappend adjusted $tag}
+                }
+            }
+            if {[bindtags $path] ne $adjusted} {
+                bindtags $path $adjusted
+                dict set changes $path [list $tags $adjusted]
+            }
+        }
+        return $changes
+    }
+    method undock {args} {
+        # Removes a leaf from the layout and promotes its retained content to a floating window.
+        #  leaf - Existing docked leaf identifier.
+        #  -title title - Window title; default splitlayout.
+        #  -geometry geometry - Optional Tk window geometry; defaults to the current content size and screen position.
+        #  -onclose action - Window close action: dock or destroy; default dock.
+        #
+        # Content widgets and their pathnames survive. The former leaf identifier expires and single-child parents
+        # collapse. Undocking the sole root leaves an empty placeholder leaf. Only this manager's content is accepted.
+        # The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows.
+        # Returns: An opaque floating token, accepted by dock, floating, frame, and remove.
+        # Synopsis: leaf ?-title title? ?-geometry geometry? ?-onclose action?
+        set opts [argparse -inline -pfirst {
+            leaf
+            {-title= -default splitlayout}
+            {-geometry=}
+            {-onclose= -default dock -enum {dock destroy}}
+        }]
+        set id [my Check [dict get $opts leaf] leaf]
+        set frame [my frame $id]
+        set parent [my parent $id]
+        set top [winfo toplevel $frame]
+        set tags [my BindingSnapshot $frame]
+        set width [expr {max(1,[winfo width $frame])}]
+        set height [expr {max(1,[winfo height $frame])}]
+        set geometry ${width}x${height}+[winfo rootx $frame]+[winfo rooty $frame]
+        if {[dict exists $opts geometry]} {set geometry [dict get $opts geometry]}
+        my CancelDrag
+        my CaptureAll
+        my Detach $frame
+        # Do not mutate the tree until the platform has accepted promotion and the window options.
+        if {[catch {
+            wm manage $frame
+            wm title $frame [dict get $opts title]
+            wm geometry $frame $geometry
+        } message options]} {
+            if {[winfo exists $frame] && [winfo toplevel $frame] eq $frame} {wm forget $frame}
+            my Rebuild
+            return -options $options $message
+        }
+        set token ${W}#f[incr Serial]
+        set changed [my RetargetBindings $tags $top $frame]
+        dict set Floating $token [dict create frame $frame onclose [dict get $opts onclose] bindings $changed]
+        bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
+        wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
+        dict unset Nodes $id
+        if {$parent eq {}} {
+            set Root [my NewLeaf {}]
+            set VacantRoot $Root
+        } else {
+            set children [my children $parent]
+            set at [lsearch -exact $children $id]
+            set children [lreplace $children $at $at]
+            set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
+            dict set Nodes $parent children $children
+            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
+            if {[llength $children] == 1} {my Promote $parent [lindex $children 0]}
+        }
+        my Rebuild
+        return $token
+    }
+    method dock {args} {
+        # Returns owned floating content to a new leaf in the docked layout.
+        #  floating - Token returned by this manager's undock command.
+        #  -left target - Dock to the left of a leaf or split.
+        #  -right target - Dock to the right of a leaf or split.
+        #  -top target - Dock above a leaf or split.
+        #  -bottom target - Dock below a leaf or split.
+        #  -before target - Dock before a non-root node in its existing parent.
+        #  -after target - Dock after a non-root node in its existing parent.
+        #
+        # At most one destination is allowed. With no destination, replaces an untouched empty placeholder left by
+        # undocking the root, or docks to the right of the current root. Explicit destinations follow move semantics:
+        # reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split.
+        # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
+        # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
+        # Returns: The new docked leaf identifier.
+        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
+        set opts [argparse -inline -pfirst {
+            floating
+            {-left=} {-right=} {-top=} {-bottom=} {-before=} {-after=}
+        }]
+        set token [dict get $opts floating]
+        set frame [my FloatingFrame $token]
+        set destinations {}
+        foreach side {left right top bottom before after} {
+            if {[dict exists $opts $side]} {lappend destinations $side}
+        }
+        if {[llength $destinations] > 1} {return -code error {expected at most one docking destination}}
+        set replace [expr {![llength $destinations] && $Root eq $VacantRoot && [my type $Root] eq {leaf}
+            && ![llength [winfo children [my frame $Root]]]}]
+        set side right
+        set target $Root
+        if {[llength $destinations]} {
+            set side [lindex $destinations 0]
+            set target [my Check [dict get $opts $side]]
+        }
+        set parent [my parent $target]
+        set edge [expr {$side in {left right top bottom}}]
+        if {!$edge && $parent eq {}} {return -code error {cannot dock beside root; use an edge destination}}
+        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
+        set before [expr {$side in {left top before}}]
+        set wrap [expr {!$replace && $edge && ($parent eq {} || [dict get $Nodes $parent orient] ne $orient)}]
+        set wrapper {}
+        if {$wrap} {
+            set wrapper $target
+            if {[my type $target] eq {split}} {set wrapper n[incr Serial]}
+            set pw [my NewSplitWidget $wrapper $orient]
+        }
+        my CancelDrag
+        my CaptureAll
+        # Remove only our watcher; application binding tags remain intact.
+        set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
+        set watched [bindtags $frame]
+        if {$watcher >= 0} {bindtags $frame [lreplace $watched $watcher $watcher]}
+        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {bindtags $frame {}}
+        set tags [my BindingSnapshot $frame]
+        if {[catch {wm forget $frame} message options]} {
+            bindtags $frame $watched
+            if {$wrap} {destroy $pw}
+            return -options $options $message
+        }
+        my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
+        dict unset Floating $token
+        set source [my NewLeaf $parent $frame]
+        if {$replace} {
+            my Drop $Root
+            set Root $source
+            set VacantRoot {}
+        } elseif {$wrap} {
+            if {$wrapper eq $target} {
+                set retained [my NewLeaf $wrapper [my frame $target]]
+            } else {
+                set retained $target
+                dict set Nodes $target parent $wrapper
+                if {$parent eq {}} {
+                    set Root $wrapper
+                } else {
+                    set children [my children $parent]
+                    set at [lsearch -exact $children $target]
+                    dict set Nodes $parent children [lreplace $children $at $at $wrapper]
+                }
+            }
+            dict set Nodes $source parent $wrapper
+            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+            dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
+                proportions {0.5 0.5} children $children]
+        } else {
+            set children [my children $parent]
+            set at [lsearch -exact $children $target]
+            set weights [dict get $Nodes $parent proportions]
+            set half [expr {[lindex $weights $at]/2.0}]
+            dict set Nodes $parent proportions [lreplace $weights $at $at $half $half]
+            if {!$before} {incr at}
+            dict set Nodes $parent children [linsert $children $at $source]
+        }
+        my Rebuild
+        return $source
+    }
+    method FloatingClose {id} {
+        # Handles the native close button according to the floating record's close policy.
+        #  id - Floating token, possibly already expired during teardown.
+        #
+        # Returns: Nothing. The default docks at the current root; destroy explicitly discards content.
+        if {$Closing || ![dict exists $Floating $id]} {return}
+        if {[dict get $Floating $id onclose] eq {dock}} {my dock $id} else {my remove $id}
+        return
+    }
+    method FloatingDestroyed {path} {
+        # Removes a floating record when its frame is destroyed outside the manager API.
+        #  path - Widget reported by Destroy; descendant events are ignored.
+        #
+        # Returns: Nothing.
+        if {$Closing} {return}
+        dict for {id data} $Floating {
+            if {[dict get $data frame] eq $path} {dict unset Floating $id; return}
+        }
     }
     method root {} {
         # Returns the current logical root node.
@@ -960,12 +1271,13 @@ oo::configurable create ::splitlayout::splitlayout {
         return [dict get $Nodes $id widget]
     }
     method frame {id} {
-        # Returns the content frame of a leaf.
-        #  id - Existing leaf identifier.
+        # Returns the retained content frame of a docked leaf or floating window.
+        #  id - Existing leaf identifier or floating token.
         #
         # Raises an error if the node is unknown or is a split.
         #
-        # Returns: The leaf content frame pathname.
+        # Returns: The content frame pathname, unchanged across docking transitions.
+        if {[dict exists $Floating $id]} {return [my FloatingFrame $id]}
         my Check $id leaf
         return [dict get $Nodes $id widget]
     }
@@ -1642,13 +1954,19 @@ oo::configurable create ::splitlayout::splitlayout {
         destroy $path
     }
     method remove {id} {
-        # Removes a node and all content in its subtree.
-        #  id - Existing node identifier to remove.
+        # Removes a docked subtree or destroys owned floating content.
+        #  id - Existing node identifier or floating token to remove.
         #
         # Removing the root behaves like clear. Otherwise, the parent retains its remaining children with normalized
         # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
         #
-        # Returns: The surviving parent split, its promoted sole child, or the new empty root.
+        # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
+        if {[dict exists $Floating $id]} {
+            set frame [my FloatingFrame $id]
+            dict unset Floating $id
+            destroy $frame
+            return
+        }
         my Check $id
         if {$id eq $Root} {
             return [my clear]
@@ -1727,7 +2045,7 @@ oo::configurable create ::splitlayout::splitlayout {
         return $id
     }
     method clear {} {
-        # Destroys all layout content and creates one empty root leaf.
+        # Destroys the docked tree and creates one empty root leaf; floating content is retained.
         #
         # Returns: The new root leaf identifier.
         my Drop $Root

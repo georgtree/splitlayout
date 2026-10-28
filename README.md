@@ -16,6 +16,7 @@ without recreating the surviving application widgets.
 - Relative pane proportions and interactive sash resizing.
 - Live resizing or deferred resizing with a configurable sash preview.
 - Inspection of both the logical layout tree and the actual Tk widget hierarchy.
+- Undocking owned content into native windows and docking it back without recreating widgets.
 
 ## General concept
 
@@ -42,7 +43,7 @@ are descendants of their content frame. Splitting, promoting, or swapping conten
 geometry container, while its actual Tk parent and widget pathnames stay the same.
 
 Removing a content frame destroys that frame and its application widgets. Destroying the layout destroys all its
-content. Surviving frames retain their widgets and state.
+content, including floating windows. Surviving frames retain their widgets and state.
 
 ## Requirements
 
@@ -115,3 +116,24 @@ The generated HTML documentation is available online:
 
 The repository also includes generated HTML under `docs/` and manual pages as `docs/*.n`. Open `docs/index.html` to
 browse the local HTML documentation.
+
+## Docking and undocking
+
+```tcl
+set floating [$manager undock $leaf -title "Waveform" -geometry 600x400+100+100]
+set newLeaf [$manager dock $floating -right $target]
+```
+
+Only content owned by the same manager is accepted. The content frame and all its widgets survive; the old leaf ID
+and, after docking, the floating token expire. Use `$manager floating` to list floating tokens, `$manager floating $token`
+to inspect one, and `$manager frame $token` to access its native window.
+
+Docking supports all six `move` destinations. Without a destination, it docks beside the current root or replaces an
+untouched empty placeholder created by undocking the sole root. Closing a floating window redocks it by default;
+`undock -onclose destroy` or `remove $token` explicitly destroys its content. `clear` affects the docked tree only.
+Destroying the manager destroys its floating windows too, because their actual Tk ancestry remains unchanged.
+
+Content containers are now classic borderless `frame` widgets so Tk can promote them with `wm manage`.
+The surrounding hull, grips, and panedwindows retain their themed behavior. Ttk-only content-frame options such as
+`-style` must instead be applied to a themed child. See the Ruff API documentation for full lifecycle, destination,
+and bindtag semantics. These are public commands; floating-window drag gestures are not part of this addition.
