@@ -54,7 +54,7 @@ without recreating the surviving application widgets.</p>
 <li><p>Removal of individual panes or complete subtrees, with automatic collapse of redundant parent splits.</p></li>
 <li><p>Content swapping between leaves at different nesting levels.</p></li>
 <li><p>Leaf moves to edge or sibling destinations, preserving application widgets and state.</p></li>
-<li><p>Optional textless grips for mouse-driven swaps, edge moves, and insertion at sashes.</p></li>
+<li><p>Optional rectangular headers for mouse-driven swaps, edge moves, and insertion at sashes.</p></li>
 <li><p>Relative pane proportions and interactive sash resizing.</p></li>
 <li><p>Live resizing or deferred resizing with a configurable sash preview.</p></li>
 <li><p>Inspection of both the logical layout tree and the actual Tk widget hierarchy.</p></li>
@@ -177,7 +177,7 @@ Button styling follows ttk; existing <code class="docutils literal notranslate">
 <section id="header-alignment-and-return-docking">
 <span id="r-header-alignment-and-return-docking"></span><span id="r-header20alignment20and20return20docking"></span><h3>Header alignment and return docking<a class="headerlink" href="#header-alignment-and-return-docking" title="Link to this heading">¶</a></h3>
 <p>Set <code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">right</span></code> (the default), at construction or using <code class="docutils literal notranslate"><span class="pre">configure</span></code>. It applies to all
-docked and floating headers. Both span their available width, and the grip indicator stays centered in the full header.</p>
+docked and floating headers. Both span their available width, and the optional title uses its independent <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code> setting.</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>left
 </pre></div>
 </div>
@@ -186,6 +186,44 @@ and split orientation. Surviving sibling nodes are tried nearest first, preferri
 A moved anchor is followed at its current position; a split anchor denotes its whole subtree. If all anchors have been
 removed, docking fills an untouched root placeholder or falls back to the right of the root. Explicit destinations
 override restoration. Original sash proportions are not restored. The delete-content button remains unconditional.</p>
+</section>
+<section id="rectangular-headers-and-optional-titles">
+<span id="r-rectangular-headers-and-optional-titles"></span><span id="r-rectangular20headers20and20optional20titles"></span><h3>Rectangular headers and optional titles<a class="headerlink" href="#rectangular-headers-and-optional-titles" title="Link to this heading">¶</a></h3>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>headerrelief<span class="w"> </span>ridge<span class="w"> </span><span class="o">-</span>headerborderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">\</span>
+<span class="w">    </span><span class="nv">-buttonside</span><span class="w"> </span>right<span class="w"> </span><span class="o">-</span>tooltips<span class="w"> </span>true
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">&quot;Waveforms&quot;</span>
+<span class="nb">puts</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="k">;</span><span class="c"># Remove the heading.</span>
+</pre></div>
+</div>
+<p>Headers replace the three-line indicator with a full-width rectangular surface in docked and floating windows.
+Drag the title or empty header area. Buttons keep their own actions and ttk styling. Titles follow content through
+swaps, moves, splits that retain it, and docking transitions. Floating tokens are accepted by <code class="docutils literal notranslate"><span class="pre">title</span></code> too.
+The title is shortened visually to avoid the buttons; querying it returns the original text.
+Native window titles (<code class="docutils literal notranslate"><span class="pre">undock</span> <span class="pre">-title</span></code>) are independent.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code> accepts <code class="docutils literal notranslate"><span class="pre">flat</span></code> (default), <code class="docutils literal notranslate"><span class="pre">raised</span></code>, <code class="docutils literal notranslate"><span class="pre">sunken</span></code>, <code class="docutils literal notranslate"><span class="pre">ridge</span></code>, <code class="docutils literal notranslate"><span class="pre">groove</span></code>, and <code class="docutils literal notranslate"><span class="pre">solid</span></code>.
+<code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">1</span></code> and accepts nonnegative integer pixels.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">true</span></code>. The optional <a class="reference external" href="https://core.tcl-lang.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip.md">Tklib tooltip package</a>
+provides button tooltips when it can be loaded. Otherwise there are no tooltips. Set <code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">false</span></code> to disable them
+for this manager; other application tooltips and Tklib’s global configuration are unaffected. No custom tooltip code remains.</p>
+</section>
+<section id="title-alignment-drag-area-tooltips-and-custom-images">
+<span id="r-title-alignment-drag-area-tooltips-and-custom-images"></span><span id="r-title20alignment2c20drag2darea20tooltips2c20and20custom20images"></span><h3>Title alignment, drag-area tooltips, and custom images<a class="headerlink" href="#title-alignment-drag-area-tooltips-and-custom-images" title="Link to this heading">¶</a></h3>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>dockIcon<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>dock.svg<span class="w"> </span><span class="o">-</span>format<span class="w"> </span>svg<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>undockIcon<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>undock.png<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>deleteIcon<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>delete.png<span class="k">]</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>titlealign<span class="w"> </span>left<span class="w"> </span><span class="o">-</span>tooltips<span class="w"> </span>true<span class="w"> </span><span class="o">\</span>
+<span class="w">    </span><span class="nv">-buttonimages</span><span class="w"> </span><span class="k">[</span><span class="nb">dict</span><span class="w"> </span>create<span class="w"> </span>dock<span class="w"> </span><span class="nv">$dockIcon</span><span class="w"> </span>undock<span class="w"> </span><span class="nv">$undockIcon</span><span class="w"> </span>delete<span class="w"> </span><span class="nv">$deleteIcon</span><span class="k">]</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code> accepts <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">center</span></code> (default), or <code class="docutils literal notranslate"><span class="pre">right</span></code>, independently of button alignment. Long headings
+are shortened within the space clear of the buttons. The drag area also gets a Tklib tooltip explaining its action;
+it follows <code class="docutils literal notranslate"><span class="pre">-tooltips</span></code> and is absent when Tklib is unavailable.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code> accepts existing Tk image objects, not file paths. Partial dictionaries merge; use an empty image
+value to restore one built-in bitmap, for example <code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">{dock</span> <span class="pre">{}}</span></code>. An empty dictionary changes nothing.
+Image validation is atomic. Supplied images remain application-owned and are never deleted, recolored, or scaled.
+Button widths and header height accommodate them. Keep images alive while used and clear the override before
+deleting them. Reapply an override after changing an image’s dimensions in place to refresh header sizing.</p>
 <hr class="docutils" />
 <p class="centered">
 <strong>Copyright (c) George Yashin</strong></p></section>
@@ -214,6 +252,8 @@ override restoration. Original sash proportions are not restored. The delete-con
 <li><a class="reference internal" href="#docking-and-undocking">Docking and undocking</a><ul>
 <li><a class="reference internal" href="#floating-gestures-and-grip-buttons">Floating gestures and grip buttons</a></li>
 <li><a class="reference internal" href="#header-alignment-and-return-docking">Header alignment and return docking</a></li>
+<li><a class="reference internal" href="#rectangular-headers-and-optional-titles">Rectangular headers and optional titles</a></li>
+<li><a class="reference internal" href="#title-alignment-drag-area-tooltips-and-custom-images">Title alignment, drag-area tooltips, and custom images</a></li>
 </ul>
 </li>
 </ul>

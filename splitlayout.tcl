@@ -165,10 +165,10 @@ namespace eval ::splitlayout {
         .docking configure -draghandles false
         ```
 
-        The default is `false`. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
-        no text, a dock/undock button, and a delete-content button. The grip uses ttk theme colors and a height scaled
-        to Tk's display scaling. Application widgets remain entirely inside the frame returned by `frame`; pack and
-        grid configurations there survive toggles and moves.
+        The default is `false`. When enabled, each leaf has a full-width rectangular header containing an optional
+        centered title, a dock/undock button, and a delete-content button. The grip uses ttk theme colors and a height
+        scaled to Tk's display scaling. Application widgets remain entirely inside the frame returned by `frame`; pack
+        and grid configurations there survive toggles and moves.
 
         Press the left mouse button on a grip and move at least five pixels (the default `-dockopts -threshold`) to
         start dragging. The strip outside its buttons accepts the press; content widgets retain their own mouse
@@ -234,10 +234,67 @@ namespace eval ::splitlayout {
         width and reserves space using the content labelframe's label-widget area, preserving application `pack` and
         `grid` settings. The manager owns the content frame's label-widget options; applications should configure
         children inside the content frame. Use `-buttonside left|right` (default `right`) at construction or with
-        `configure` to align buttons globally. Both docked and floating headers follow it; the grip indicator stays
-        centered in the full header width. Changing alignment cancels an active drag without moving content. It is
-        independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
+        `configure` to align buttons globally. Both docked and floating headers follow it; title alignment is
+        controlled independently by `-titlealign`. Changing alignment cancels an active drag without moving content. It
+        is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
         theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
+
+        ### Header appearance and titles
+        The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
+        dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
+        thickness are global properties; they do not override ttk button styles:
+
+        ```tcl
+        $manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
+        $manager title $leaf "Waveforms"
+        set heading [$manager title $leaf]
+        $manager title $leaf "" ;# Remove the heading.
+        ```
+
+        `-headerrelief` accepts `flat` (default), `raised`, `sunken`, `ridge`, `groove`, and `solid`.
+        `-headerborderwidth` is a nonnegative integer pixel count (default `1`). A zero-width border is invisible.
+        Changing either property cancels an active drag and applies to existing docked and floating headers.
+
+        `title id ?text?` accepts a leaf or floating token. Titles belong to content, so they survive swaps, moves,
+        retained-content splits, docking, and undocking; removing content removes its title. Titles default to empty.
+        They are independent of the native floating title set by `undock -title`. Display uses one line, replacing
+        line breaks with spaces and shortening long headings with an ellipsis. The getter returns the original text.
+        Centering reserves equal space at both ends for either button alignment, keeping the title clear of buttons.
+
+        ### Title alignment and custom button images
+        `-titlealign left|center|right` defaults to `center` and is independent of `-buttonside`. Left and right titles
+        use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
+        header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.
+
+        `-buttonimages` is a dictionary with `dock`, `undock`, and `delete` keys. Values are existing Tk image names,
+        not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:
+
+        ```tcl
+        set undockImage [image create photo -file undock.png]
+        set dockImage [image create photo -file dock.svg -format svg]
+        $manager configure -titlealign left -buttonimages [dict create undock $undockImage dock $dockImage]
+        $manager configure -buttonimages {delete {}} ;# Use the built-in delete bitmap.
+        ```
+
+        Overrides apply globally to existing and future docked and floating headers. Partial dictionaries preserve
+        other entries; an empty value restores that action's built-in bitmap. An empty dictionary changes nothing.
+        Invalid keys or missing image names reject the whole update. The toggle uses `undock` while docked and `dock`
+        while floating. Button widths and header height accommodate the images at their native pixel size; images
+        are not scaled or recolored. Supply appropriately sized icons and retain them while used. The manager never
+        deletes supplied images. To delete one, clear/replace its override first. If an image is deleted externally,
+        a subsequent refresh falls back to the built-in bitmap. After changing an image's dimensions in place, reapply
+        its override to refresh header sizing. Tk photo images hold rasterized SVG output, not editable vector data.
+
+        ### Optional tooltips
+        `-tooltips true|false` defaults to `true`. When enabled, the manager attempts `package require tooltip` and
+        uses [Tklib\
+        tooltip](https://core.tcl-lang.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip.md) for the
+        drag area and action buttons. Drag-area text describes rearranging/undocking or moving/docking, depending on
+        whether the content is docked or floating. If the package cannot load, there are no tooltips and no custom
+        fallback.  Set `-tooltips false` to remove this manager's tooltip registrations. It does not disable
+        application tooltips globally or change their delay, font, colors, or fading. Setting it to `true` retries
+        loading the optional package.  The value returned by `configure -tooltips` is the requested preference, even
+        when the package is unavailable.
 
         ## Swapping and removing content
         The following operations continue the example above:
@@ -311,7 +368,12 @@ namespace eval ::splitlayout {
         | `-height`        | `600`    | Nonnegative requested hull height in pixels.            |
         | `-opaqueresize`  | `true`   | Resize pane content continuously while dragging a sash. |
         | `-sashpreview`   | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
-        | `-buttonside`    | `right`  | Place header buttons on the left or right; indicator stays centered. |
+        | `-buttonside` | `right` | Place header buttons on the left or right; title alignment is independent. |
+        | `-titlealign` | `center` | Align the optional header title left, center, or right. |
+        | `-buttonimages` | Empty values | Optional dock, undock, and delete Tk image overrides. |
+        | `-headerrelief` | `flat` | Rectangular header relief. |
+        | `-headerborderwidth` | `1` | Nonnegative header border thickness in pixels. |
+        | `-tooltips` | `true` | Use Tklib tooltips when available. |
         | `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
         | `-showstructure` | `false`  | Outline and inset all current and future splits.        |
 
@@ -465,11 +527,11 @@ namespace eval ::splitlayout {
         orientation and relative order (following siblings take precedence at equal distance). The first surviving
         sibling node is used, including if it has become a split. Node identity represents a position: swapping its
         content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
-        anchors are skipped. Explicit destinations override this restoration. If no anchor remains, `dock` places
-        the content to the right of the current root. Undocking the sole root creates
-        an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces that placeholder if
-        it is still the root and its content frame has no child widgets. If you populate it, both contents are retained.
-        Explicit destinations always follow the requested placement instead of replacing the placeholder.
+        anchors are skipped. Explicit destinations override this restoration. If no anchor remains, `dock` places the
+        content to the right of the current root. Undocking the sole root creates an empty placeholder leaf to preserve
+        the nonempty-tree invariant. An implicit dock replaces that placeholder if it is still the root, has no header
+        title, and its content frame has no child widgets. If you populate it, both contents are retained. Explicit
+        destinations always follow the requested placement instead of replacing the placeholder.
 
         `undock` accepts `-title` (default `splitlayout`), `-geometry` (default current content size and position), and
         `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current
@@ -578,7 +640,8 @@ namespace eval ::splitlayout {
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders Settings Floating VacantRoot Icons TipTimer Tip ButtonSide
+            Borders Settings Floating VacantRoot Icons ButtonSide HeaderRelief HeaderBorder Tooltips TooltipReady\
+            Titles Headers TitleAlign ButtonImages HeaderRefresh
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -606,16 +669,42 @@ oo::configurable create ::splitlayout::splitlayout {
                     Changing the value cancels an active deferred drag. Invalid values preserve the old value.
                 }
                 -draghandles {
-                    Boolean enabling manager-owned textless grips for every leaf; default false. Drag a grip to swap
-                    at a leaf center, move at an edge, or insert at a sash. Escape cancels; an outside drop
+                    Boolean enabling manager-owned rectangular headers for every leaf; default false. Drag a grip to
+                    swap at a leaf center, move at an edge, or insert at a sash. Escape cancels; an outside drop
                     undocks. Floating grips move and dock owned content. Disabling removes docked and floating grips
-                    without destroying content.  This setting is independent of -opaqueresize and applies to future
+                    without destroying content. This setting is independent of -opaqueresize and applies to future
                     leaves as well.
                 }
                 -buttonside {
-                    Side of the grip strip containing the action buttons: left or right; default right.
-                    Applies immediately to docked and floating headers. The indicator stays centered in the full strip.
-                    Changing the value cancels an active content drag. Button appearance remains controlled by ttk.
+                    Side of the grip strip containing the action buttons: left or right; default right. Applies
+                    immediately to docked and floating headers. Title alignment is controlled independently by
+                    titlealign. Changing the value cancels an active content drag. Button appearance remains
+                    controlled by ttk.
+                }
+                -titlealign {
+                    Header title alignment: left, center, or right; default center. Independent of buttonside.
+                    Applies to docked and floating headers. Titles are truncated within the space clear of buttons.
+                }
+                -buttonimages {
+                    Dictionary mapping dock, undock, and delete to existing Tk image names. All default to empty,
+                    selecting built-in bitmaps. Updates merge atomically; an empty value restores one default.
+                    Supplied images are application-owned. Buttons and header height accommodate image dimensions.
+                    Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.
+                }
+                -headerrelief {
+                    Header relief: flat, raised, sunken, ridge, groove, or solid; default flat.
+                    Affects the full rectangular docked and floating header, including the area around its buttons.
+                    Button styling remains controlled by ttk. Changes cancel an active drag.
+                }
+                -headerborderwidth {
+                    Nonnegative integer header border thickness in pixels; default 1.
+                    Changes cancel an active drag and update the reserved header height.
+                }
+                -tooltips {
+                    Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package
+                    loads; default true. Missing packages are silently tolerated. This property expresses the
+                    preference, not package availability. Only this manager's registrations are changed; Tklib's
+                    global settings remain application-controlled.
                 }
                 -showstructure {
                     Boolean showing an outline and inset around every split; default false. Appearance is set by
@@ -723,6 +812,75 @@ oo::configurable create ::splitlayout::splitlayout {
                     }
                 }
             }
+        }
+    }
+    property titlealign -get {
+        return $TitleAlign
+    } -set {
+        if {$value ni {left center right}} {
+            return -code error {expected titlealign left, center, or right}
+        }
+        set TitleAlign $value
+        if {[info exists Root]} {
+            my RefreshHeaders
+        }
+    }
+    property buttonimages -get {
+        return $ButtonImages
+    } -set {
+        if {[catch {dict size $value}]} {
+            return -code error {buttonimages must be a dictionary}
+        }
+        dict for {action image} $value {
+            if {$action ni {dock undock delete}} {
+                return -code error "unknown button image action '$action'"
+            }
+            if {($image ne {}) && [catch {image type $image}]} {
+                return -code error "unknown Tk image '$image'"
+            }
+        }
+        my CancelDrag
+        set ButtonImages [dict merge $ButtonImages $value]
+        if {[info exists Root]} {
+            my RefreshHeaders
+        }
+    }
+    property headerrelief -get {
+        return $HeaderRelief
+    } -set {
+        if {$value ni {flat raised sunken ridge groove solid}} {
+            return -code error {invalid header relief}
+        }
+        my CancelDrag
+        set HeaderRelief $value
+        if {[info exists Root]} {
+            my RefreshHeaders
+        }
+    }
+    property headerborderwidth -get {
+        return $HeaderBorder
+    } -set {
+        if {![string is integer -strict $value] || ($value < 0)} {
+            return -code error {headerborderwidth must be a nonnegative integer}
+        }
+        my CancelDrag
+        set HeaderBorder $value
+        if {[info exists Root]} {
+            my RefreshHeaders
+        }
+    }
+    property tooltips -get {
+        return $Tooltips
+    } -set {
+        if {![string is boolean -strict $value]} {
+            return -code error {tooltips must be boolean}
+        }
+        set Tooltips [expr {!!$value}]
+        if {$Tooltips} {
+            set TooltipReady [expr {![catch {package require tooltip}]}]
+        }
+        if {[info exists Root]} {
+            my SyncHeaderTips
         }
     }
     property showstructure -get {
@@ -885,8 +1043,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -height height - Nonnegative requested hull height in pixels; default 600.
         #  -opaqueresize boolean - Enable live sash resizing; default true.
         #  -sashpreview mode - Deferred preview mode: window, inline, or none; default window.
-        #  -draghandles boolean - Enable textless docking grips on all leaves; default false.
+        #  -draghandles boolean - Enable rectangular docking headers on all leaves; default false.
         #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
+        #  -titlealign alignment - Header title alignment: left, center, or right; default center.
+        #  -buttonimages dictionary - Optional dock, undock, and delete Tk image overrides; default built-in bitmaps.
+        #  -headerrelief relief - Header border: flat, raised, sunken, ridge, groove, or solid; default flat.
+        #  -headerborderwidth pixels - Nonnegative header border thickness; default 1.
+        #  -tooltips boolean - Show Tklib tooltips when the optional package is available; default true.
         #  -showstructure boolean - Outline and inset all split regions; default false.
         #  -dockopts dictionary - Docking colors, preview line width, and detection distances; option-database defaults.
         #  -structureopts dictionary - Split outline colors, border width, and spacing; option-database defaults.
@@ -900,9 +1063,14 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
         #  ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
+        #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
+        #  ?-titlealign alignment? ?-buttonimages dictionary?
+        set HeaderRefresh {}
         set Icons {}
-        set TipTimer {}
-        set Tip {}
+        set ButtonImages [dict create dock {} undock {} delete {}]
+        set Titles {}
+        set Headers {}
+        set TooltipReady 0
         set Floating {}
         set VacantRoot {}
         set Settings {}
@@ -925,6 +1093,11 @@ oo::configurable create ::splitlayout::splitlayout {
             {-showstructure= -default false -type boolean}
             {-draghandles= -default false -type boolean}
             {-buttonside= -default right -enum {left right}}
+            {-titlealign= -default center -enum {left center right}}
+            {-buttonimages= -default {}}
+            {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid}}
+            {-headerborderwidth= -default 1 -type integer}
+            {-tooltips= -default true -type boolean}
             {-opaqueresize= -default true -type boolean}
             {-sashpreview= -default window -enum {window inline none}}
         }]
@@ -932,6 +1105,9 @@ oo::configurable create ::splitlayout::splitlayout {
         my configure -showstructure [dict get $options showstructure]
         my configure -draghandles [dict get $options draghandles]
         my configure -buttonside [dict get $options buttonside]
+        my configure -titlealign [dict get $options titlealign] -buttonimages [dict get $options buttonimages]
+        my configure -headerrelief [dict get $options headerrelief]\
+                -headerborderwidth [dict get $options headerborderwidth] -tooltips [dict get $options tooltips]
         set W [dict get $options path]
         if {![string match .* $W] || ($W eq {.})} {
             return -code error {expected a new non-root Tk widget path}
@@ -975,7 +1151,14 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         set Closing 1
-        my HideTip
+        if {[info exists HeaderRefresh] && ($HeaderRefresh ne {})} {
+            after cancel $HeaderRefresh
+        }
+        if {[info exists Headers]} {
+            dict for {grip id} $Headers {
+                my ClearHeaderTips $grip
+            }
+        }
         if {[info exists Icons]} {
             dict for {name image} $Icons {
                 image delete $image
@@ -1058,9 +1241,44 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$frame eq {}} {
             set frame [::labelframe $W.content$Serial -class Frame -relief flat -borderwidth 0 -highlightthickness 0]
             bind $frame <Map> [namespace code [list my ContentMapped $frame]]
+            bind $frame <Destroy> [namespace code [list my ContentTitleDestroyed $frame %W]]
         }
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
         return $id
+    }
+    method title {args} {
+        # Gets or sets the optional header title belonging to managed content.
+        #  id - Docked leaf identifier or owned floating token.
+        #  text - Optional title; an empty string removes the heading.
+        #
+        # Titles follow content through swaps, moves, splitting with retained content, and floating transitions.
+        # They do not change the native window title set by undock -title. Rendering uses one line and truncates
+        # long headings to keep the buttons unobscured; the stored string is returned unchanged.
+        # Returns: The current title string.
+        # Synopsis: id ?text?
+        set opts [argparse -inline -pfirst {
+            id
+            {text -optional}
+        }]
+        set frame [my frame [dict get $opts id]]
+        if {[dict exists $opts text]} {
+            dict set Titles $frame [dict get $opts text]
+            my RefreshHeaders
+        }
+        if {[dict exists $Titles $frame]} {
+            return [dict get $Titles $frame]
+        }
+        return
+    }
+    method ContentTitleDestroyed {frame path} {
+        # Discards title metadata when its content frame is destroyed.
+        #  frame - Content frame associated with this binding.
+        #  path - Widget reported by Destroy; child events are ignored.
+        #
+        # Returns: Nothing.
+        if {($frame eq $path) && [dict exists $Titles $frame]} {
+            dict unset Titles $frame
+        }
     }
     method floating {{id {}}} {
         # Lists floating content or describes one floating window owned by this manager.
@@ -1302,7 +1520,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf})\
-                                   && ![llength [winfo children [my frame $Root]]]}]
+                                   && ![llength [winfo children [my frame $Root]]] && ([my title $Root] eq {})}]
         set side right
         set target $Root
         if {[llength $destinations]} {
@@ -1936,6 +2154,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my Attach $Root
         pack [my widget $Root] -in $W -fill both -expand 1
         my Stack $Root
+        my RefreshHeaders
     }
     method Attach {id} {
         # Recursively attaches a subtree to its panedwindows.
@@ -2447,35 +2666,46 @@ oo::configurable create ::splitlayout::splitlayout {
         dict set Icons $kind $image
         return $image
     }
+    method ButtonImage {action} {
+        # Resolves an action's application-supplied image or the built-in monochrome bitmap.
+        #  action - dock, undock, or delete.
+        #
+        # Supplied images remain application-owned and are never recolored or deleted. If one has been deleted
+        # externally, the next redraw falls back to the built-in image rather than raising a background error.
+        # Returns: A valid Tk image name.
+        set image [dict get $ButtonImages $action]
+        if {$image ne {} && ![catch {image type $image}]} {return $image}
+        return [my GripIcon $action]
+    }
     method MakeGrip {grip id floating} {
-        # Creates a textless drag strip and two independent action buttons.
+        # Creates a rectangular drag header and two independent action buttons.
         #  grip - New canvas pathname.
         #  id - Leaf identifier or floating token.
         #  floating - Whether the strip belongs to a floating window.
         #
         # Button widget bindings do not pass through the canvas's widget binding tag.
         # Returns: The grip pathname.
-        set height [expr {max(20,round(14*[tk scaling]))}]
-        canvas $grip -width 84 -height $height -borderwidth 0 -highlightthickness 0 -takefocus 0 -cursor fleur
+        set height [expr {[my HeaderHeight]-2*$HeaderBorder}]
+        canvas $grip -width 84 -height $height -borderwidth $HeaderBorder -relief $HeaderRelief -highlightthickness 0\
+                -takefocus 0 -cursor fleur
         set action [expr {$floating ? {dock} : {undock}}]
         foreach name {toggle delete} kind [list $action delete] tip [list [string totitle $action] {Delete content}] {
-            ttk::button $grip.$name -image [my GripIcon $kind] -width 0 -padding 1 -takefocus 1\
+            ttk::button $grip.$name -image [list [my ButtonImage $kind]] -width 0 -padding 1 -takefocus 1\
                     -command [namespace code [list my GripAction $id $kind]]
             place $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}] -y 0 -width 22 -relheight 1
-            bind $grip.$name <Enter> [namespace code [list my QueueTip $grip.$name $tip]]
-            foreach event {<Leave> <ButtonPress> <Destroy>} {
-                bind $grip.$name $event [namespace code {my HideTip}]
-            }
         }
+        dict set Headers $grip $id
+        my SyncHeaderTips
         bind $grip <Configure> [namespace code [list my DrawGrip $grip]]
-        bind $grip <<ThemeChanged>> [namespace code [list my DrawGrip $grip]]
+        bind $grip <<ThemeChanged>> [namespace code {my RefreshHeaders}]
         bind $grip <ButtonPress-1> [namespace code [list my DockPress $id %X %Y]]
         bind $grip <B1-Motion> [namespace code {my DockMotion %X %Y}]
         bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
         bind $grip <Escape> [namespace code {my DockEscape}]
-        foreach event {<FocusOut> <Unmap> <Destroy>} {
+        foreach event {<FocusOut> <Unmap>} {
             bind $grip $event [namespace code {my CancelDock}]
         }
+        bind $grip <Destroy> [namespace code [list my HeaderDestroyed $grip]]
         my DrawGrip $grip
         return $grip
     }
@@ -2485,7 +2715,6 @@ oo::configurable create ::splitlayout::splitlayout {
         #  action - dock, undock, or delete.
         #
         # Returns: Nothing. Delete always destroys the content, including when onclose is dock.
-        my HideTip
         my CancelDrag
         switch $action {
             dock {
@@ -2518,10 +2747,10 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Floating $id grip $grip
             # Reserve only the header height: a full-width label request would also increase the
             # labelframe's minimum requested width, preventing subsequent shrinking.
-            set reserve [ttk::frame $grip-reserve -width 1 -height [$grip cget -height]]
+            set reserve [ttk::frame $grip-reserve -width 1 -height [my HeaderHeight]]
             dict set Floating $id reserve $reserve
             $frame configure -labelwidget $reserve -labelanchor nw
-            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [$grip cget -height]
+            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight]
             raise $grip
         }
     }
@@ -2540,45 +2769,101 @@ oo::configurable create ::splitlayout::splitlayout {
         dict unset Floating $id grip
         dict unset Floating $id reserve
     }
-    method QueueTip {button text} {
-        # Schedules a tooltip for an action button.
-        #  button - Button pathname.
-        #  text - Short action description.
+    method HeaderHeight {} {
+        # Computes the complete header height, including its configurable border.
         #
-        # Returns: Nothing.
-        my HideTip
-        set TipTimer [after 600 [namespace code [list my ShowTip $button $text]]]
+        # Returns: Height in pixels, large enough for the current theme font and buttons.
+        set font [ttk::style lookup TLabel -font]
+        if {$font eq {}} {
+            set font TkDefaultFont
+        }
+        set height [expr {max(20,round(14*[tk scaling]),[font metrics $font -linespace]+6)}]
+        foreach action {dock undock delete} {
+            set height [expr {max($height,[image height [my ButtonImage $action]]+6)}]
+        }
+        dict for {grip id} $Headers {
+            foreach name {toggle delete} {
+                if {[winfo exists $grip.$name]} {
+                    set height [expr {max($height,[winfo reqheight $grip.$name])}]
+                }
+            }
+        }
+        return [expr {$height+2*$HeaderBorder}]
     }
-    method ShowTip {button text} {
-        # Shows a tooltip without taking focus or a grab.
-        #  button - Button pathname.
-        #  text - Short action description.
+    method RefreshHeaders {} {
+        # Redraws existing headers and coalesces a second pass after ttk updates image geometry requests.
         #
+        # No nested event loop is used. The idle pass lets headers shrink after large icons are replaced.
         # Returns: Nothing.
-        set TipTimer {}
-        if {![winfo exists $button] || ![winfo ismapped $button] || ($Dock ne {})} {
+        dict for {grip id} $Headers {
+            if {[winfo exists $grip]} {
+                my DrawGrip $grip
+            }
+        }
+        if {!$Closing && ($HeaderRefresh eq {})} {
+            set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
+        }
+    }
+    method FinishHeaderRefresh {} {
+        # Completes header sizing once pending ttk image and theme requests have settled.
+        #
+        # Returns: Nothing. Manager destruction cancels this callback.
+        set HeaderRefresh {}
+        if {$Closing} {
             return
         }
-        set Tip $W.tip[incr Serial]
-        toplevel $Tip -takefocus 0
-        wm overrideredirect $Tip 1
-        ttk::label $Tip.text -text $text -padding 3
-        pack $Tip.text
-        wm geometry $Tip [format %+d%+d [winfo rootx $button] [expr {[winfo rooty $button]+[winfo height $button]}]]
-    }
-    method HideTip {} {
-        # Cancels tooltip callbacks and removes an existing tooltip.
-        #
-        # Returns: Nothing. Safe during partial construction and destruction.
-        if {[info exists TipTimer] && ($TipTimer ne {})} {
-            after cancel $TipTimer
-            set TipTimer {}
-        }
-        if {[info exists Tip] && ($Tip ne {})} {
-            if {[winfo exists $Tip]} {
-                destroy $Tip
+        dict for {grip id} $Headers {
+            if {[winfo exists $grip]} {
+                my DrawGrip $grip
             }
-            set Tip {}
+        }
+    }
+    method ClearHeaderTips {grip} {
+        # Removes only this header's Tklib tooltip registrations.
+        #  grip - Existing or recently destroyed header pathname.
+        #
+        # Escapes widget names as literal glob patterns. Never changes Tklib's application-wide enabled state.
+        # Returns: Nothing.
+        if {!$TooltipReady} {
+            return
+        }
+        foreach path [list $grip $grip.toggle $grip.delete] {
+            ::tooltip::tooltip clear [regsub -all {[][?*\\]} $path {\\&}]
+        }
+    }
+    method SyncHeaderTips {} {
+        # Applies the per-manager tooltip preference to headers and buttons using the optional Tklib package.
+        #
+        # Missing or incompatible tooltip packages leave headers operational without tooltips.
+        # Returns: Nothing.
+        if {!$TooltipReady} {
+            return
+        }
+        dict for {grip id} $Headers {
+            if {![winfo exists $grip]} {
+                continue
+            }
+            my ClearHeaderTips $grip
+            if {$Tooltips && (($Dock eq {}) || ([dict get $Dock grip] ne $grip))} {
+                set action [expr {[dict exists $Floating $id] ? {Dock} : {Undock}}]
+                set hint [expr {[dict exists $Floating $id] ?
+                                {Drag to move this window or dock it in the layout} :
+                                {Drag to rearrange this pane or move it outside the layout to undock}}]
+                ::tooltip::tooltip $grip $hint
+                ::tooltip::tooltip $grip.toggle $action
+                ::tooltip::tooltip $grip.delete {Delete content}
+            }
+        }
+    }
+    method HeaderDestroyed {grip} {
+        # Releases tooltip registrations and header bookkeeping during destruction.
+        #  grip - Destroyed header pathname.
+        #
+        # Returns: Nothing.
+        my CancelDock
+        my ClearHeaderTips $grip
+        if {[dict exists $Headers $grip]} {
+            dict unset Headers $grip
         }
     }
     method SyncPanels {} {
@@ -2635,39 +2920,110 @@ oo::configurable create ::splitlayout::splitlayout {
         }
     }
     method DrawGrip {grip} {
-        # Draws a small centered three-line grip using ttk theme colors.
-        #  grip - Canvas pathname owned by the manager.
+        # Draws the rectangular header, configured action images, and aligned optional title using theme colors.
+        #  grip - Header canvas pathname owned by this manager.
         #
+        # Buttons stay within the border. Title bounds exclude the buttons; center alignment uses symmetric bounds.
         # Returns: Nothing.
         if {![winfo exists $grip]} {
             return
         }
         set bg [ttk::style lookup TFrame -background]
         set fg [ttk::style lookup TLabel -foreground]
+        set font [ttk::style lookup TLabel -font]
         if {$bg eq {}} {
             set bg #d9d9d9
         }
         if {$fg eq {}} {
             set fg #606060
         }
-        $grip configure -background $bg
-        $grip delete indicator
+        if {$font eq {}} {
+            set font TkDefaultFont
+        }
+        set id [dict get $Headers $grip]
+        set action [expr {[dict exists $Floating $id] ? {dock} : {undock}}]
+        set widths {}
+        foreach name {toggle delete} kind [list $action delete] {
+            set image [my ButtonImage $kind]
+            if {[lindex [$grip.$name cget -image] 0] ne $image} {
+                $grip.$name configure -image [list $image]
+            }
+            dict set widths $name [expr {max(22,[image width $image]+6,[winfo reqwidth $grip.$name])}]
+        }
+        set height [my HeaderHeight]
+        $grip configure -background $bg -relief $HeaderRelief -borderwidth $HeaderBorder\
+                -height [expr {$height-2*$HeaderBorder}]
+        set id [dict get $Headers $grip]
+        if {[dict exists $Floating $id reserve]} {
+            [dict get $Floating $id reserve] configure -height $height
+            place configure $grip -height $height
+        }
+        $grip delete heading
         dict for {name image} $Icons {
             $image configure -foreground $fg
         }
+        set toggleWidth [dict get $widths toggle]
+        set deleteWidth [dict get $widths delete]
+        set buttonsWidth [expr {$toggleWidth+$deleteWidth}]
         foreach name {toggle delete} {
+            place configure $grip.$name -bordermode ignore -rely 0 -y $HeaderBorder -relheight 1\
+                    -height [expr {-2*$HeaderBorder}] -width [dict get $widths $name]
             if {$ButtonSide eq {right}} {
-                place configure $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}]
+                place configure $grip.$name -relx 1 -x [expr {-$HeaderBorder-($name eq {delete} ? $deleteWidth :\
+                                                                                      $buttonsWidth)}]
             } else {
-                place configure $grip.$name -relx 0 -x [expr {$name eq {delete} ? 22 : 0}]
+                place configure $grip.$name -relx 0 -x [expr {$HeaderBorder+($name eq {delete} ? $toggleWidth : 0)}]
             }
         }
-        set x [expr {[winfo width $grip]/2.0}]
-        set y [expr {[winfo height $grip]/2.0}]
-        foreach offset {-2 0 2} {
-            $grip create line [expr {$x-6}] [expr {$y+$offset}] [expr {$x+6}] [expr {$y+$offset}] -fill $fg\
-                    -tags indicator
+        if {![dict exists $Floating $id] && (![dict exists $Nodes $id] || ([my type $id] ne {leaf}))} {
+            return
         }
+        set frame [my frame $id]
+        if {![dict exists $Titles $frame] || ([dict get $Titles $frame] eq {})} {
+            return
+        }
+        set text [string map [list \n { } \r { } \t { }] [dict get $Titles $frame]]
+        set left [expr {$HeaderBorder+4+($ButtonSide eq {left} ? $buttonsWidth : 0)}]
+        set right [expr {[winfo width $grip]-$HeaderBorder-4-($ButtonSide eq {right} ? $buttonsWidth : 0)}]
+        switch $TitleAlign {
+            left {
+                set x $left
+                set anchor w
+                set available [expr {$right-$left}]
+            }
+            right {
+                set x $right
+                set anchor e
+                set available [expr {$right-$left}]
+            }
+            center {
+                set x [expr {[winfo width $grip]/2.0}]
+                set anchor center
+                set available [expr {2*min($x-$left,$right-$x)}]
+            }
+        }
+        if {$available <= 0} {
+            return
+        }
+        if {[font measure $font $text] > $available} {
+            set ellipsis …
+            if {[font measure $font $ellipsis] > $available} {
+                return
+            }
+            set low 0
+            set high [string length $text]
+            while {$low < $high} {
+                set mid [expr {($low+$high+1)/2}]
+                if {[font measure $font "[string range $text 0 $mid-1]$ellipsis"] <= $available} {
+                    set low $mid
+                } else {
+                    set high [expr {$mid-1}]
+                }
+            }
+            set text "[string range $text 0 $low-1]$ellipsis"
+        }
+        $grip create text $x [expr {[winfo height $grip]/2.0}] -text $text -font $font -fill $fg -anchor $anchor\
+                -tags heading
     }
     method DockPress {id x y} {
         # Arms a leaf drag and captures pointer events with a local grab.
@@ -2682,9 +3038,9 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         my CancelDrag
-        my HideTip
         set floating [dict exists $Floating $id]
         set grip [expr {$floating ? [dict get $Floating $id grip] : [dict get $Panels $id grip]}]
+        my ClearHeaderTips $grip
         set previous [focus]
         grab $grip
         set Dock [dict create source $id grip $grip start [list $x $y] active 0 focus $previous target {} overlays {}\
@@ -2872,7 +3228,8 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             set rect [list $px $py $width $height]
             if {$side eq {} && $floating} {
-                if {($id eq $VacantRoot) && ($id eq $Root) && ![llength [winfo children [my frame $id]]]} {
+                if {($id eq $VacantRoot) && ($id eq $Root) && ![llength [winfo children [my frame $id]]] &&\
+                            ([my title $id] eq {})} {
                     return [dict create op dock target $id side {} kind center rect $rect]
                 }
                 set side right
@@ -3072,6 +3429,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set previous [dict get $state focus]
         if {!$Closing && ([focus] eq $grip) && ($previous ne {}) && [winfo exists $previous]} {
             focus $previous
+        }
+        if {!$Closing} {
+            my SyncHeaderTips
         }
     }
     # Deferred sash mode intercepts gestures before TPanedwindow bindings.

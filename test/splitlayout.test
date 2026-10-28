@@ -167,9 +167,9 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
             [expr {{configure} ni [info class methods ::splitlayout::splitlayout]}]\
             [lsort [dict keys $values]] [dict get $values -width] [catch {$m cget -width}]\
             [catch {$m configure -class Other}] [$m configure -class]
-} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonside -class -cursor -dockopts -draghandles -height -opaqueresize\
+} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -cursor -dockopts -draghandles -headerborderwidth -headerrelief -height -opaqueresize\
                                                      -padding -relief -sashpreview -sashpreviewopts -showstructure\
-                                                     -structureopts -style -takefocus -width} 800 1 1 {}}
+                                                     -structureopts -style -takefocus -titlealign -tooltips -width} 800 1 1 {}}
 
 test splitlayout-properties-1.2 {native ordered setters and rejected values} -setup {
     set m [::sltest::setup]
@@ -2118,7 +2118,7 @@ test splitlayout-grip-buttons-19.7 {button press does not start drag; docked del
     list $clean [winfo exists $frame] [llength [$m leaves]] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 0 1 1}
 
-test splitlayout-grip-buttons-19.8 {global toggle removes floating strip and manager destruction frees images and tooltip timer} -setup {
+test splitlayout-grip-buttons-19.8 {global toggle removes floating strip and manager destruction frees images without custom tooltip callbacks} -setup {
     lassign [::sltest::docksetup] m root a b
     set token [$m undock $a]
     set frame [$m frame $token]
@@ -2132,11 +2132,11 @@ test splitlayout-grip-buttons-19.8 {global toggle removes floating strip and man
     update
     set grip [::sltest::floatgrip $m $token]
     event generate $grip.delete <Enter>
-    set timer [set ${ns}::TipTimer]
+    set custom [expr {[info exists ${ns}::TipTimer] || [llength [info commands $m.tip*]]}]
     set images [dict values [set ${ns}::Icons]]
     $m destroy
     update
-    list $hidden [expr {$timer ne {} && $timer ni [after info]}] \
+    list $hidden [expr {!$custom}] \
         [expr {[lmap im $images {expr {$im in [image names]}}] eq {0 0 0}}]
 } -cleanup {::sltest::cleanup} -result {1 1 1}
 
@@ -2238,6 +2238,7 @@ foreach side {left right} {
         set m [::sltest::setup]
         $m configure -draghandles true -buttonside $side
         set leaf [$m root]
+        $m title $leaf Heading
         set frame [$m frame $leaf]
         ttk::entry $frame.entry
         grid $frame.entry -sticky nsew
@@ -2246,7 +2247,7 @@ foreach side {left right} {
         ::sltest::settle $m
     } -body {
         set grip [::sltest::grip $m $leaf]
-        set docked [expr {abs(([lindex [$grip coords indicator] 0]+6)-[winfo width $grip]/2.0) < 1}]
+        set docked [expr {abs([lindex [$grip coords heading] 0]-[winfo width $grip]/2.0) < 1}]
         set token [$m undock $leaf -geometry 640x300+50+50]
         ::sltest::settle $frame
         set grip [::sltest::floatgrip $m $token]
@@ -2254,14 +2255,14 @@ foreach side {left right} {
         foreach width {640 180 420} {
             wm geometry $frame ${width}x300
             ::sltest::settle $frame
-            set expected [expr {$side eq {left} ? 0 : [winfo width $grip]-44}]
+            set expected [expr {$side eq {left} ? 1 : [winfo width $grip]-45}]
             if {[winfo width $grip] != $width || abs([winfo x $grip.toggle]-$expected) > 1 ||
-                abs(([lindex [$grip coords indicator] 0]+6)-$width/2.0) > 1 ||
-                [winfo y $frame.entry] < [winfo height $grip]} {set correct 0}
+                abs([lindex [$grip coords heading] 0]-$width/2.0) > 1 ||
+                [winfo y $grip] != 0 || [winfo rooty $frame.entry] < [winfo rooty $grip]+[winfo height $grip]} {set correct 0}
         }
         $m configure -buttonside [expr {$side eq {left} ? {right} : {left}}]
         update
-        set expected [expr {$side eq {right} ? 0 : [winfo width $grip]-44}]
+        set expected [expr {$side eq {right} ? 1 : [winfo width $grip]-45}]
         set updated [expr {abs([winfo x $grip.toggle]-$expected) <= 1}]
         set restored [$m dock $token]
         update
@@ -2285,6 +2286,326 @@ test splitlayout-header-20.7 {alignment constructor validation and changes cance
     $m configure -buttonside right
     list $initial $invalid $unchanged [$m configure -buttonside] [::sltest::dockstate $m] [grab current $m]
 } -cleanup {::sltest::cleanup} -result {left 1 left right {} {}}
+
+test splitlayout-heading-21.1 {titles follow content through swap split move and floating transitions} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set fa [$m frame $a]
+    set fb [$m frame $b]
+} -body {
+    $m title $a Alpha
+    $m title $b Beta
+    $m swap $a $b
+    set swapped [list [$m title $a] [$m title $b]]
+    lassign [$m split $b -orient vertical -keep first] ba bb
+    set splitTitles [list [$m title $ba] [$m title $bb]]
+    $m move $ba -right $a
+    set token [$m undock $ba -title {Native title}]
+    set floatingTitle [$m title $token]
+    $m title $token {Edited while floating}
+    set nativeTitle [wm title $fa]
+    set leaf [$m dock $token]
+    update
+    set grip [::sltest::grip $m $leaf]
+    list $swapped $splitTitles $floatingTitle $nativeTitle [$m title $leaf] \
+        [expr {[$m frame $leaf] eq $fa && [$grip itemcget heading -text] ne {}}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {{Beta Alpha} {Alpha {}} Alpha {Native title} {Edited while floating} 1 1}
+
+test splitlayout-heading-21.2 {long titles are visually truncated and clearing or removing content releases metadata} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    set leaf [$m root]
+    set frame [$m frame $leaf]
+    set original [string repeat {Long heading } 100]
+} -body {
+    $m title $leaf $original
+    set token [$m undock $leaf -geometry 180x200+60+60]
+    ::sltest::settle $frame
+    set grip [::sltest::floatgrip $m $token]
+    set rendered [$grip itemcget heading -text]
+    lassign [$grip bbox heading] x1 y1 x2 y2
+    set clipped [expr {$rendered ne $original && [string index $rendered end] eq {…} &&
+        $x1 >= 45 && $x2 <= [winfo width $grip]-45}]
+    set stored [expr {[$m title $token] eq $original}]
+    $m title $token {}
+    set empty [expr {[$grip find withtag heading] eq {} && [$m title $token] eq {}}]
+    $m title $token Again
+    destroy $frame
+    update
+    list $clipped $stored $empty [set [info object namespace $m]::Titles]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {}}
+
+foreach relief {flat raised sunken ridge groove solid} {
+    test splitlayout-heading-21.3-$relief {header relief and thickness update floating geometry without overlap} -setup {
+        lassign [::sltest::docksetup] m root a b
+        set frame [$m frame $a]
+        $m title $a Title
+        set token [$m undock $a -geometry 320x240+60+60]
+        ::sltest::settle $frame
+    } -body {
+        $m configure -headerrelief $relief -headerborderwidth 3
+        ::sltest::settle $frame
+        set grip [::sltest::floatgrip $m $token]
+        set docked [::sltest::grip $m $b]
+        list [expr {[$grip cget -relief] eq $relief && [$docked cget -relief] eq $relief}] \
+            [$grip cget -borderwidth] [expr {[winfo rooty $frame.text] >= [winfo rooty $grip]+[winfo height $grip]}] \
+            [expr {[$grip find withtag indicator] eq {}}]
+    } -cleanup {::sltest::cleanup} -result {1 3 1 1}
+}
+
+test splitlayout-heading-21.4 {header options validate and title setter accepts an explicit empty value} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+} -body {
+    set defaults [list [$m configure -headerrelief] [$m configure -headerborderwidth] [$m configure -tooltips]]
+    set errors [list [catch {$m configure -headerrelief invalid}] [catch {$m configure -headerborderwidth -1}] \
+        [catch {$m configure -headerborderwidth 1.5}] [catch {$m configure -tooltips maybe}] \
+        [catch {$m title missing x}] [catch {$m title $leaf a b}]]
+    $m title $leaf {line one
+line two}
+    set preserved [expr {[$m title $leaf] eq "line one\nline two"}]
+    list $defaults $errors $preserved [$m title $leaf {}]
+} -cleanup {::sltest::cleanup} -result {{flat 1 1} {1 1 1 1 1 1} 1 {}}
+
+test splitlayout-heading-21.5 {title area participates in dragging and changing header geometry cancels gestures} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m title $a Alpha
+    $m title $b Beta
+    ::sltest::settle $m
+} -body {
+    set grip [::sltest::dockstart $m $a [::sltest::point [$m widget $b]]]
+    ::sltest::dockevent $grip <ButtonRelease-1> [::sltest::point [$m widget $b]]
+    set swapped [list [$m title $a] [$m title $b]]
+    ::sltest::dockstart $m $a [::sltest::point [$m widget $b]]
+    $m configure -headerborderwidth 2
+    list $swapped [::sltest::dockstate $m] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {{Beta Alpha} {} {}}
+
+set ::sltest::tooltipAvailable [expr {![catch {package require tooltip}]}]
+testConstraint slTooltip $::sltest::tooltipAvailable
+
+test splitlayout-tooltip-21.6 {Tklib registrations obey local preference and preserve other application tooltips} \
+    -constraints slTooltip -setup {
+    lassign [::sltest::docksetup] m root a b
+    ttk::button .sltest.other
+    ::tooltip::tooltip .sltest.other Other
+} -body {
+    set grip [::sltest::grip $m $a]
+    set on [expr {[::tooltip::tooltip $grip.toggle] ne {} && [::tooltip::tooltip $grip.delete] ne {}}]
+    $m configure -tooltips false
+    set off [expr {[::tooltip::tooltip $grip.toggle] eq {} && [::tooltip::tooltip $grip.delete] eq {} &&
+        [::tooltip::tooltip .sltest.other] ne {}}]
+    $m configure -tooltips true
+    set token [$m undock $a]
+    set floatingGrip [::sltest::floatgrip $m $token]
+    set floating [expr {[::tooltip::tooltip $floatingGrip.toggle] ne {}}]
+    $m destroy
+    set cleaned [expr {[::tooltip::tooltip $floatingGrip.toggle] eq {} && [::tooltip::tooltip $grip.delete] eq {} &&
+        [::tooltip::tooltip .sltest.other] ne {}}]
+    list $on $off $floating $cleaned
+} -cleanup {
+    ::tooltip::tooltip clear .sltest.other
+    ::sltest::cleanup
+} -result {1 1 1 1}
+
+test splitlayout-tooltip-21.7 {unavailable tooltip package is optional and has no custom fallback} -body {
+    interp create noTips
+    noTips eval [list set auto_path $::auto_path]
+    noTips eval {
+        package ifneeded tooltip 999.0 {error {tooltip deliberately unavailable}}
+        package require splitlayout
+        wm withdraw .
+        set m [splitlayout::splitlayout .m -draghandles true -tooltips true]
+        set ns [info object namespace $m]
+        set result [list [$m configure -tooltips] [set ${ns}::TooltipReady] \
+            [llength [info commands ::tooltip::tooltip]] [llength [info commands .m.tip*]]]
+        $m title [$m root] StillWorking
+        lappend result [$m title [$m root]]
+        $m destroy
+        set result
+    }
+} -cleanup {interp delete noTips} -result {1 0 0 0 StillWorking}
+
+test splitlayout-heading-21.8 {a titled root placeholder is retained when floating content returns} -setup {
+    set m [::sltest::setup]
+    $m title [$m root] Original
+} -body {
+    set token [$m undock [$m root]]
+    set placeholder [$m root]
+    $m title $placeholder Replacement
+    set restored [$m dock $token]
+    update
+    list [llength [$m leaves]] [lmap leaf [$m leaves] {$m title $leaf}] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {2 {Replacement Original} 1}
+
+foreach side {left right} {
+    test splitlayout-header-buttons-22.1-$side {buttons remain inside all four header borders when docked and floating} -setup {
+        lassign [::sltest::docksetup] m root a b
+        $m configure -buttonside $side -headerrelief ridge -headerborderwidth 4
+        set token [$m undock $a -geometry 320x240+60+60]
+        ::sltest::settle [$m frame $token]
+        ::sltest::settle $m
+    } -body {
+        set inside 1
+        foreach grip [list [::sltest::grip $m $b] [::sltest::floatgrip $m $token]] {
+            foreach name {toggle delete} {
+                set button $grip.$name
+                if {[winfo x $button] < 4 || [winfo y $button] < 4 ||
+                    [winfo x $button]+[winfo width $button] > [winfo width $grip]-4 ||
+                    [winfo y $button]+[winfo height $button] > [winfo height $grip]-4} {set inside 0}
+            }
+        }
+        set inside
+    } -cleanup {::sltest::cleanup} -result 1
+}
+
+foreach side {left right} {
+    foreach align {left center right} {
+        test splitlayout-titlealign-23.1-$side-$align {title alignment stays clear of buttons in docked and floating headers} -setup {
+            lassign [::sltest::docksetup] m root a b
+            $m configure -buttonside $side -titlealign $align
+            $m title $a {Floating title}
+            $m title $b {Docked title}
+            set token [$m undock $a -geometry 320x240+60+60]
+            ::sltest::settle [$m frame $token]
+            ::sltest::settle $m
+        } -body {
+            set ok 1
+            foreach grip [list [::sltest::grip $m $b] [::sltest::floatgrip $m $token]] {
+                set border [$m configure -headerborderwidth]
+                set occupied [expr {[winfo width $grip.toggle]+[winfo width $grip.delete]}]
+                set left [expr {$border+4+($side eq {left} ? $occupied : 0)}]
+                set right [expr {[winfo width $grip]-$border-4-($side eq {right} ? $occupied : 0)}]
+                set expected [dict get [dict create left $left center [expr {[winfo width $grip]/2.0}] right $right] $align]
+                set anchor [dict get {left w center center right e} $align]
+                lassign [$grip bbox heading] x1 y1 x2 y2
+                if {[$grip itemcget heading -anchor] ne $anchor ||
+                    abs([lindex [$grip coords heading] 0]-$expected) > 1 || $x1 < $left-2 || $x2 > $right+2} {set ok 0}
+            }
+            set ok
+        } -cleanup {::sltest::cleanup} -result 1
+    }
+}
+
+test splitlayout-titlealign-23.2 {alignment validates and can change without altering title or content} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+    set frame [$m frame $leaf]
+    $m title $leaf {Retained title}
+} -body {
+    set default [$m configure -titlealign]
+    set invalid [catch {$m configure -titlealign invalid}]
+    $m configure -titlealign right -draghandles true
+    ::sltest::settle $m
+    set grip [::sltest::grip $m $leaf]
+    list $default $invalid [$grip itemcget heading -anchor] [$m title $leaf] [expr {[$m frame $leaf] eq $frame}]
+} -cleanup {::sltest::cleanup} -result {center 1 e {Retained title} 1}
+
+test splitlayout-buttonimages-23.3 {PNG and SVG photo overrides size buttons and remain application-owned} -setup {
+    set seed [image create photo -width 34 -height 26]
+    $seed put red -to 0 0 34 26
+    set png [image create photo {sltest png icon} -data [$seed data -format png] -format png]
+    image delete $seed
+    set svg [image create photo -format svg -data {<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36"><rect width="28" height="36" fill="blue"/></svg>}]
+    set cross [image create photo -width 24 -height 24]
+    $cross put green -to 0 0 24 24
+    lassign [::sltest::docksetup] m root a b
+    set images [list $png $svg $cross]
+    set color [$png get 0 0]
+} -body {
+    $m configure -buttonimages [dict create undock $png dock $svg delete $cross]
+    ::sltest::settle $m
+    set grip [::sltest::grip $m $a]
+    set docked [expr {[lindex [$grip.toggle cget -image] 0] eq $png && [lindex [$grip.delete cget -image] 0] eq $cross &&
+        [winfo width $grip.toggle] >= [image width $png]+4}]
+    set token [$m undock $a -geometry 400x300+60+60]
+    ::sltest::settle [$m frame $token]
+    set grip [::sltest::floatgrip $m $token]
+    set floating [expr {[lindex [$grip.toggle cget -image] 0] eq $svg &&
+        [winfo height $grip.toggle] >= [image height $svg]+4 &&
+        [winfo x $grip.delete]+[winfo width $grip.delete] <= [winfo width $grip]-1}]
+    $m destroy
+    list $docked $floating [expr {[$png get 0 0] eq $color}] \
+        [lmap im $images {expr {$im in [image names]}}]
+} -cleanup {
+    ::sltest::cleanup
+    image delete {*}$images
+} -result {1 1 1 {1 1 1}}
+
+test splitlayout-buttonimages-23.4 {image overrides merge atomically and empty values restore built-ins} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set photo [image create photo -width 16 -height 16]
+} -body {
+    $m configure -buttonimages [dict create undock $photo]
+    set before [$m configure -buttonimages]
+    set invalid [list [catch {$m configure -buttonimages [dict create delete $photo dock missingImage]}] \
+        [catch {$m configure -buttonimages [dict create other $photo]}] [catch {$m configure -buttonimages {dock}}]]
+    set atomic [expr {[$m configure -buttonimages] eq $before}]
+    $m configure -buttonimages {}
+    set unchanged [expr {[$m configure -buttonimages] eq $before}]
+    $m configure -buttonimages [dict create delete $photo]
+    set merged [expr {[dict get [$m configure -buttonimages] undock] eq $photo}]
+    $m configure -buttonimages {undock {}}
+    set grip [::sltest::grip $m $a]
+    list $invalid $atomic $unchanged $merged \
+        [expr {[image type [lindex [$grip.toggle cget -image] 0]] eq {bitmap}}] \
+        [expr {[lindex [$grip.delete cget -image] 0] eq $photo}]
+} -cleanup {::sltest::cleanup; image delete $photo} -result {{1 1 1} 1 1 1 1 1}
+
+test splitlayout-buttonimages-23.5 {constructor overrides apply to future headers and reset after external image deletion} -setup {
+    set m [::sltest::setup]
+    $m destroy
+    set photo [image create photo -width 30 -height 30]
+    set m [splitlayout .sltest.layout -titlealign left -buttonimages [dict create undock $photo]]
+    pack $m -fill both -expand 1
+} -body {
+    $m configure -draghandles true
+    ::sltest::settle $m
+    set grip [::sltest::grip $m [$m root]]
+    set supplied [expr {[lindex [$grip.toggle cget -image] 0] eq $photo}]
+    image delete $photo
+    $m configure -titlealign right
+    update
+    list $supplied [image type [lindex [$grip.toggle cget -image] 0]] [$m configure -titlealign]
+} -cleanup {::sltest::cleanup} -result {1 bitmap right}
+
+test splitlayout-tooltip-23.6 {drag-area tooltips obey preference suspend during drag and clean up independently} \
+    -constraints slTooltip -setup {
+    lassign [::sltest::docksetup] m root a b
+    ttk::button .sltest.other
+    ::tooltip::tooltip .sltest.other Other
+} -body {
+    set grip [::sltest::grip $m $a]
+    set docked [expr {[::tooltip::tooltip $grip] ne {}}]
+    ::sltest::dockstart $m $a [::sltest::point [$m widget $b]]
+    set suspended [expr {[::tooltip::tooltip $grip] eq {}}]
+    event generate $grip <Escape>
+    set restored [expr {[::tooltip::tooltip $grip] ne {}}]
+    set token [$m undock $a]
+    set grip [::sltest::floatgrip $m $token]
+    set floating [expr {[::tooltip::tooltip $grip] ne {}}]
+    $m configure -tooltips false
+    set off [expr {[::tooltip::tooltip $grip] eq {} && [::tooltip::tooltip $grip.toggle] eq {} &&
+        [::tooltip::tooltip .sltest.other] ne {}}]
+    $m configure -tooltips true
+    $m destroy
+    list $docked $suspended $restored $floating $off [expr {[::tooltip::tooltip $grip] eq {}}]
+} -cleanup {
+    ::tooltip::tooltip clear .sltest.other
+    ::sltest::cleanup
+} -result {1 1 1 1 1 1}
+
+test splitlayout-buttonimages-23.7 {resetting large images restores compact button widths and header height} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set photo [image create photo -width 48 -height 48]
+    $m configure -buttonimages [dict create dock $photo undock $photo delete $photo]
+    ::sltest::settle $m
+} -body {
+    set grip [::sltest::grip $m $a]
+    set largeHeight [winfo height $grip]
+    $m configure -buttonimages {dock {} undock {} delete {}}
+    ::sltest::settle $m
+    list [expr {[winfo height $grip] < $largeHeight}] [winfo width $grip.toggle] [winfo width $grip.delete]
+} -cleanup {::sltest::cleanup; image delete $photo} -result {1 22 22}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

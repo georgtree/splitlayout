@@ -12,7 +12,7 @@ without recreating the surviving application widgets.
 - Removal of individual panes or complete subtrees, with automatic collapse of redundant parent splits.
 - Content swapping between leaves at different nesting levels.
 - Leaf moves to edge or sibling destinations, preserving application widgets and state.
-- Optional textless grips for mouse-driven swaps, edge moves, and insertion at sashes.
+- Optional rectangular headers for mouse-driven swaps, edge moves, and insertion at sashes.
 - Relative pane proportions and interactive sash resizing.
 - Live resizing or deferred resizing with a configurable sash preview.
 - Inspection of both the logical layout tree and the actual Tk widget hierarchy.
@@ -156,7 +156,7 @@ Button styling follows ttk; existing `-dockopts` settings and Tk database resour
 ### Header alignment and return docking
 
 Set `-buttonside left` or `-buttonside right` (the default), at construction or using `configure`. It applies to all
-docked and floating headers. Both span their available width, and the grip indicator stays centered in the full header.
+docked and floating headers. Both span their available width, and the optional title uses its independent `-titlealign` setting.
 
 ```tcl
 $manager configure -draghandles true -buttonside left
@@ -167,3 +167,46 @@ and split orientation. Surviving sibling nodes are tried nearest first, preferri
 A moved anchor is followed at its current position; a split anchor denotes its whole subtree. If all anchors have been
 removed, docking fills an untouched root placeholder or falls back to the right of the root. Explicit destinations
 override restoration. Original sash proportions are not restored. The delete-content button remains unconditional.
+
+### Rectangular headers and optional titles
+
+```tcl
+$manager configure -draghandles true -headerrelief ridge -headerborderwidth 2 \
+    -buttonside right -tooltips true
+$manager title $leaf "Waveforms"
+puts [$manager title $leaf]
+$manager title $leaf "" ;# Remove the heading.
+```
+
+Headers replace the three-line indicator with a full-width rectangular surface in docked and floating windows.
+Drag the title or empty header area. Buttons keep their own actions and ttk styling. Titles follow content through
+swaps, moves, splits that retain it, and docking transitions. Floating tokens are accepted by `title` too.
+The title is shortened visually to avoid the buttons; querying it returns the original text.
+Native window titles (`undock -title`) are independent.
+
+`-headerrelief` accepts `flat` (default), `raised`, `sunken`, `ridge`, `groove`, and `solid`.
+`-headerborderwidth` defaults to `1` and accepts nonnegative integer pixels.
+
+`-tooltips` defaults to `true`. The optional [Tklib tooltip package](https://core.tcl-lang.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip.md)
+provides button tooltips when it can be loaded. Otherwise there are no tooltips. Set `-tooltips false` to disable them
+for this manager; other application tooltips and Tklib's global configuration are unaffected. No custom tooltip code remains.
+
+### Title alignment, drag-area tooltips, and custom images
+
+```tcl
+set dockIcon [image create photo -file dock.svg -format svg]
+set undockIcon [image create photo -file undock.png]
+set deleteIcon [image create photo -file delete.png]
+$manager configure -titlealign left -tooltips true \
+    -buttonimages [dict create dock $dockIcon undock $undockIcon delete $deleteIcon]
+```
+
+`-titlealign` accepts `left`, `center` (default), or `right`, independently of button alignment. Long headings
+are shortened within the space clear of the buttons. The drag area also gets a Tklib tooltip explaining its action;
+it follows `-tooltips` and is absent when Tklib is unavailable.
+
+`-buttonimages` accepts existing Tk image objects, not file paths. Partial dictionaries merge; use an empty image
+value to restore one built-in bitmap, for example `-buttonimages {dock {}}`. An empty dictionary changes nothing.
+Image validation is atomic. Supplied images remain application-owned and are never deleted, recolored, or scaled.
+Button widths and header height accommodate them. Keep images alive while used and clear the override before
+deleting them. Reapply an override after changing an image's dimensions in place to refresh header sizing.

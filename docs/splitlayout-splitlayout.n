@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -50,6 +50,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
 .br
 \fBSPLITLAYOUTOBJ swap\fP \fIa b\fP
+.br
+\fBSPLITLAYOUTOBJ title\fP \fIid ?text?\fP
 .br
 \fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
 .br
@@ -234,10 +236,10 @@ pack $f\&.editor -fill both -expand 1
 .fi
 .RE
 .PP
-The default is false\&. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
-no text, a dock/undock button, and a delete-content button\&. The grip uses ttk theme colors and a height scaled
-to Tk's display scaling\&. Application widgets remain entirely inside the frame returned by frame; pack and
-grid configurations there survive toggles and moves\&.
+The default is false\&. When enabled, each leaf has a full-width rectangular header containing an optional
+centered title, a dock/undock button, and a delete-content button\&. The grip uses ttk theme colors and a height
+scaled to Tk's display scaling\&. Application widgets remain entirely inside the frame returned by frame; pack
+and grid configurations there survive toggles and moves\&.
 .PP
 Press the left mouse button on a grip and move at least five pixels (the default -dockopts -threshold) to
 start dragging\&. The strip outside its buttons accepts the press; content widgets retain their own mouse
@@ -319,10 +321,70 @@ global -draghandles property controls both strips, including these buttons\&. A 
 width and reserves space using the content labelframe's label-widget area, preserving application pack and
 grid settings\&. The manager owns the content frame's label-widget options; applications should configure
 children inside the content frame\&. Use -buttonside left|right (default right) at construction or with
-configure to align buttons globally\&. Both docked and floating headers follow it; the grip indicator stays
-centered in the full header width\&. Changing alignment cancels an active drag without moving content\&. It is
-independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground follows the
+configure to align buttons globally\&. Both docked and floating headers follow it; title alignment is
+controlled independently by -titlealign\&. Changing alignment cancels an active drag without moving content\&. It
+is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground follows the
 theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+.SS "HEADER APPEARANCE AND TITLES"
+.PP
+The old three-line indicator is replaced by the header surface itself\&. The title and empty header area accept
+dragging; the action buttons do not\&. Header colors and title font follow ttk theme defaults\&. Header relief and
+thickness are global properties; they do not override ttk button styles:
+.PP
+.RS 4n
+.nf
+$manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
+$manager title $leaf "Waveforms"
+set heading [$manager title $leaf]
+$manager title $leaf "" ;# Remove the heading\&.
+.fi
+.RE
+.PP
+-headerrelief accepts flat (default), raised, sunken, ridge, groove, and solid\&.
+-headerborderwidth is a nonnegative integer pixel count (default 1)\&. A zero-width border is invisible\&.
+Changing either property cancels an active drag and applies to existing docked and floating headers\&.
+.PP
+title id ?text? accepts a leaf or floating token\&. Titles belong to content, so they survive swaps, moves,
+retained-content splits, docking, and undocking; removing content removes its title\&. Titles default to empty\&.
+They are independent of the native floating title set by undock -title\&. Display uses one line, replacing
+line breaks with spaces and shortening long headings with an ellipsis\&. The getter returns the original text\&.
+Centering reserves equal space at both ends for either button alignment, keeping the title clear of buttons\&.
+.SS "TITLE ALIGNMENT AND CUSTOM BUTTON IMAGES"
+.PP
+-titlealign left|center|right defaults to center and is independent of -buttonside\&. Left and right titles
+use the respective edge of the free header area, with padding\&. Centered titles remain centered in the whole
+header\&. All alignments shorten long text to avoid the buttons; the stored title remains unchanged\&.
+.PP
+-buttonimages is a dictionary with dock, undock, and delete keys\&. Values are existing Tk image names,
+not filenames or raw SVG data\&. PNG and SVG files/data can be loaded into Tk photo images first:
+.PP
+.RS 4n
+.nf
+set undockImage [image create photo -file undock\&.png]
+set dockImage [image create photo -file dock\&.svg -format svg]
+$manager configure -titlealign left -buttonimages [dict create undock $undockImage dock $dockImage]
+$manager configure -buttonimages {delete {}} ;# Use the built-in delete bitmap\&.
+.fi
+.RE
+.PP
+Overrides apply globally to existing and future docked and floating headers\&. Partial dictionaries preserve
+other entries; an empty value restores that action's built-in bitmap\&. An empty dictionary changes nothing\&.
+Invalid keys or missing image names reject the whole update\&. The toggle uses undock while docked and dock
+while floating\&. Button widths and header height accommodate the images at their native pixel size; images
+are not scaled or recolored\&. Supply appropriately sized icons and retain them while used\&. The manager never
+deletes supplied images\&. To delete one, clear/replace its override first\&. If an image is deleted externally,
+a subsequent refresh falls back to the built-in bitmap\&. After changing an image's dimensions in place, reapply
+its override to refresh header sizing\&. Tk photo images hold rasterized SVG output, not editable vector data\&.
+.SS "OPTIONAL TOOLTIPS"
+.PP
+-tooltips true|false defaults to true\&. When enabled, the manager attempts package require tooltip and
+uses \fITklib tooltip\fP [URL: https://core\&.tcl-lang\&.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip\&.md] for the
+drag area and action buttons\&. Drag-area text describes rearranging/undocking or moving/docking, depending on
+whether the content is docked or floating\&. If the package cannot load, there are no tooltips and no custom
+fallback\&.  Set -tooltips false to remove this manager's tooltip registrations\&. It does not disable
+application tooltips globally or change their delay, font, colors, or fading\&. Setting it to true retries
+loading the optional package\&.  The value returned by configure -tooltips is the requested preference, even
+when the package is unavailable\&.
 .SH "SWAPPING AND REMOVING CONTENT"
 .PP
 The following operations continue the example above:
@@ -400,17 +462,22 @@ the hull\&.
 .PP
 .RS 4n
 .nf
-┌────────────────┬─────────┬──────────────────────────────────────────────────────────────────────┐
-│ Option         │ Default │ Meaning                                                              │
-├────────────────┼─────────┼──────────────────────────────────────────────────────────────────────┤
-│ -width         │ 800     │ Nonnegative requested hull width in pixels\&.                          │
-│ -height        │ 600     │ Nonnegative requested hull height in pixels\&.                         │
-│ -opaqueresize  │ true    │ Resize pane content continuously while dragging a sash\&.              │
-│ -sashpreview   │ window  │ Deferred preview mode: window, inline, or none\&.                      │
-│ -buttonside    │ right   │ Place header buttons on the left or right; indicator stays centered\&. │
-│ -draghandles   │ false   │ Show docking grips on all current and future leaves\&.                 │
-│ -showstructure │ false   │ Outline and inset all current and future splits\&.                     │
-└────────────────┴─────────┴──────────────────────────────────────────────────────────────────────┘
+┌────────────────────┬──────────────┬────────────────────────────────────────────────────────────────────────────┐
+│ Option             │ Default      │ Meaning                                                                    │
+├────────────────────┼──────────────┼────────────────────────────────────────────────────────────────────────────┤
+│ -width             │ 800          │ Nonnegative requested hull width in pixels\&.                                │
+│ -height            │ 600          │ Nonnegative requested hull height in pixels\&.                               │
+│ -opaqueresize      │ true         │ Resize pane content continuously while dragging a sash\&.                    │
+│ -sashpreview       │ window       │ Deferred preview mode: window, inline, or none\&.                            │
+│ -buttonside        │ right        │ Place header buttons on the left or right; title alignment is independent\&. │
+│ -titlealign        │ center       │ Align the optional header title left, center, or right\&.                    │
+│ -buttonimages      │ Empty values │ Optional dock, undock, and delete Tk image overrides\&.                      │
+│ -headerrelief      │ flat         │ Rectangular header relief\&.                                                 │
+│ -headerborderwidth │ 1            │ Nonnegative header border thickness in pixels\&.                             │
+│ -tooltips          │ true         │ Use Tklib tooltips when available\&.                                         │
+│ -draghandles       │ false        │ Show docking grips on all current and future leaves\&.                       │
+│ -showstructure     │ false        │ Outline and inset all current and future splits\&.                           │
+└────────────────────┴──────────────┴────────────────────────────────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
@@ -584,11 +651,11 @@ With no destination, dock tries the sibling positions saved by undock, nearest f
 orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
 sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
 content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
-anchors are skipped\&. Explicit destinations override this restoration\&. If no anchor remains, dock places
-the content to the right of the current root\&. Undocking the sole root creates
-an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces that placeholder if
-it is still the root and its content frame has no child widgets\&. If you populate it, both contents are retained\&.
-Explicit destinations always follow the requested placement instead of replacing the placeholder\&.
+anchors are skipped\&. Explicit destinations override this restoration\&. If no anchor remains, dock places the
+content to the right of the current root\&. Undocking the sole root creates an empty placeholder leaf to preserve
+the nonempty-tree invariant\&. An implicit dock replaces that placeholder if it is still the root, has no header
+title, and its content frame has no child widgets\&. If you populate it, both contents are retained\&. Explicit
+destinations always follow the requested placement instead of replacing the placeholder\&.
 .PP
 undock accepts -title (default splitlayout), -geometry (default current content size and position), and
 -onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current
@@ -758,6 +825,9 @@ Replaces a leaf with a split containing two new leaves\&.
 swap
 Exchanges the content frames assigned to two leaves\&.
 .TP
+title
+Gets or sets the optional header title belonging to managed content\&.
+.TP
 tree
 Returns a recursive snapshot of the logical layout hierarchy\&. A nested dictionary describing the requested logical subtree\&.
 .TP
@@ -780,8 +850,11 @@ Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widge
 -borderwidth
 Readable, writable\&. Hull border width, delegated to the ttk frame\&.
 .TP
+-buttonimages
+Readable, writable\&. Dictionary mapping dock, undock, and delete to existing Tk image names\&. All default to empty, selecting built-in bitmaps\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
+.TP
 -buttonside
-Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. The indicator stays centered in the full strip\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
+Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. Title alignment is controlled independently by titlealign\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
 .TP
 -class
 Readable\&. Read-only hull class override; empty when the default ttk class is used\&.
@@ -793,7 +866,13 @@ Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
 Readable, writable\&. Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth, and -threshold\&. Defaults come from the Tk option database\&. Partial updates retain other keys\&.
 .TP
 -draghandles
-Readable, writable\&. Boolean enabling manager-owned textless grips for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape cancels; an outside drop undocks\&. Floating grips move and dock owned content\&. Disabling removes docked and floating grips without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
+Readable, writable\&. Boolean enabling manager-owned rectangular headers for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape cancels; an outside drop undocks\&. Floating grips move and dock owned content\&. Disabling removes docked and floating grips without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
+.TP
+-headerborderwidth
+Readable, writable\&. Nonnegative integer header border thickness in pixels; default 1\&. Changes cancel an active drag and update the reserved header height\&.
+.TP
+-headerrelief
+Readable, writable\&. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat\&. Affects the full rectangular docked and floating header, including the area around its buttons\&. Button styling remains controlled by ttk\&. Changes cancel an active drag\&.
 .TP
 -height
 Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
@@ -825,6 +904,12 @@ Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
 -takefocus
 Readable, writable\&. Hull focus traversal setting, delegated to the ttk frame\&.
 .TP
+-titlealign
+Readable, writable\&. Header title alignment: left, center, or right; default center\&. Independent of buttonside\&. Applies to docked and floating headers\&. Titles are truncated within the space clear of buttons\&.
+.TP
+-tooltips
+Readable, writable\&. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true\&. Missing packages are silently tolerated\&. This property expresses the preference, not package availability\&. Only this manager's registrations are changed; Tklib's global settings remain application-controlled\&.
+.TP
 -width
 Readable, writable\&. Requested hull width, delegated to the ttk frame; constructor default 800\&.
 .RE
@@ -835,14 +920,17 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+-buttonimages dictionary
+Optional dock, undock, and delete Tk image overrides; default built-in bitmaps\&.
 .TP
 -buttonside side
 Align header buttons left or right in docked and floating content; default right\&.
@@ -851,7 +939,13 @@ Align header buttons left or right in docked and floating content; default right
 Docking colors, preview line width, and detection distances; option-database defaults\&.
 .TP
 -draghandles boolean
-Enable textless docking grips on all leaves; default false\&.
+Enable rectangular docking headers on all leaves; default false\&.
+.TP
+-headerborderwidth pixels
+Nonnegative header border thickness; default 1\&.
+.TP
+-headerrelief relief
+Header border: flat, raised, sunken, ridge, groove, or solid; default flat\&.
 .TP
 -height height
 Nonnegative requested hull height in pixels; default 600\&.
@@ -870,6 +964,12 @@ Outline and inset all split regions; default false\&.
 .TP
 -structureopts dictionary
 Split outline colors, border width, and spacing; option-database defaults\&.
+.TP
+-titlealign alignment
+Header title alignment: left, center, or right; default center\&.
+.TP
+-tooltips boolean
+Show Tklib tooltips when the optional package is available; default true\&.
 .TP
 -width width
 Nonnegative requested hull width in pixels; default 800\&.
@@ -1480,6 +1580,36 @@ widget pathnames remain unchanged\&. Equal identifiers do nothing\&.
 \fBReturn value\fR
 .PP
 Nothing\&.
+.PP
+.RS -4n
+\fBtitle\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Gets or sets the optional header title belonging to managed content\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ title\fP \fIid ?text?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Docked leaf identifier or owned floating token\&.
+.TP
+text
+Optional title; an empty string removes the heading\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Titles follow content through swaps, moves, splitting with retained content, and floating transitions\&.
+They do not change the native window title set by undock -title\&. Rendering uses one line and truncates
+long headings to keep the buttons unobscured; the stored string is returned unchanged\&.
+.PP
+\fBReturn value\fR
+.PP
+The current title string\&.
 .PP
 .RS -4n
 \fBtree\fR (::splitlayout::splitlayout)
