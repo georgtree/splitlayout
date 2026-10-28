@@ -153,17 +153,43 @@ browse the local HTML documentation.</p>
 <p>Only content owned by the same manager is accepted. The content frame and all its widgets survive; the old leaf ID
 and, after docking, the floating token expire. Use <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">floating</span></code> to list floating tokens, <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">floating</span> <span class="pre">$token</span></code>
 to inspect one, and <code class="docutils literal notranslate"><span class="pre">$manager</span> <span class="pre">frame</span> <span class="pre">$token</span></code> to access its native window.</p>
-<p>Docking supports all six <code class="docutils literal notranslate"><span class="pre">move</span></code> destinations. Without a destination, it docks beside the current root or replaces an
+<p>Docking supports all six <code class="docutils literal notranslate"><span class="pre">move</span></code> destinations. Without a destination, it first tries the saved sibling position and orientation, then docks beside the root or replaces an
 untouched empty placeholder created by undocking the sole root. Closing a floating window redocks it by default;
 <code class="docutils literal notranslate"><span class="pre">undock</span> <span class="pre">-onclose</span> <span class="pre">destroy</span></code> or <code class="docutils literal notranslate"><span class="pre">remove</span> <span class="pre">$token</span></code> explicitly destroys its content. <code class="docutils literal notranslate"><span class="pre">clear</span></code> affects the docked tree only.
 Destroying the manager destroys its floating windows too, because their actual Tk ancestry remains unchanged.</p>
-<p>Content containers are now classic borderless <code class="docutils literal notranslate"><span class="pre">frame</span></code> widgets so Tk can promote them with <code class="docutils literal notranslate"><span class="pre">wm</span> <span class="pre">manage</span></code>.
+<p>Content containers are now classic borderless <code class="docutils literal notranslate"><span class="pre">labelframe</span></code> widgets with class <code class="docutils literal notranslate"><span class="pre">Frame</span></code> so Tk can promote them with <code class="docutils literal notranslate"><span class="pre">wm</span> <span class="pre">manage</span></code>.
 The surrounding hull, grips, and panedwindows retain their themed behavior. Ttk-only content-frame options such as
 <code class="docutils literal notranslate"><span class="pre">-style</span></code> must instead be applied to a themed child. See the Ruff API documentation for full lifecycle, destination,
 and bindtag semantics. These are public commands; floating-window drag gestures are not part of this addition.</p>
+<section id="floating-gestures-and-grip-buttons">
+<span id="r-floating-gestures-and-grip-buttons"></span><span id="r-floating20gestures20and20grip20buttons"></span><h3>Floating gestures and grip buttons<a class="headerlink" href="#floating-gestures-and-grip-buttons" title="Link to this heading">¶</a></h3>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">true</span></code> to show a minimal grip with monochrome arrow and cross buttons on docked and floating content.
+Drag a docked grip outside the layout and release to undock. Drag a floating window’s internal grip over its owner layout
+to dock at an edge, sash, or outer rim; dropping at a leaf center docks to its right. Native title-bar movement does not dock.
+Escape cancels; a floating drag cancellation restores its initial position.</p>
+<p>The arrow undocks a leaf or docks floating content at the default destination. The cross always calls <code class="docutils literal notranslate"><span class="pre">remove</span></code>, deleting
+content. The native window close button alone follows <code class="docutils literal notranslate"><span class="pre">-onclose</span> <span class="pre">dock|destroy</span></code>. Tooltips identify all three actions.
+Disabling <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> hides every grip and its buttons; the public commands remain available.</p>
+<p>The floating strip occupies the content labelframe’s label-widget area, so applications can continue to use either
+<code class="docutils literal notranslate"><span class="pre">pack</span></code> or <code class="docutils literal notranslate"><span class="pre">grid</span></code> inside the returned content frame. Those label-widget options are reserved for the manager.
+Button styling follows ttk; existing <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> settings and Tk database resources style drag previews and hit zones.</p>
+</section>
+<section id="header-alignment-and-return-docking">
+<span id="r-header-alignment-and-return-docking"></span><span id="r-header20alignment20and20return20docking"></span><h3>Header alignment and return docking<a class="headerlink" href="#header-alignment-and-return-docking" title="Link to this heading">¶</a></h3>
+<p>Set <code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">right</span></code> (the default), at construction or using <code class="docutils literal notranslate"><span class="pre">configure</span></code>. It applies to all
+docked and floating headers. Both span their available width, and the grip indicator stays centered in the full header.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>left
+</pre></div>
+</div>
+<p>An implicit <code class="docutils literal notranslate"><span class="pre">dock</span></code>, the floating Dock button, and native close with <code class="docutils literal notranslate"><span class="pre">-onclose</span> <span class="pre">dock</span></code> now try the original sibling position
+and split orientation. Surviving sibling nodes are tried nearest first, preferring the following sibling at equal distance.
+A moved anchor is followed at its current position; a split anchor denotes its whole subtree. If all anchors have been
+removed, docking fills an untouched root placeholder or falls back to the right of the root. Explicit destinations
+override restoration. Original sash proportions are not restored. The delete-content button remains unconditional.</p>
 <hr class="docutils" />
 <p class="centered">
 <strong>Copyright (c) George Yashin</strong></p></section>
+</section>
 </section>
 
 
@@ -185,7 +211,11 @@ and bindtag semantics. These are public commands; floating-window drag gestures 
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
 <li><a class="reference internal" href="#installing">Installing</a></li>
 <li><a class="reference internal" href="#documentation">Documentation</a></li>
-<li><a class="reference internal" href="#docking-and-undocking">Docking and undocking</a></li>
+<li><a class="reference internal" href="#docking-and-undocking">Docking and undocking</a><ul>
+<li><a class="reference internal" href="#floating-gestures-and-grip-buttons">Floating gestures and grip buttons</a></li>
+<li><a class="reference internal" href="#header-alignment-and-return-docking">Header alignment and return docking</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

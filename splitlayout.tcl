@@ -41,7 +41,7 @@ namespace eval ::splitlayout {
 
         The `splitlayout .layout ...` command returns the widget pathname. Use that pathname both as the layout command
         and with Tk geometry managers. The constructor accepts `-width`, `-height`, `-opaqueresize`, `-sashpreview`,
-        `-draghandles`, `-showstructure`, `-dockopts`, `-structureopts`, and `-sashpreviewopts`.
+        `-draghandles`, `-buttonside`, `-showstructure`, `-dockopts`, `-structureopts`, and `-sashpreviewopts`.
 
         ## Splitting existing content
         Continue from the quick-start example:
@@ -166,13 +166,13 @@ namespace eval ::splitlayout {
         ```
 
         The default is `false`. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
-        no text or buttons. The grip uses ttk theme colors and a height scaled to Tk's display scaling. Application
-        widgets remain entirely inside the frame returned by `frame`; pack and grid configurations there survive
-        toggles and moves.
+        no text, a dock/undock button, and a delete-content button. The grip uses ttk theme colors and a height scaled
+        to Tk's display scaling. Application widgets remain entirely inside the frame returned by `frame`; pack and
+        grid configurations there survive toggles and moves.
 
         Press the left mouse button on a grip and move at least five pixels (the default `-dockopts -threshold`) to
-        start dragging. The entire strip accepts the press; content widgets retain their own mouse bindings. The
-        destination is selected within this megawidget:
+        start dragging. The strip outside its buttons accepts the press; content widgets retain their own mouse
+        bindings. The destination is selected within this megawidget:
 
         | Drop location                                    | Operation                                                  | Preview                              |
         |--------------------------------------------------|------------------------------------------------------------|--------------------------------------|
@@ -180,25 +180,27 @@ namespace eval ::splitlayout {
         | Left, right, top, or bottom edge of another leaf | Move beside that leaf using the corresponding edge option. | Narrow band at the chosen edge.      |
         | Outer rim of the megawidget                      | Move outside the entire layout region on that side.        | Full-height or full-width edge band. |
         | A native sash between panes                      | Insert before the child following that sash.               | Insertion line at the sash.          |
-        | Source leaf or outside the megawidget            | Cancel.                                                    | No destination highlight.            |
+        | Source leaf                                     | Cancel.                                                    | No destination highlight.            |
+        | Outside the megawidget, on screen                | Undock the leaf into a new window.                          | Floating window outline.             |
 
         By default, the outermost 12 pixels **inside** the megawidget form an outer drop zone (limited to one eighth of
         its size). This zone takes precedence over sashes and local leaf edges. It allows moving a pane to the far
         right or left of an entire stacked region, or above/below an entire row. A matching root orientation reuses
         that split's first or last position; otherwise a new root split is created. Drop just inside the window: points
-        outside the megawidget still cancel.
+        outside the megawidget undock on release.
 
         Farther inside, sashes take precedence over leaf edge zones. Local edge zones default to up to 24 pixels into a
         pane, limited to one quarter of its width or height; corners choose the nearest normalized edge. The preview is
         blue by default, is temporary, and does not resize or rearrange content during dragging. Release performs one
-        `move` or `swap`; a click without dragging does nothing.  The `-sashpreview` setting controls deferred sash
-        resizing only, not this docking preview.
+        `move`, `swap`, `undock`, or `dock`; a click without dragging does nothing. The `-sashpreview` setting
+        controls deferred sash resizing only, not this docking preview.
 
         Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
         changes, or disabling `-draghandles` cancels the gesture. The grip temporarily takes keyboard focus and a local
         mouse grab so that release outside the grip and Escape are handled. Cleanup restores the prior focus when still
         owned by the grip and releases only its own grab. A new gesture does not replace an existing grab. Dragging
-        between separate splitlayout instances or to other applications is not supported.
+        into separate splitlayout instances or other applications is not supported; an outside drop creates an owned
+        floating window instead.
 
         With handles enabled, `widget leaf` returns the **pane wrapper**, whereas `frame leaf` always returns the
         application content frame. `container leaf` resolves the wrapper's outer geometry container; `container
@@ -211,6 +213,31 @@ namespace eval ::splitlayout {
         preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
         wrappers. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
         changes. Application content paths remain stable.
+
+        Floating windows also have a full-width internal grip when `-draghandles` is enabled. Drag this grip to move
+        the floating window and preview destinations in its owner layout. Drop on an edge, sash, or outer rim to dock
+        there. A floating drop in a leaf's center docks to its right (it does not swap or discard that leaf). Its
+        untouched sole-root placeholder is filled instead. Release elsewhere keeps the window floating at its new
+        position. Escape cancels and restores the starting position. Moving native window decorations only moves the
+        window; it does not initiate docking.
+
+        Each grip has two monochrome bitmap buttons, with tooltips:
+
+        | Button | Docked leaf | Floating content |
+        |--------|-------------|------------------|
+        | Arrow | Undock | Dock at the default destination defined by `dock` |
+        | Cross | Delete content with `remove` | Delete content with `remove` |
+
+        The cross **always destroys content**. It never consults `-onclose`; that policy controls only the native
+        floating window close request (including Alt+F4). Buttons accept keyboard focus and do not start dragging. The
+        global `-draghandles` property controls both strips, including these buttons. A floating strip spans the window
+        width and reserves space using the content labelframe's label-widget area, preserving application `pack` and
+        `grid` settings. The manager owns the content frame's label-widget options; applications should configure
+        children inside the content frame. Use `-buttonside left|right` (default `right`) at construction or with
+        `configure` to align buttons globally. Both docked and floating headers follow it; the grip indicator stays
+        centered in the full header width. Changing alignment cancels an active drag without moving content. It is
+        independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
+        theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
 
         ## Swapping and removing content
         The following operations continue the example above:
@@ -284,6 +311,7 @@ namespace eval ::splitlayout {
         | `-height`        | `600`    | Nonnegative requested hull height in pixels.            |
         | `-opaqueresize`  | `true`   | Resize pane content continuously while dragging a sash. |
         | `-sashpreview`   | `window` | Deferred preview mode: `window`, `inline`, or `none`.   |
+        | `-buttonside`    | `right`  | Place header buttons on the left or right; indicator stays centered. |
         | `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
         | `-showstructure` | `false`  | Outline and inset all current and future splits.        |
 
@@ -409,9 +437,10 @@ namespace eval ::splitlayout {
         ## Floating managed content
 
         `undock` promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
-        and collapses a parent with only one remaining child. The application widgets, paths, bindings, and content state
-        are retained. `dock` returns that owned content to a new leaf. Arbitrary windows and other managers' floating
-        content are not accepted. This first version exposes commands; drag gestures still operate within the docked layout.
+        and collapses a parent with only one remaining child. The application widgets, paths, bindings, and content
+        state are retained. `dock` returns that owned content to a new leaf. Arbitrary windows and other managers'
+        floating content are not accepted. This first version exposes commands; drag gestures still operate within the
+        docked layout.
 
         ```tcl
         set content [$manager frame $leaf]
@@ -426,42 +455,53 @@ namespace eval ::splitlayout {
         set newLeaf [$manager dock $floating -right $target]
         ```
 
-        The docking destinations are `-left`, `-right`, `-top`, `-bottom`, `-before`, and `-after`, with the same placement
-        rules as `move`. Specify at most one. Edge destinations accept leaves or splits; sibling destinations require a
-        non-root target. Docking reuses a matching parent orientation, converts a leaf target into a split when necessary,
-        or wraps a split target in a new parent. Existing pane shares are divided equally at the insertion point.
+        The docking destinations are `-left`, `-right`, `-top`, `-bottom`, `-before`, and `-after`, with the same
+        placement rules as `move`. Specify at most one. Edge destinations accept leaves or splits; sibling destinations
+        require a non-root target. Docking reuses a matching parent orientation, converts a leaf target into a split
+        when necessary, or wraps a split target in a new parent. Existing pane shares are divided equally at the
+        insertion point.
 
-        With no destination, `dock` places the content to the right of the current root. Undocking the sole root creates
+        With no destination, `dock` tries the sibling positions saved by `undock`, nearest first, with the original
+        orientation and relative order (following siblings take precedence at equal distance). The first surviving
+        sibling node is used, including if it has become a split. Node identity represents a position: swapping its
+        content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
+        anchors are skipped. Explicit destinations override this restoration. If no anchor remains, `dock` places
+        the content to the right of the current root. Undocking the sole root creates
         an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces that placeholder if
         it is still the root and its content frame has no child widgets. If you populate it, both contents are retained.
         Explicit destinations always follow the requested placement instead of replacing the placeholder.
 
         `undock` accepts `-title` (default `splitlayout`), `-geometry` (default current content size and position), and
-        `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current layout
-        by default; it does not remember an old location that may no longer exist. Use `-onclose destroy` to discard the
-        content on close, or `$manager remove $floating` to destroy it explicitly. `$manager clear` and removing the docked
-        root clear only the docked tree; floating windows remain owned by the manager. Destroying the manager or an actual
-        Tk ancestor destroys all owned floating windows as well. Direct destruction of a floating frame removes its record.
+        `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current
+        layout by default, trying its remembered position before using the fallback destination. Use `-onclose destroy`
+        to discard the content on close, or `$manager remove $floating` to destroy it explicitly. `$manager clear` and
+        removing the docked root clear only the docked tree; floating windows remain owned by the manager. Destroying
+        the manager or an actual Tk ancestor destroys all owned floating windows as well. Direct destruction of a
+        floating frame removes its record.
 
-        Floating tokens are opaque, manager-specific handles. They expire on docking or removal, and must not be reused.
-        `floating` lists these tokens; `floating $token` returns a dictionary with `id`, `frame`, `title`, `geometry`, `state`,
-        and `onclose`. `frame $token` returns the retained frame. Docked-tree commands (`tree`, `leaves`, `node`, and `locate`)
-        exclude floating content; `widgets` still exposes its actual Tk ancestry and `wm` geometry manager.
+        Floating tokens are opaque, manager-specific handles. They expire on docking or removal, and must not be
+        reused.  `floating` lists these tokens; `floating $token` returns a dictionary with `id`, `frame`, `title`,
+        `geometry`, `state`, and `onclose`. `frame $token` returns the retained frame. Docked-tree commands (`tree`,
+        `leaves`, `node`, and `locate`) exclude floating content; `widgets` still exposes its actual Tk ancestry and
+        `wm` geometry manager.
 
-        Content frames are now **classic borderless `frame` widgets**, because Tk's `wm manage` cannot promote `ttk::frame`.
-        The hull, leaf wrappers, and panedwindows retain their ttk behavior. Code using `frame $leaf` for `pack`, `grid`, or
-        child creation continues to work; ttk-only frame options such as `-style` are no longer available on that content
-        frame. Place themed widgets inside it when needed. Actual parentage remains the layout hull throughout the round trip.
+        Content frames are **classic borderless `labelframe` widgets with class `Frame`**, because Tk's `wm manage`
+        cannot promote `ttk::frame`.  The hull, leaf wrappers, and panedwindows retain their ttk behavior. Code using
+        `frame $leaf` for `pack`, `grid`, or child creation continues to work; ttk-only frame options such as `-style`
+        are no longer available on that content frame. Place themed widgets inside it when needed. Actual parentage
+        remains the layout hull throughout the round trip.
 
-        Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the old
-        toplevel, restoring unchanged custom lists on docking and preserving other edits made while floating. Binding scripts
-        containing literal window paths are not rewritten. Applications that cache `winfo toplevel` should query it again after
-        a docking transition. Preserve manager-owned bindtags if changing a floating frame's bindtags directly.
+        Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the
+        old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
+        floating. Binding scripts containing literal window paths are not rewritten. Applications that cache `winfo
+        toplevel` should query it again after a docking transition. Preserve manager-owned bindtags if changing a
+        floating frame's bindtags directly.
 
-        Window promotion uses Tk's `wm manage`/`wm forget`, so native activation, positioning, and decorations depend on the
-        platform/window manager. Invalid destinations are rejected before unmanaging the floating window. Failure to promote
-        or apply the requested geometry restores the docked layout. Windows and Aqua behavior should be verified on their
-        native Tk builds; X11 test results alone do not establish macOS compatibility.
+        Window promotion uses Tk's `wm manage`/`wm forget`, so native activation, positioning, and decorations depend
+        on the platform/window manager. Invalid destinations are rejected before unmanaging the floating
+        window. Failure to promote or apply the requested geometry restores the docked layout. Windows and Aqua
+        behavior should be verified on their native Tk builds; X11 test results alone do not establish macOS
+        compatibility.
 
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -538,7 +578,7 @@ namespace eval ::splitlayout {
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders Settings Floating VacantRoot
+            Borders Settings Floating VacantRoot Icons TipTimer Tip ButtonSide
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -547,10 +587,10 @@ oo::configurable create ::splitlayout::splitlayout {
             preamble {
                 Configurable TclOO layout manager for Tcl/Tk 9.
 
-                `configure` is inherited from `oo::configurable`. With no arguments it returns a dictionary
-                of property names and values; with one property name it returns that value. Set properties
-                with option/value pairs. Pairs are applied in order, and a failed setter leaves earlier
-                successful assignments in effect. Use `configure -name` instead of `cget -name`.
+                `configure` is inherited from `oo::configurable`. With no arguments it returns a dictionary of property
+                names and values; with one property name it returns that value. Set properties with option/value
+                pairs. Pairs are applied in order, and a failed setter leaves earlier successful assignments in
+                effect. Use `configure -name` instead of `cget -name`.
 
                 Hull properties delegate directly to the ttk frame. Layout behavior properties use oo::configurable
                 directly, without option objects. Appearance dictionaries take their initial values from the Tk option
@@ -566,15 +606,22 @@ oo::configurable create ::splitlayout::splitlayout {
                     Changing the value cancels an active deferred drag. Invalid values preserve the old value.
                 }
                 -draghandles {
-                    Boolean enabling manager-owned textless grips for every leaf; default false.
-                    Drag a grip to swap at a leaf center, move at an edge, or insert at a sash. Escape or an
-                    outside drop cancels. Disabling removes grips and wrappers without destroying content.
-                    This setting is independent of -opaqueresize and applies to future leaves as well.
+                    Boolean enabling manager-owned textless grips for every leaf; default false. Drag a grip to swap
+                    at a leaf center, move at an edge, or insert at a sash. Escape cancels; an outside drop
+                    undocks. Floating grips move and dock owned content. Disabling removes docked and floating grips
+                    without destroying content.  This setting is independent of -opaqueresize and applies to future
+                    leaves as well.
+                }
+                -buttonside {
+                    Side of the grip strip containing the action buttons: left or right; default right.
+                    Applies immediately to docked and floating headers. The indicator stays centered in the full strip.
+                    Changing the value cancels an active content drag. Button appearance remains controlled by ttk.
                 }
                 -showstructure {
-                    Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts.
-                    Applies to existing and future splits. Changing it cancels active gestures, preserves content,
-                    and rebuilds geometry. During docking the receiving split outline is highlighted.
+                    Boolean showing an outline and inset around every split; default false. Appearance is set by
+                    -structureopts.  Applies to existing and future splits. Changing it cancels active gestures,
+                    preserves content, and rebuilds geometry. During docking the receiving split outline is
+                    highlighted.
                 }
                 -dockopts {
                     Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth,
@@ -636,7 +683,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$value ni {window inline none}} {
             return -code error {expected -sashpreview window, inline, or none}
         }
-        if {![info exists Preview] || $value ne $Preview} {
+        if {![info exists Preview] || ($value ne $Preview)} {
             my CancelDrag
             set Preview $value
         }
@@ -648,12 +695,33 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error "expected boolean value but got '$value'"
         }
         set value [expr {!!$value}]
-        if {![info exists Handles] || $value != $Handles} {
+        if {![info exists Handles] || ($value != $Handles)} {
             my CancelDrag
             set Handles $value
             if {[info exists Root]} {
                 my CaptureAll
                 my Rebuild
+            }
+        }
+    }
+    property buttonside -get {
+        return $ButtonSide
+    } -set {
+        if {$value ni {left right}} {
+            return -code error {expected buttonside left or right}
+        }
+        if {![info exists ButtonSide] || $value ne $ButtonSide} {
+            my CancelDrag
+            set ButtonSide $value
+            if {[info exists Root]} {
+                dict for {id panel} $Panels {
+                    my DrawGrip [dict get $panel grip]
+                }
+                dict for {id data} $Floating {
+                    if {[dict exists $data grip]} {
+                        my DrawGrip [dict get $data grip]
+                    }
+                }
             }
         }
     }
@@ -797,7 +865,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #  value - Value for the preceding constructor option.
         #
         # A name beginning with a dot creates an instance. Creation options are -width, -height, -opaqueresize,
-        # -sashpreview, -showstructure, and -draghandles, with the same meanings and defaults as in the constructor.
+        # -sashpreview, -showstructure, -buttonside, and -draghandles, with the same meanings and defaults as in the
+        # constructor.
         # Appearance dictionaries -dockopts, -structureopts, and -sashpreviewopts are also accepted.
         # Other names and their remaining arguments are delegated to the inherited unknown handler.
         #
@@ -817,6 +886,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -opaqueresize boolean - Enable live sash resizing; default true.
         #  -sashpreview mode - Deferred preview mode: window, inline, or none; default window.
         #  -draghandles boolean - Enable textless docking grips on all leaves; default false.
+        #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
         #  -showstructure boolean - Outline and inset all split regions; default false.
         #  -dockopts dictionary - Docking colors, preview line width, and detection distances; option-database defaults.
         #  -structureopts dictionary - Split outline colors, border width, and spacing; option-database defaults.
@@ -828,8 +898,11 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
-        #  ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary?
+        #  ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
+        set Icons {}
+        set TipTimer {}
+        set Tip {}
         set Floating {}
         set VacantRoot {}
         set Settings {}
@@ -851,12 +924,14 @@ oo::configurable create ::splitlayout::splitlayout {
             {-height= -default 600 -type integer}
             {-showstructure= -default false -type boolean}
             {-draghandles= -default false -type boolean}
+            {-buttonside= -default right -enum {left right}}
             {-opaqueresize= -default true -type boolean}
             {-sashpreview= -default window -enum {window inline none}}
         }]
         my configure -opaqueresize [dict get $options opaqueresize] -sashpreview [dict get $options sashpreview]
         my configure -showstructure [dict get $options showstructure]
         my configure -draghandles [dict get $options draghandles]
+        my configure -buttonside [dict get $options buttonside]
         set W [dict get $options path]
         if {![string match .* $W] || ($W eq {.})} {
             return -code error {expected a new non-root Tk widget path}
@@ -900,6 +975,12 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         set Closing 1
+        my HideTip
+        if {[info exists Icons]} {
+            dict for {name image} $Icons {
+                image delete $image
+            }
+        }
         my CancelDrag
         if {[info exists Pending]} {
             dict for {id token} $Pending {
@@ -910,7 +991,9 @@ oo::configurable create ::splitlayout::splitlayout {
             if {[info exists Owner] && [winfo exists $Owner]} {
                 set tags [bindtags $Owner]
                 set index [lsearch -exact $tags ${Tag}Owner]
-                if {$index >= 0} {bindtags $Owner [lreplace $tags $index $index]}
+                if {$index >= 0} {
+                    bindtags $Owner [lreplace $tags $index $index]
+                }
             }
             foreach tag [list $Tag ${Tag}Sash ${Tag}Deferred ${Tag}Owner ${Tag}Floating] {
                 foreach event [bind $tag] {
@@ -929,7 +1012,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Events for other widgets and recursive teardown are ignored.
         #
         # Returns: Nothing.
-        if {$path eq $W && !$Closing} {
+        if {($path eq $W) && !$Closing} {
             my destroy
         }
     }
@@ -964,7 +1047,8 @@ oo::configurable create ::splitlayout::splitlayout {
     method NewLeaf {parent {frame {}}} {
         # Allocates a leaf record and optionally creates its content frame.
         #  parent - Logical parent identifier, or empty for a root.
-        #  frame - Existing content frame to reuse; empty creates a new classic frame that supports wm manage.
+        #  frame - Existing content frame to reuse; empty creates a borderless labelframe with class Frame that supports
+        #  wm manage.
         #
         # A newly created frame is an immediate Tk child of the hull. This helper does not attach the leaf to its parent
         # or rebuild the layout.
@@ -972,7 +1056,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: The new leaf identifier.
         set id n[incr Serial]
         if {$frame eq {}} {
-            set frame [::frame $W.content$Serial -borderwidth 0 -highlightthickness 0]
+            set frame [::labelframe $W.content$Serial -class Frame -relief flat -borderwidth 0 -highlightthickness 0]
             bind $frame <Map> [namespace code [list my ContentMapped $frame]]
         }
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
@@ -985,10 +1069,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Floating content is absent from tree, leaves, node, and locate. Its actual widgets remain visible in widgets.
         # The snapshot contains id, frame, title, geometry, state, and onclose. Tokens expire on docking or removal.
         # Returns: A list of floating tokens, or a dictionary describing one floating window.
-        if {$id eq {}} {return [dict keys $Floating]}
+        if {$id eq {}} {
+            return [dict keys $Floating]
+        }
         set frame [my FloatingFrame $id]
         return [dict create id $id frame $frame title [wm title $frame] geometry [wm geometry $frame]\
-            state [wm state $frame] onclose [dict get $Floating $id onclose]]
+                        state [wm state $frame] onclose [dict get $Floating $id onclose]]
     }
     method FloatingFrame {id} {
         # Validates a floating token and returns its retained content frame.
@@ -996,7 +1082,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Widget paths, stale tokens, and tokens belonging to another manager are rejected.
         # Returns: The existing content frame pathname.
-        if {![dict exists $Floating $id]} {return -code error "unknown floating content '$id'"}
+        if {![dict exists $Floating $id]} {
+            return -code error "unknown floating content '$id'"
+        }
         return [dict get $Floating $id frame]
     }
     method BindingSnapshot {frame} {
@@ -1028,18 +1116,24 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: A dictionary of original and adjusted lists for restoration on docking.
         set changes {}
         dict for {path tags} $snapshot {
-            if {![winfo exists $path]} {continue}
-            if {[dict exists $saved $path] && $tags eq [lindex [dict get $saved $path] 1]} {
+            if {![winfo exists $path]} {
+                continue
+            }
+            if {[dict exists $saved $path] && ($tags eq [lindex [dict get $saved $path] 1])} {
                 set adjusted [lindex [dict get $saved $path] 0]
-            } elseif {$path eq $from && $tags eq [list $path [winfo class $path] all]} {
+            } elseif {($path eq $from) && ($tags eq [list $path [winfo class $path] all])} {
                 # A former toplevel's default list gains its containing toplevel on docking.
                 set adjusted [list $path [winfo class $path] $to all]
             } else {
                 set adjusted {}
                 foreach tag $tags {
-                    if {$tag eq $from && $tag ne $path} {
-                        if {$to ne $path} {lappend adjusted $to}
-                    } else {lappend adjusted $tag}
+                    if {($tag eq $from) && ($tag ne $path)} {
+                        if {$to ne $path} {
+                            lappend adjusted $to
+                        }
+                    } else {
+                        lappend adjusted $tag
+                    }
                 }
             }
             if {[bindtags $path] ne $adjusted} {
@@ -1048,6 +1142,47 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         return $changes
+    }
+    method RememberPlacement {id} {
+        # Records sibling anchors and orientation before removing a docked leaf.
+        #  id - Leaf to undock.
+        #
+        # Candidates are tried nearest first, preferring the following sibling at equal distance.
+        # Returns: Ordered pairs of sibling node identifiers and edge destinations; empty for the root.
+        set parent [my parent $id]
+        if {$parent eq {}} {
+            return
+        }
+        set siblings [my children $parent]
+        set at [lsearch -exact $siblings $id]
+        set horizontal [expr {[dict get $Nodes $parent orient] eq {horizontal}}]
+        set result {}
+        for {set distance 1} {$distance < [llength $siblings]} {incr distance} {
+            set next [expr {$at+$distance}]
+            set previous [expr {$at-$distance}]
+            if {$next < [llength $siblings]} {
+                lappend result [list [lindex $siblings $next] [expr {$horizontal ? {left} : {top}}]]
+            }
+            if {$previous >= 0} {
+                lappend result [list [lindex $siblings $previous] [expr {$horizontal ? {right} : {bottom}}]]
+            }
+        }
+        return $result
+    }
+    method RestoreDestination {token} {
+        # Finds the first surviving sibling position saved during undocking.
+        #  token - Owned floating token.
+        #
+        # Node identity denotes a layout position, so swapping its content does not change the anchor. A node
+        # converted to a split remains an anchor for that whole split. Removed anchors are skipped.
+        # Returns: Edge option name and target node, or empty to use the ordinary default destination.
+        foreach candidate [dict get $Floating $token placement] {
+            lassign $candidate anchor side
+            if {[dict exists $Nodes $anchor]} {
+                return [list $side $anchor]
+            }
+        }
+        return {}
     }
     method undock {args} {
         # Removes a leaf from the layout and promotes its retained content to a floating window.
@@ -1070,12 +1205,15 @@ oo::configurable create ::splitlayout::splitlayout {
         set id [my Check [dict get $opts leaf] leaf]
         set frame [my frame $id]
         set parent [my parent $id]
+        set placement [my RememberPlacement $id]
         set top [winfo toplevel $frame]
         set tags [my BindingSnapshot $frame]
         set width [expr {max(1,[winfo width $frame])}]
         set height [expr {max(1,[winfo height $frame])}]
         set geometry ${width}x${height}+[winfo rootx $frame]+[winfo rooty $frame]
-        if {[dict exists $opts geometry]} {set geometry [dict get $opts geometry]}
+        if {[dict exists $opts geometry]} {
+            set geometry [dict get $opts geometry]
+        }
         my CancelDrag
         my CaptureAll
         my Detach $frame
@@ -1085,13 +1223,16 @@ oo::configurable create ::splitlayout::splitlayout {
             wm title $frame [dict get $opts title]
             wm geometry $frame $geometry
         } message options]} {
-            if {[winfo exists $frame] && [winfo toplevel $frame] eq $frame} {wm forget $frame}
+            if {[winfo exists $frame] && ([winfo toplevel $frame] eq $frame)} {
+                wm forget $frame
+            }
             my Rebuild
             return -options $options $message
         }
         set token ${W}#f[incr Serial]
         set changed [my RetargetBindings $tags $top $frame]
-        dict set Floating $token [dict create frame $frame onclose [dict get $opts onclose] bindings $changed]
+        dict set Floating $token [dict create frame $frame onclose [dict get $opts onclose] bindings $changed\
+                                          placement $placement]
         bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
         wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
         dict unset Nodes $id
@@ -1105,9 +1246,13 @@ oo::configurable create ::splitlayout::splitlayout {
             set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
             dict set Nodes $parent children $children
             dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
-            if {[llength $children] == 1} {my Promote $parent [lindex $children 0]}
+            if {[llength $children] == 1} {
+                my Promote $parent [lindex $children 0]
+            }
         }
         my Rebuild
+        wm deiconify $frame
+        raise $frame
         return $token
     }
     method dock {args} {
@@ -1120,26 +1265,44 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -before target - Dock before a non-root node in its existing parent.
         #  -after target - Dock after a non-root node in its existing parent.
         #
-        # At most one destination is allowed. With no destination, replaces an untouched empty placeholder left by
-        # undocking the root, or docks to the right of the current root. Explicit destinations follow move semantics:
-        # reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split.
+        # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
+        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Explicit
+        # destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
+        # target in a new split.
         # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
         # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
         # Returns: The new docked leaf identifier.
         # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
         set opts [argparse -inline -pfirst {
             floating
-            {-left=} {-right=} {-top=} {-bottom=} {-before=} {-after=}
+            -left=
+            -right=
+            -top=
+            -bottom=
+            -before=
+            -after=
         }]
         set token [dict get $opts floating]
         set frame [my FloatingFrame $token]
         set destinations {}
         foreach side {left right top bottom before after} {
-            if {[dict exists $opts $side]} {lappend destinations $side}
+            if {[dict exists $opts $side]} {
+                lappend destinations $side
+            }
         }
-        if {[llength $destinations] > 1} {return -code error {expected at most one docking destination}}
-        set replace [expr {![llength $destinations] && $Root eq $VacantRoot && [my type $Root] eq {leaf}
-            && ![llength [winfo children [my frame $Root]]]}]
+        if {[llength $destinations] > 1} {
+            return -code error {expected at most one docking destination}
+        }
+        if {![llength $destinations]} {
+            set remembered [my RestoreDestination $token]
+            if {$remembered ne {}} {
+                lassign $remembered side target
+                dict set opts $side $target
+                set destinations [list $side]
+            }
+        }
+        set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf})\
+                                   && ![llength [winfo children [my frame $Root]]]}]
         set side right
         set target $Root
         if {[llength $destinations]} {
@@ -1148,14 +1311,18 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set parent [my parent $target]
         set edge [expr {$side in {left right top bottom}}]
-        if {!$edge && $parent eq {}} {return -code error {cannot dock beside root; use an edge destination}}
+        if {!$edge && ($parent eq {})} {
+            return -code error {cannot dock beside root; use an edge destination}
+        }
         set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
         set before [expr {$side in {left top before}}]
-        set wrap [expr {!$replace && $edge && ($parent eq {} || [dict get $Nodes $parent orient] ne $orient)}]
+        set wrap [expr {!$replace && $edge && (($parent eq {}) || ([dict get $Nodes $parent orient] ne $orient))}]
         set wrapper {}
         if {$wrap} {
             set wrapper $target
-            if {[my type $target] eq {split}} {set wrapper n[incr Serial]}
+            if {[my type $target] eq {split}} {
+                set wrapper n[incr Serial]
+            }
             set pw [my NewSplitWidget $wrapper $orient]
         }
         my CancelDrag
@@ -1163,12 +1330,20 @@ oo::configurable create ::splitlayout::splitlayout {
         # Remove only our watcher; application binding tags remain intact.
         set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
         set watched [bindtags $frame]
-        if {$watcher >= 0} {bindtags $frame [lreplace $watched $watcher $watcher]}
-        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {bindtags $frame {}}
+        if {$watcher >= 0} {
+            bindtags $frame [lreplace $watched $watcher $watcher]
+        }
+        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {
+            bindtags $frame {}
+        }
+        my RemoveFloatingGrip $token
         set tags [my BindingSnapshot $frame]
         if {[catch {wm forget $frame} message options]} {
             bindtags $frame $watched
-            if {$wrap} {destroy $pw}
+            my SyncFloatingGrips
+            if {$wrap} {
+                destroy $pw
+            }
             return -options $options $message
         }
         my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
@@ -1195,14 +1370,16 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Nodes $source parent $wrapper
             set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
             dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
-                proportions {0.5 0.5} children $children]
+                                             proportions {0.5 0.5} children $children]
         } else {
             set children [my children $parent]
             set at [lsearch -exact $children $target]
             set weights [dict get $Nodes $parent proportions]
             set half [expr {[lindex $weights $at]/2.0}]
             dict set Nodes $parent proportions [lreplace $weights $at $at $half $half]
-            if {!$before} {incr at}
+            if {!$before} {
+                incr at
+            }
             dict set Nodes $parent children [linsert $children $at $source]
         }
         my Rebuild
@@ -1212,9 +1389,15 @@ oo::configurable create ::splitlayout::splitlayout {
         # Handles the native close button according to the floating record's close policy.
         #  id - Floating token, possibly already expired during teardown.
         #
-        # Returns: Nothing. The default docks at the current root; destroy explicitly discards content.
-        if {$Closing || ![dict exists $Floating $id]} {return}
-        if {[dict get $Floating $id onclose] eq {dock}} {my dock $id} else {my remove $id}
+        # Returns: Nothing. The default tries the saved position; destroy explicitly discards content.
+        if {$Closing || ![dict exists $Floating $id]} {
+            return
+        }
+        if {[dict get $Floating $id onclose] eq {dock}} {
+            my dock $id
+        } else {
+            my remove $id
+        }
         return
     }
     method FloatingDestroyed {path} {
@@ -1222,9 +1405,14 @@ oo::configurable create ::splitlayout::splitlayout {
         #  path - Widget reported by Destroy; descendant events are ignored.
         #
         # Returns: Nothing.
-        if {$Closing} {return}
+        if {$Closing} {
+            return
+        }
         dict for {id data} $Floating {
-            if {[dict get $data frame] eq $path} {dict unset Floating $id; return}
+            if {[dict get $data frame] eq $path} {
+                dict unset Floating $id
+                return
+            }
         }
     }
     method root {} {
@@ -1258,8 +1446,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
         # or the content frame/native panedwindow otherwise. Use panedwindow to access a split's native widget.
         my Check $id
-        if {[dict exists $Borders $id]} {return [dict get $Borders $id]}
-        if {[my type $id] eq {leaf} && [dict exists $Panels $id]} {return [dict get $Panels $id pane]}
+        if {[dict exists $Borders $id]} {
+            return [dict get $Borders $id]
+        }
+        if {([my type $id] eq {leaf}) && [dict exists $Panels $id]} {
+            return [dict get $Panels $id pane]
+        }
         return [dict get $Nodes $id widget]
     }
     method panedwindow {id} {
@@ -1277,7 +1469,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # Raises an error if the node is unknown or is a split.
         #
         # Returns: The content frame pathname, unchanged across docking transitions.
-        if {[dict exists $Floating $id]} {return [my FloatingFrame $id]}
+        if {[dict exists $Floating $id]} {
+            return [my FloatingFrame $id]
+        }
         my Check $id leaf
         return [dict get $Nodes $id widget]
     }
@@ -1319,9 +1513,15 @@ oo::configurable create ::splitlayout::splitlayout {
         # This method does not search ancestors; use locate for application widgets inside a content frame.
         #
         # Returns: The node identifier, or an empty string when no node matches.
-        dict for {id border} $Borders {if {$border eq $path} {return $id}}
+        dict for {id border} $Borders {
+            if {$border eq $path} {
+                return $id
+            }
+        }
         dict for {id panel} $Panels {
-            if {[dict get $panel pane] eq $path} {return $id}
+            if {[dict get $panel pane] eq $path} {
+                return $id
+            }
         }
         dict for {id data} $Nodes {
             if {[dict get $data widget] eq $path} {
@@ -1413,9 +1613,8 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         # Detach the old content before replacing its node record.
         my Detach $old
-        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw \
-                                    orient [dict get $opts orient] proportions [list $fraction [expr {1.0-$fraction}]]\
-                                    children [list $first $second]]
+        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw orient [dict get $opts orient]\
+                                    proportions [list $fraction [expr {1.0-$fraction}]] children [list $first $second]]
         my Rebuild
         return [list $first $second]
     }
@@ -1472,12 +1671,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
         set opts [argparse -inline -pfirst {
             leaf
-            {-left=}
-            {-right=}
-            {-top=}
-            {-bottom=}
-            {-before=}
-            {-after=}
+            -left=
+            -right=
+            -top=
+            -bottom=
+            -before=
+            -after=
         }]
         set source [my Check [dict get $opts leaf] leaf]
         set destinations {}
@@ -1528,7 +1727,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return $source
         }
         # Allocate any new native widget before detaching the source.
-        set wrapSplit [expr {$wrap && [my type $target] eq {split}}]
+        set wrapSplit [expr {$wrap && ([my type $target] eq {split})}]
         if {$wrap} {
             set wrapper $target
             if {$wrapSplit} {
@@ -1726,8 +1925,12 @@ oo::configurable create ::splitlayout::splitlayout {
         dict for {id data} $Nodes {
             my Detach [dict get $data widget]
         }
-        dict for {id border} $Borders {my Detach $border}
-        dict for {id panel} $Panels {my Detach [dict get $panel pane]}
+        dict for {id border} $Borders {
+            my Detach $border
+        }
+        dict for {id panel} $Panels {
+            my Detach [dict get $panel pane]
+        }
         my SyncPanels
         my SyncBorders
         my Attach $Root
@@ -1751,7 +1954,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set pw [my panedwindow $id]
         if {[dict exists $Borders $id]} {
             pack $pw -in [my widget $id] -fill both -expand 1 -padx [dict get $Settings structureopts -padding]\
-                -pady [dict get $Settings structureopts -padding]
+                    -pady [dict get $Settings structureopts -padding]
         }
         foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
             my Attach $child
@@ -1771,8 +1974,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Sibling windows must be above their geometry containers, including
         # content created before a later split. All are children of W.
         raise [my widget $id]
-        if {[dict exists $Borders $id]} {raise [my panedwindow $id]}
-        if {[dict exists $Panels $id]} {raise [my frame $id]}
+        if {[dict exists $Borders $id]} {
+            raise [my panedwindow $id]
+        }
+        if {[dict exists $Panels $id]} {
+            raise [my frame $id]
+        }
         foreach child [my children $id] {
             my Stack $child
         }
@@ -1802,7 +2009,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[dict exists $Pending $id]} {
             dict unset Pending $id
         }
-        if {$Closing || ![dict exists $Nodes $id] || [my type $id] ne {split}} {
+        if {$Closing || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
             return
         }
         set pw [my panedwindow $id]
@@ -2160,8 +2367,8 @@ oo::configurable create ::splitlayout::splitlayout {
     method SyncBorders {} {
         # Synchronizes optional split outlines after all geometry widgets have been detached.
         #
-        # Wrappers are hull children, just like native panedwindows and content frames. The configured outline width plus
-        # inner spacing separates nested regions without changing widget ancestry.
+        # Wrappers are hull children, just like native panedwindows and content frames. The configured outline width
+        # plus inner spacing separates nested regions without changing widget ancestry.
         # Returns: Nothing.
         dict for {id border} $Borders {
             if {!$Structure || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
@@ -2169,7 +2376,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 dict unset Borders $id
             }
         }
-        if {!$Structure} {return}
+        if {!$Structure} {
+            return
+        }
         dict for {id data} $Nodes {
             if {([dict get $data type] ne {split}) || [dict exists $Borders $id]} {
                 continue
@@ -2179,8 +2388,8 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         dict for {id border} $Borders {
             $border configure -highlightthickness [dict get $Settings structureopts -borderwidth]\
-                -highlightbackground [dict get $Settings structureopts -color]\
-                -highlightcolor [dict get $Settings structureopts -color]
+                    -highlightbackground [dict get $Settings structureopts -color]\
+                    -highlightcolor [dict get $Settings structureopts -color]
         }
     }
     method HighlightSplit {target} {
@@ -2190,7 +2399,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # A perpendicular edge move highlights the current enclosing group, which the move will subdivide.
         # Returns: Nothing.
         set receiver {}
-        if {$target ne {}} {
+        if {($target ne {}) && ([dict get $target op] ne {undock})} {
             set id [dict get $target target]
             if {[dict get $target kind] eq {outer}} {
                 set receiver $Root
@@ -2207,6 +2416,171 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
+    method GripIcon {kind} {
+        # Creates or reuses a small monochrome bitmap for a header button.
+        #  kind - One of dock, undock, or delete.
+        #
+        # Returns: An image name. Images belong to the manager and follow ttk foreground colors.
+        if {[dict exists $Icons $kind]} {
+            return [dict get $Icons $kind]
+        }
+        set bytes {}
+        for {set y 0} {$y < 12} {incr y} {
+            set bits 0
+            for {set x 0} {$x < 12} {incr x} {
+                if {$kind eq {delete}} {
+                    set on [expr {$x >= 2 && $x <= 9 && ($x == $y || $x == 11-$y)}]
+                } else {
+                    set xx [expr {$kind eq {dock} ? 11-$x : $x}]
+                    set yy [expr {$kind eq {dock} ? 11-$y : $y}]
+                    set on [expr {($xx == $yy && $xx >= 2 && $xx <= 9) || ($yy == 9 && $xx >= 5 && $xx <= 9) ||\
+                                          ($xx == 9 && $yy >= 5 && $yy <= 9)}]
+                }
+                if {$on} {
+                    set bits [expr {$bits | (1 << $x)}]
+                }
+            }
+            lappend bytes [format 0x%02x [expr {$bits & 255}]] [format 0x%02x [expr {$bits >> 8}]]
+        }
+        set data "#define grip_width 12\n#define grip_height 12\nstatic unsigned char grip_bits\[\] = { [join $bytes ,] };"
+        set image [image create bitmap -data $data]
+        dict set Icons $kind $image
+        return $image
+    }
+    method MakeGrip {grip id floating} {
+        # Creates a textless drag strip and two independent action buttons.
+        #  grip - New canvas pathname.
+        #  id - Leaf identifier or floating token.
+        #  floating - Whether the strip belongs to a floating window.
+        #
+        # Button widget bindings do not pass through the canvas's widget binding tag.
+        # Returns: The grip pathname.
+        set height [expr {max(20,round(14*[tk scaling]))}]
+        canvas $grip -width 84 -height $height -borderwidth 0 -highlightthickness 0 -takefocus 0 -cursor fleur
+        set action [expr {$floating ? {dock} : {undock}}]
+        foreach name {toggle delete} kind [list $action delete] tip [list [string totitle $action] {Delete content}] {
+            ttk::button $grip.$name -image [my GripIcon $kind] -width 0 -padding 1 -takefocus 1\
+                    -command [namespace code [list my GripAction $id $kind]]
+            place $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}] -y 0 -width 22 -relheight 1
+            bind $grip.$name <Enter> [namespace code [list my QueueTip $grip.$name $tip]]
+            foreach event {<Leave> <ButtonPress> <Destroy>} {
+                bind $grip.$name $event [namespace code {my HideTip}]
+            }
+        }
+        bind $grip <Configure> [namespace code [list my DrawGrip $grip]]
+        bind $grip <<ThemeChanged>> [namespace code [list my DrawGrip $grip]]
+        bind $grip <ButtonPress-1> [namespace code [list my DockPress $id %X %Y]]
+        bind $grip <B1-Motion> [namespace code {my DockMotion %X %Y}]
+        bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
+        bind $grip <Escape> [namespace code {my DockEscape}]
+        foreach event {<FocusOut> <Unmap> <Destroy>} {
+            bind $grip $event [namespace code {my CancelDock}]
+        }
+        my DrawGrip $grip
+        return $grip
+    }
+    method GripAction {id action} {
+        # Executes an explicit header action independently of the native close policy.
+        #  id - Docked leaf or floating token.
+        #  action - dock, undock, or delete.
+        #
+        # Returns: Nothing. Delete always destroys the content, including when onclose is dock.
+        my HideTip
+        my CancelDrag
+        switch $action {
+            dock {
+                my dock $id
+            }
+            undock {
+                my undock $id
+            }
+            delete {
+                my remove $id
+            }
+        }
+        return
+    }
+    method SyncFloatingGrips {} {
+        # Applies the global handle setting to all owned floating windows.
+        #
+        # A labelframe label widget reserves header space without participating in the application's pack or grid.
+        # Returns: Nothing.
+        dict for {id data} $Floating {
+            if {!$Handles} {
+                my RemoveFloatingGrip $id
+                continue
+            }
+            if {[dict exists $data grip]} {
+                continue
+            }
+            set frame [dict get $data frame]
+            set grip [my MakeGrip $frame.slgrip[incr Serial] $id 1]
+            dict set Floating $id grip $grip
+            # Reserve only the header height: a full-width label request would also increase the
+            # labelframe's minimum requested width, preventing subsequent shrinking.
+            set reserve [ttk::frame $grip-reserve -width 1 -height [$grip cget -height]]
+            dict set Floating $id reserve $reserve
+            $frame configure -labelwidget $reserve -labelanchor nw
+            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [$grip cget -height]
+            raise $grip
+        }
+    }
+    method RemoveFloatingGrip {id} {
+        # Removes a floating strip before docking or when handles are disabled.
+        #  id - Floating token.
+        #
+        # Returns: Nothing. Application children and their geometry managers are untouched.
+        if {![dict exists $Floating $id grip]} {
+            return
+        }
+        set frame [my FloatingFrame $id]
+        $frame configure -labelwidget {}
+        destroy [dict get $Floating $id grip]
+        destroy [dict get $Floating $id reserve]
+        dict unset Floating $id grip
+        dict unset Floating $id reserve
+    }
+    method QueueTip {button text} {
+        # Schedules a tooltip for an action button.
+        #  button - Button pathname.
+        #  text - Short action description.
+        #
+        # Returns: Nothing.
+        my HideTip
+        set TipTimer [after 600 [namespace code [list my ShowTip $button $text]]]
+    }
+    method ShowTip {button text} {
+        # Shows a tooltip without taking focus or a grab.
+        #  button - Button pathname.
+        #  text - Short action description.
+        #
+        # Returns: Nothing.
+        set TipTimer {}
+        if {![winfo exists $button] || ![winfo ismapped $button] || ($Dock ne {})} {
+            return
+        }
+        set Tip $W.tip[incr Serial]
+        toplevel $Tip -takefocus 0
+        wm overrideredirect $Tip 1
+        ttk::label $Tip.text -text $text -padding 3
+        pack $Tip.text
+        wm geometry $Tip [format %+d%+d [winfo rootx $button] [expr {[winfo rooty $button]+[winfo height $button]}]]
+    }
+    method HideTip {} {
+        # Cancels tooltip callbacks and removes an existing tooltip.
+        #
+        # Returns: Nothing. Safe during partial construction and destruction.
+        if {[info exists TipTimer] && ($TipTimer ne {})} {
+            after cancel $TipTimer
+            set TipTimer {}
+        }
+        if {[info exists Tip] && ($Tip ne {})} {
+            if {[winfo exists $Tip]} {
+                destroy $Tip
+            }
+            set Tip {}
+        }
+    }
     method SyncPanels {} {
         # Synchronizes optional pane wrappers with the logical leaves.
         #
@@ -2220,25 +2594,16 @@ oo::configurable create ::splitlayout::splitlayout {
                 dict unset Panels $id
             }
         }
+        my SyncFloatingGrips
         if {!$Handles} {return}
         foreach id [my leaves] {
             if {[dict exists $Panels $id]} {
                 continue
             }
             set pane [ttk::frame $W.pane[incr Serial]]
-            set grip [canvas $pane.grip -height [expr {max(8,round(8*[tk scaling]))}] -borderwidth 0\
-                              -highlightthickness 0 -takefocus 0 -cursor fleur]
+            set grip [my MakeGrip $pane.grip $id 0]
             pack $grip -side top -fill x
             dict set Panels $id [dict create pane $pane grip $grip]
-            bind $grip <Configure> [namespace code [list my DrawGrip $grip]]
-            bind $grip <<ThemeChanged>> [namespace code [list my DrawGrip $grip]]
-            bind $grip <ButtonPress-1> [namespace code [list my DockPress $id %X %Y]]
-            bind $grip <B1-Motion> [namespace code {my DockMotion %X %Y}]
-            bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
-            bind $grip <FocusOut> [namespace code {my CancelDock}]
-            bind $grip <Escape> [namespace code {my DockEscape}]
-            bind $grip <Unmap> [namespace code {my CancelDock}]
-            bind $grip <Destroy> [namespace code {my CancelDock}]
             bind $pane <Map> [namespace code [list my PanelMapped $id]]
             bind $pane <Configure> [namespace code {my CancelDock}]
             my DrawGrip $grip
@@ -2286,11 +2651,22 @@ oo::configurable create ::splitlayout::splitlayout {
             set fg #606060
         }
         $grip configure -background $bg
-        $grip delete all
+        $grip delete indicator
+        dict for {name image} $Icons {
+            $image configure -foreground $fg
+        }
+        foreach name {toggle delete} {
+            if {$ButtonSide eq {right}} {
+                place configure $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}]
+            } else {
+                place configure $grip.$name -relx 0 -x [expr {$name eq {delete} ? 22 : 0}]
+            }
+        }
         set x [expr {[winfo width $grip]/2.0}]
         set y [expr {[winfo height $grip]/2.0}]
         foreach offset {-2 0 2} {
-            $grip create line [expr {$x-6}] [expr {$y+$offset}] [expr {$x+6}] [expr {$y+$offset}] -fill $fg
+            $grip create line [expr {$x-6}] [expr {$y+$offset}] [expr {$x+6}] [expr {$y+$offset}] -fill $fg\
+                    -tags indicator
         }
     }
     method DockPress {id x y} {
@@ -2301,15 +2677,30 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Existing grabs are not replaced. Focus is temporarily assigned to the grip for Escape handling.
         # Returns: Tcl break completion for an accepted press; nothing otherwise.
-        if {!$Handles || ![dict exists $Panels $id] || ([grab current $W] ne {})} {
+        if {!$Handles || (![dict exists $Panels $id] && ![dict exists $Floating $id grip]) ||\
+                    ([grab current $W] ne {})} {
             return
         }
         my CancelDrag
-        set grip [dict get $Panels $id grip]
+        my HideTip
+        set floating [dict exists $Floating $id]
+        set grip [expr {$floating ? [dict get $Floating $id grip] : [dict get $Panels $id grip]}]
         set previous [focus]
         grab $grip
         set Dock [dict create source $id grip $grip start [list $x $y] active 0 focus $previous target {} overlays {}\
                           geometry [my DockBounds $W]]
+        if {$floating} {
+            dict set Dock floatingGeometry [wm geometry [my FloatingFrame $id]]
+            regexp {([+-][0-9]+)([+-][0-9]+)$} [dict get $Dock floatingGeometry] -> gx gy
+            set frame [my FloatingFrame $id]
+            if {$gx < 0} {
+                set gx [expr {[winfo screenwidth $frame]-[winfo width $frame]+$gx}]
+            }
+            if {$gy < 0} {
+                set gy [expr {[winfo screenheight $frame]-[winfo height $frame]+$gy}]
+            }
+            dict set Dock floatingPosition [list $gx $gy]
+        }
         focus $grip
         return -code break
     }
@@ -2334,7 +2725,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #  y - Pointer screen y coordinate.
         #
         # Reuse a matching root split by inserting before its first or after its last child. Otherwise an edge move
-        # wraps the root. The configurable outer rim is limited to one eighth of the hull size; outside points cancel.
+        # wraps the root. The configurable outer rim is limited to one eighth of the hull size; outside points are
+        # handled by DockTarget.
         # Returns: A move destination dictionary, or empty if no outer destination applies.
         if {[my type $Root] ne {split}} {
             return
@@ -2350,10 +2742,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set ey [expr {max(1,min([dict get $Settings dockopts -outerwidth],$height/8))}]
         set side {}
         set nearest 1.0
-        foreach candidate {left right top bottom} distance [list [expr {double($rx)/$ex}]\
-                                                                    [expr {double($width-1-$rx)/$ex}]\
-                                                                    [expr {double($ry)/$ey}]\
-                                                                    [expr {double($height-1-$ry)/$ey}]] {
+        foreach candidate {left right top bottom}\
+                distance [list [expr {double($rx)/$ex}] [expr {double($width-1-$rx)/$ex}] [expr {double($ry)/$ey}]\
+                                  [expr {double($height-1-$ry)/$ey}]] {
             if {$distance < $nearest} {
                 set side $candidate
                 set nearest $distance
@@ -2394,7 +2785,23 @@ oo::configurable create ::splitlayout::splitlayout {
         # The outer hull rim takes precedence, followed by native sashes and then leaf edge zones. Geometry hit testing
         # ignores the manager's preview frames; an unrelated widget covering the layout excludes the point.
         # Returns: A dictionary with operation, target, side, kind, and rectangle, or empty for no destination.
+        lassign [my DockBounds $W] hx hy hw hh
+        set source [dict get $Dock source]
+        set floating [dict exists $Floating $source]
+        if {($x < $hx) || ($y < $hy) || ($x >= $hx+$hw) || ($y >= $hy+$hh)} {
+            if {!$floating && ($x >= [winfo vrootx $W]) && ($y >= [winfo vrooty $W]) &&\
+                        ($x < [winfo vrootx $W]+[winfo vrootwidth $W]) &&\
+                        ($y < [winfo vrooty $W]+[winfo vrootheight $W])} {
+                set frame [my frame $source]
+                return [dict create op undock kind undock rect [list $x $y [winfo width $frame] [winfo height $frame]]]
+            }
+            return
+        }
         set hit [winfo containing -displayof $W $x $y]
+        # The floating source may cover its destination while following the pointer.
+        if {$floating && ($hit ne {}) && ([winfo toplevel $hit] eq [my FloatingFrame $source])} {
+            set hit $W
+        }
         while {($hit ne {}) && ($hit ne $W)} {
             set hit [winfo parent $hit]
         }
@@ -2429,9 +2836,11 @@ oo::configurable create ::splitlayout::splitlayout {
             set target [lindex [my children $id] [expr {$sash+1}]]
             set pos [$pw sashpos $sash]
             if {[dict get $data orient] eq {horizontal}} {
-                set rect [list [expr {$px+$pos}] $py [expr {min([dict get $Settings dockopts -linewidth],$width-$pos)}] $height]
+                set rect [list [expr {$px+$pos}] $py [expr {min([dict get $Settings dockopts -linewidth],$width-$pos)}]\
+                                  $height]
             } else {
-                set rect [list $px [expr {$py+$pos}] $width [expr {min([dict get $Settings dockopts -linewidth],$height-$pos)}]]
+                set rect [list $px [expr {$py+$pos}] $width\
+                                  [expr {min([dict get $Settings dockopts -linewidth],$height-$pos)}]]
             }
             return [dict create op move target $target side before kind sash rect $rect]
         }
@@ -2453,16 +2862,21 @@ oo::configurable create ::splitlayout::splitlayout {
             set ey [expr {max(1,min([dict get $Settings dockopts -edgewidth],$height/4))}]
             set side {}
             set nearest 2.0
-            foreach candidate {left right top bottom} distance [list [expr {double($rx)/$ex}]\
-                                                                        [expr {double($width-1-$rx)/$ex}]\
-                                                                        [expr {double($ry)/$ey}]\
-                                                                        [expr {double($height-1-$ry)/$ey}]] {
-                if {[dict get $Settings dockopts -edgewidth] > 0 && ($distance < 1.0) && ($distance < $nearest)} {
+            foreach candidate {left right top bottom}\
+                    distance [list [expr {double($rx)/$ex}] [expr {double($width-1-$rx)/$ex}]\
+                                      [expr {double($ry)/$ey}] [expr {double($height-1-$ry)/$ey}]] {
+                if {([dict get $Settings dockopts -edgewidth] > 0) && ($distance < 1.0) && ($distance < $nearest)} {
                     set side $candidate
                     set nearest $distance
                 }
             }
             set rect [list $px $py $width $height]
+            if {$side eq {} && $floating} {
+                if {($id eq $VacantRoot) && ($id eq $Root) && ![llength [winfo children [my frame $id]]]} {
+                    return [dict create op dock target $id side {} kind center rect $rect]
+                }
+                set side right
+            }
             if {$side eq {}} {
                 return [dict create op swap target $id side {} kind center rect $rect]
             }
@@ -2505,6 +2919,12 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             dict set Dock active 1
         }
+        set source [dict get $Dock source]
+        if {[dict exists $Floating $source]} {
+            lassign [dict get $Dock floatingPosition] fx fy
+            lassign [dict get $Dock start] sx sy
+            wm geometry [my FloatingFrame $source] [format %+d%+d [expr {$fx+$x-$sx}] [expr {$fy+$y-$sy}]]
+        }
         set target [my DockTarget $x $y]
         if {$target ne [dict get $Dock target]} {
             dict set Dock target $target
@@ -2515,47 +2935,75 @@ oo::configurable create ::splitlayout::splitlayout {
     method DockPreview {} {
         # Draws an outline for a swap, an edge band for an edge move, or an insertion line for a sash.
         #
-        # Four reusable hull-child frames avoid changing application geometry or creating a new toplevel.
+        # Docked moves use hull-child frames. Floating gestures and outside drops use override-redirect
+        # windows so the preview remains visible outside the hull and above the floating source.
         # Returns: Nothing.
+        set target [dict get $Dock target]
+        set external [expr {$target ne {} && ([dict get $target op] eq {undock} ||\
+                                                      [dict exists $Floating [dict get $Dock source]])}]
         set overlays [dict get $Dock overlays]
+        if {($overlays ne {}) && ([winfo toplevel [lindex $overlays 0]] eq [lindex $overlays 0]) != $external} {
+            foreach path $overlays {
+                destroy $path
+            }
+            set overlays {}
+        }
         if {$overlays eq {}} {
             for {set i 0} {$i < 4} {incr i} {
-                lappend overlays [frame $W.drop[incr Serial] -background [dict get $Settings dockopts -color]\
-                                          -borderwidth 0 -takefocus 0]
+                set path $W.drop[incr Serial]
+                if {$external} {
+                    toplevel $path -background [dict get $Settings dockopts -color] -borderwidth 0 -takefocus 0
+                    wm overrideredirect $path 1
+                    wm withdraw $path
+                } else {
+                    frame $path -background [dict get $Settings dockopts -color] -borderwidth 0 -takefocus 0
+                }
+                lappend overlays $path
             }
             dict set Dock overlays $overlays
         }
-        foreach path $overlays {place forget $path}
-        set target [dict get $Dock target]
+        foreach path $overlays {
+            if {!$external} {
+                place forget $path
+            }
+        }
         my HighlightSplit $target
         if {$target eq {}} {
             return
         }
         lassign [dict get $target rect] x y width height
-        set x [expr {$x-[winfo rootx $W]}]
-        set y [expr {$y-[winfo rooty $W]}]
-        if {[dict get $target kind] eq {center}} {
+        if {!$external} {
+            set x [expr {$x-[winfo rootx $W]}]
+            set y [expr {$y-[winfo rooty $W]}]
+        }
+        if {([dict get $target op] eq {undock}) || ([dict get $target kind] eq {center})} {
             set t [expr {min([dict get $Settings dockopts -linewidth],$width,$height)}]
             set boxes [list [list $x $y $width $t] [list $x [expr {$y+$height-$t}] $width $t] [list $x $y $t $height]\
                                [list [expr {$x+$width-$t}] $y $t $height]]
-        } else {
-            set boxes [list [list $x $y $width $height]]
-        }
+        } else {set boxes [list [list $x $y $width $height]]}
         foreach path $overlays box $boxes {
             if {$box eq {}} {
+                if {$external} {
+                    wm withdraw $path
+                }
                 continue
             }
             lassign $box x y width height
-            place $path -x $x -y $y -width $width -height $height
+            if {$external} {
+                wm geometry $path [format %dx%d%+d%+d $width $height $x $y]
+                wm deiconify $path
+            } else {
+                place $path -x $x -y $y -width $width -height $height
+            }
             raise $path
         }
     }
     method DockRelease {x y} {
-        # Commits one accepted drop using swap or move, then releases all gesture resources.
+        # Commits a swap, move, dock, or undock after releasing gesture resources.
         #  x - Release screen x coordinate.
         #  y - Release screen y coordinate.
         #
-        # Releases without an activated drag or valid same-manager destination are cancellations.
+        # An unactivated press does nothing. Floating releases without a docking destination retain the new position.
         # Returns: Tcl break completion during a gesture; nothing otherwise.
         if {$Dock eq {}} {
             return
@@ -2565,9 +3013,21 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[dict get $Dock active] && ([grab current $W] eq [dict get $Dock grip])} {
             set target [my DockTarget $x $y]
         }
+        # A released floating window retains its new position; Escape restores it.
+        if {[dict exists $Dock floatingGeometry]} {dict unset Dock floatingGeometry}
         my CancelDock
         if {$target ne {}} {
-            if {[dict get $target op] eq {swap}} {
+            if {[dict get $target op] eq {undock}} {
+                my undock $source\
+                        -geometry [format %dx%d%+d%+d [winfo width [my frame $source]]\
+                                           [winfo height [my frame $source]] $x $y]
+            } elseif {[dict exists $Floating $source]} {
+                if {[dict get $target side] eq {}} {
+                    my dock $source
+                } else {
+                    my dock $source -[dict get $target side] [dict get $target target]
+                }
+            } elseif {[dict get $target op] eq {swap}} {
                 my swap $source [dict get $target target]
             } else {
                 my move $source -[dict get $target side] [dict get $target target]
@@ -2596,6 +3056,10 @@ oo::configurable create ::splitlayout::splitlayout {
         my HighlightSplit {}
         set state $Dock
         set Dock {}
+        set source [dict get $state source]
+        if {[dict exists $state floatingGeometry] && [dict exists $Floating $source]} {
+            wm geometry [my FloatingFrame $source] [dict get $state floatingGeometry]
+        }
         set grip [dict get $state grip]
         if {[winfo exists $grip] && ([grab current $grip] eq $grip)} {
             grab release $grip
@@ -2853,7 +3317,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # position. A change invalidates the drag.
         #
         # Returns: Nothing.
-        if {$path eq $Owner} {my DockGeometry}
+        if {$path eq $Owner} {
+            my DockGeometry
+        }
         if {($path ne $Owner) || ($Drag eq {})} {
             return
         }

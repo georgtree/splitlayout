@@ -128,12 +128,42 @@ Only content owned by the same manager is accepted. The content frame and all it
 and, after docking, the floating token expire. Use `$manager floating` to list floating tokens, `$manager floating $token`
 to inspect one, and `$manager frame $token` to access its native window.
 
-Docking supports all six `move` destinations. Without a destination, it docks beside the current root or replaces an
+Docking supports all six `move` destinations. Without a destination, it first tries the saved sibling position and orientation, then docks beside the root or replaces an
 untouched empty placeholder created by undocking the sole root. Closing a floating window redocks it by default;
 `undock -onclose destroy` or `remove $token` explicitly destroys its content. `clear` affects the docked tree only.
 Destroying the manager destroys its floating windows too, because their actual Tk ancestry remains unchanged.
 
-Content containers are now classic borderless `frame` widgets so Tk can promote them with `wm manage`.
+Content containers are now classic borderless `labelframe` widgets with class `Frame` so Tk can promote them with `wm manage`.
 The surrounding hull, grips, and panedwindows retain their themed behavior. Ttk-only content-frame options such as
 `-style` must instead be applied to a themed child. See the Ruff API documentation for full lifecycle, destination,
 and bindtag semantics. These are public commands; floating-window drag gestures are not part of this addition.
+
+### Floating gestures and grip buttons
+
+Enable `-draghandles true` to show a minimal grip with monochrome arrow and cross buttons on docked and floating content.
+Drag a docked grip outside the layout and release to undock. Drag a floating window's internal grip over its owner layout
+to dock at an edge, sash, or outer rim; dropping at a leaf center docks to its right. Native title-bar movement does not dock.
+Escape cancels; a floating drag cancellation restores its initial position.
+
+The arrow undocks a leaf or docks floating content at the default destination. The cross always calls `remove`, deleting
+content. The native window close button alone follows `-onclose dock|destroy`. Tooltips identify all three actions.
+Disabling `-draghandles` hides every grip and its buttons; the public commands remain available.
+
+The floating strip occupies the content labelframe's label-widget area, so applications can continue to use either
+`pack` or `grid` inside the returned content frame. Those label-widget options are reserved for the manager.
+Button styling follows ttk; existing `-dockopts` settings and Tk database resources style drag previews and hit zones.
+
+### Header alignment and return docking
+
+Set `-buttonside left` or `-buttonside right` (the default), at construction or using `configure`. It applies to all
+docked and floating headers. Both span their available width, and the grip indicator stays centered in the full header.
+
+```tcl
+$manager configure -draghandles true -buttonside left
+```
+
+An implicit `dock`, the floating Dock button, and native close with `-onclose dock` now try the original sibling position
+and split orientation. Surviving sibling nodes are tried nearest first, preferring the following sibling at equal distance.
+A moved anchor is followed at its current position; a split anchor denotes its whole subtree. If all anchors have been
+removed, docking fills an untouched root placeholder or falls back to the right of the root. Explicit destinations
+override restoration. Original sash proportions are not restored. The delete-content button remains unconditional.

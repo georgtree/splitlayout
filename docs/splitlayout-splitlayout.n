@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -92,7 +92,7 @@ pack $rightFrame\&.editor -fill both -expand 1
 .PP
 The splitlayout \&.layout \&.\&.\&. command returns the widget pathname\&. Use that pathname both as the layout command
 and with Tk geometry managers\&. The constructor accepts -width, -height, -opaqueresize, -sashpreview,
--draghandles, -showstructure, -dockopts, -structureopts, and -sashpreviewopts\&.
+-draghandles, -buttonside, -showstructure, -dockopts, -structureopts, and -sashpreviewopts\&.
 .SH "SPLITTING EXISTING CONTENT"
 .PP
 Continue from the quick-start example:
@@ -235,13 +235,13 @@ pack $f\&.editor -fill both -expand 1
 .RE
 .PP
 The default is false\&. When enabled, each leaf has a narrow strip containing a centered three-line grip, with
-no text or buttons\&. The grip uses ttk theme colors and a height scaled to Tk's display scaling\&. Application
-widgets remain entirely inside the frame returned by frame; pack and grid configurations there survive
-toggles and moves\&.
+no text, a dock/undock button, and a delete-content button\&. The grip uses ttk theme colors and a height scaled
+to Tk's display scaling\&. Application widgets remain entirely inside the frame returned by frame; pack and
+grid configurations there survive toggles and moves\&.
 .PP
 Press the left mouse button on a grip and move at least five pixels (the default -dockopts -threshold) to
-start dragging\&. The entire strip accepts the press; content widgets retain their own mouse bindings\&. The
-destination is selected within this megawidget:
+start dragging\&. The strip outside its buttons accepts the press; content widgets retain their own mouse
+bindings\&. The destination is selected within this megawidget:
 .PP
 .RS 4n
 .nf
@@ -256,7 +256,8 @@ destination is selected within this megawidget:
 │                                        │ side\&.                                           │ edge band\&.                │
 │ A native sash between panes            │ Insert before the child following that sash\&.    │ Insertion line at the     │
 │                                        │                                                 │ sash\&.                     │
-│ Source leaf or outside the megawidget  │ Cancel\&.                                         │ No destination highlight\&. │
+│ Source leaf                            │ Cancel\&.                                         │ No destination highlight\&. │
+│ Outside the megawidget, on screen      │ Undock the leaf into a new window\&.              │ Floating window outline\&.  │
 └────────────────────────────────────────┴─────────────────────────────────────────────────┴───────────────────────────┘
 .fi
 .RE
@@ -265,19 +266,20 @@ By default, the outermost 12 pixels \fBinside\fP the megawidget form an outer dr
 its size)\&. This zone takes precedence over sashes and local leaf edges\&. It allows moving a pane to the far
 right or left of an entire stacked region, or above/below an entire row\&. A matching root orientation reuses
 that split's first or last position; otherwise a new root split is created\&. Drop just inside the window: points
-outside the megawidget still cancel\&.
+outside the megawidget undock on release\&.
 .PP
 Farther inside, sashes take precedence over leaf edge zones\&. Local edge zones default to up to 24 pixels into a
 pane, limited to one quarter of its width or height; corners choose the nearest normalized edge\&. The preview is
 blue by default, is temporary, and does not resize or rearrange content during dragging\&. Release performs one
-move or swap; a click without dragging does nothing\&.  The -sashpreview setting controls deferred sash
-resizing only, not this docking preview\&.
+move, swap, undock, or dock; a click without dragging does nothing\&. The -sashpreview setting
+controls deferred sash resizing only, not this docking preview\&.
 .PP
 Escape, loss of grip focus, hiding or resizing panes, moving or hiding the containing window, structural layout
 changes, or disabling -draghandles cancels the gesture\&. The grip temporarily takes keyboard focus and a local
 mouse grab so that release outside the grip and Escape are handled\&. Cleanup restores the prior focus when still
 owned by the grip and releases only its own grab\&. A new gesture does not replace an existing grab\&. Dragging
-between separate splitlayout instances or to other applications is not supported\&.
+into separate splitlayout instances or other applications is not supported; an outside drop creates an owned
+floating window instead\&.
 .PP
 With handles enabled, widget leaf returns the \fBpane wrapper\fP, whereas frame leaf always returns the
 application content frame\&. container leaf resolves the wrapper's outer geometry container; container
@@ -290,6 +292,37 @@ The wrapper and grip stay at their leaf position during a swap; only content fra
 preserves the moved leaf and its wrapper, while normal split/collapse rules may replace destination
 wrappers\&. Disabling handles removes wrappers; do not cache wrapper or grip paths across layout
 changes\&. Application content paths remain stable\&.
+.PP
+Floating windows also have a full-width internal grip when -draghandles is enabled\&. Drag this grip to move
+the floating window and preview destinations in its owner layout\&. Drop on an edge, sash, or outer rim to dock
+there\&. A floating drop in a leaf's center docks to its right (it does not swap or discard that leaf)\&. Its
+untouched sole-root placeholder is filled instead\&. Release elsewhere keeps the window floating at its new
+position\&. Escape cancels and restores the starting position\&. Moving native window decorations only moves the
+window; it does not initiate docking\&.
+.PP
+Each grip has two monochrome bitmap buttons, with tooltips:
+.PP
+.RS 4n
+.nf
+┌────────┬────────────────────────────┬─────────────────────────────────────────────────┐
+│ Button │ Docked leaf                │ Floating content                                │
+├────────┼────────────────────────────┼─────────────────────────────────────────────────┤
+│ Arrow  │ Undock                     │ Dock at the default destination defined by dock │
+│ Cross  │ Delete content with remove │ Delete content with remove                      │
+└────────┴────────────────────────────┴─────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+The cross \fBalways destroys content\fP\&. It never consults -onclose; that policy controls only the native
+floating window close request (including Alt+F4)\&. Buttons accept keyboard focus and do not start dragging\&. The
+global -draghandles property controls both strips, including these buttons\&. A floating strip spans the window
+width and reserves space using the content labelframe's label-widget area, preserving application pack and
+grid settings\&. The manager owns the content frame's label-widget options; applications should configure
+children inside the content frame\&. Use -buttonside left|right (default right) at construction or with
+configure to align buttons globally\&. Both docked and floating headers follow it; the grip indicator stays
+centered in the full header width\&. Changing alignment cancels an active drag without moving content\&. It is
+independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground follows the
+theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
 .SH "SWAPPING AND REMOVING CONTENT"
 .PP
 The following operations continue the example above:
@@ -367,16 +400,17 @@ the hull\&.
 .PP
 .RS 4n
 .nf
-┌────────────────┬─────────┬─────────────────────────────────────────────────────────┐
-│ Option         │ Default │ Meaning                                                 │
-├────────────────┼─────────┼─────────────────────────────────────────────────────────┤
-│ -width         │ 800     │ Nonnegative requested hull width in pixels\&.             │
-│ -height        │ 600     │ Nonnegative requested hull height in pixels\&.            │
-│ -opaqueresize  │ true    │ Resize pane content continuously while dragging a sash\&. │
-│ -sashpreview   │ window  │ Deferred preview mode: window, inline, or none\&.         │
-│ -draghandles   │ false   │ Show docking grips on all current and future leaves\&.    │
-│ -showstructure │ false   │ Outline and inset all current and future splits\&.        │
-└────────────────┴─────────┴─────────────────────────────────────────────────────────┘
+┌────────────────┬─────────┬──────────────────────────────────────────────────────────────────────┐
+│ Option         │ Default │ Meaning                                                              │
+├────────────────┼─────────┼──────────────────────────────────────────────────────────────────────┤
+│ -width         │ 800     │ Nonnegative requested hull width in pixels\&.                          │
+│ -height        │ 600     │ Nonnegative requested hull height in pixels\&.                         │
+│ -opaqueresize  │ true    │ Resize pane content continuously while dragging a sash\&.              │
+│ -sashpreview   │ window  │ Deferred preview mode: window, inline, or none\&.                      │
+│ -buttonside    │ right   │ Place header buttons on the left or right; indicator stays centered\&. │
+│ -draghandles   │ false   │ Show docking grips on all current and future leaves\&.                 │
+│ -showstructure │ false   │ Outline and inset all current and future splits\&.                     │
+└────────────────┴─────────┴──────────────────────────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
@@ -520,9 +554,10 @@ from database styling\&.
 .SH "FLOATING MANAGED CONTENT"
 .PP
 undock promotes an existing leaf's content frame to a native window, removes its leaf from the docked tree,
-and collapses a parent with only one remaining child\&. The application widgets, paths, bindings, and content state
-are retained\&. dock returns that owned content to a new leaf\&. Arbitrary windows and other managers' floating
-content are not accepted\&. This first version exposes commands; drag gestures still operate within the docked layout\&.
+and collapses a parent with only one remaining child\&. The application widgets, paths, bindings, and content
+state are retained\&. dock returns that owned content to a new leaf\&. Arbitrary windows and other managers'
+floating content are not accepted\&. This first version exposes commands; drag gestures still operate within the
+docked layout\&.
 .PP
 .RS 4n
 .nf
@@ -539,42 +574,53 @@ set newLeaf [$manager dock $floating -right $target]
 .fi
 .RE
 .PP
-The docking destinations are -left, -right, -top, -bottom, -before, and -after, with the same placement
-rules as move\&. Specify at most one\&. Edge destinations accept leaves or splits; sibling destinations require a
-non-root target\&. Docking reuses a matching parent orientation, converts a leaf target into a split when necessary,
-or wraps a split target in a new parent\&. Existing pane shares are divided equally at the insertion point\&.
+The docking destinations are -left, -right, -top, -bottom, -before, and -after, with the same
+placement rules as move\&. Specify at most one\&. Edge destinations accept leaves or splits; sibling destinations
+require a non-root target\&. Docking reuses a matching parent orientation, converts a leaf target into a split
+when necessary, or wraps a split target in a new parent\&. Existing pane shares are divided equally at the
+insertion point\&.
 .PP
-With no destination, dock places the content to the right of the current root\&. Undocking the sole root creates
+With no destination, dock tries the sibling positions saved by undock, nearest first, with the original
+orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
+sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
+content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
+anchors are skipped\&. Explicit destinations override this restoration\&. If no anchor remains, dock places
+the content to the right of the current root\&. Undocking the sole root creates
 an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces that placeholder if
 it is still the root and its content frame has no child widgets\&. If you populate it, both contents are retained\&.
 Explicit destinations always follow the requested placement instead of replacing the placeholder\&.
 .PP
 undock accepts -title (default splitlayout), -geometry (default current content size and position), and
--onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current layout
-by default; it does not remember an old location that may no longer exist\&. Use -onclose destroy to discard the
-content on close, or $manager remove $floating to destroy it explicitly\&. $manager clear and removing the docked
-root clear only the docked tree; floating windows remain owned by the manager\&. Destroying the manager or an actual
-Tk ancestor destroys all owned floating windows as well\&. Direct destruction of a floating frame removes its record\&.
+-onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current
+layout by default, trying its remembered position before using the fallback destination\&. Use -onclose destroy
+to discard the content on close, or $manager remove $floating to destroy it explicitly\&. $manager clear and
+removing the docked root clear only the docked tree; floating windows remain owned by the manager\&. Destroying
+the manager or an actual Tk ancestor destroys all owned floating windows as well\&. Direct destruction of a
+floating frame removes its record\&.
 .PP
-Floating tokens are opaque, manager-specific handles\&. They expire on docking or removal, and must not be reused\&.
-floating lists these tokens; floating $token returns a dictionary with id, frame, title, geometry, state,
-and onclose\&. frame $token returns the retained frame\&. Docked-tree commands (tree, leaves, node, and locate)
-exclude floating content; widgets still exposes its actual Tk ancestry and wm geometry manager\&.
+Floating tokens are opaque, manager-specific handles\&. They expire on docking or removal, and must not be
+reused\&.  floating lists these tokens; floating $token returns a dictionary with id, frame, title,
+geometry, state, and onclose\&. frame $token returns the retained frame\&. Docked-tree commands (tree,
+leaves, node, and locate) exclude floating content; widgets still exposes its actual Tk ancestry and
+wm geometry manager\&.
 .PP
-Content frames are now \fBclassic borderless frame widgets\fP, because Tk's wm manage cannot promote ttk::frame\&.
-The hull, leaf wrappers, and panedwindows retain their ttk behavior\&. Code using frame $leaf for pack, grid, or
-child creation continues to work; ttk-only frame options such as -style are no longer available on that content
-frame\&. Place themed widgets inside it when needed\&. Actual parentage remains the layout hull throughout the round trip\&.
+Content frames are \fBclassic borderless labelframe widgets with class Frame\fP, because Tk's wm manage
+cannot promote ttk::frame\&.  The hull, leaf wrappers, and panedwindows retain their ttk behavior\&. Code using
+frame $leaf for pack, grid, or child creation continues to work; ttk-only frame options such as -style
+are no longer available on that content frame\&. Place themed widgets inside it when needed\&. Actual parentage
+remains the layout hull throughout the round trip\&.
 .PP
-Tk default bindtags follow the changed toplevel\&. The manager also retargets explicit bindtag entries naming the old
-toplevel, restoring unchanged custom lists on docking and preserving other edits made while floating\&. Binding scripts
-containing literal window paths are not rewritten\&. Applications that cache winfo toplevel should query it again after
-a docking transition\&. Preserve manager-owned bindtags if changing a floating frame's bindtags directly\&.
+Tk default bindtags follow the changed toplevel\&. The manager also retargets explicit bindtag entries naming the
+old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
+floating\&. Binding scripts containing literal window paths are not rewritten\&. Applications that cache winfo
+toplevel should query it again after a docking transition\&. Preserve manager-owned bindtags if changing a
+floating frame's bindtags directly\&.
 .PP
-Window promotion uses Tk's wm manage/wm forget, so native activation, positioning, and decorations depend on the
-platform/window manager\&. Invalid destinations are rejected before unmanaging the floating window\&. Failure to promote
-or apply the requested geometry restores the docked layout\&. Windows and Aqua behavior should be verified on their
-native Tk builds; X11 test results alone do not establish macOS compatibility\&.
+Window promotion uses Tk's wm manage/wm forget, so native activation, positioning, and decorations depend
+on the platform/window manager\&. Invalid destinations are rejected before unmanaging the floating
+window\&. Failure to promote or apply the requested geometry restores the docked layout\&. Windows and Aqua
+behavior should be verified on their native Tk builds; X11 test results alone do not establish macOS
+compatibility\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -631,10 +677,10 @@ operation\&.
 .PP
 Configurable TclOO layout manager for Tcl/Tk 9\&.
 .PP
-configure is inherited from oo::configurable\&. With no arguments it returns a dictionary
-of property names and values; with one property name it returns that value\&. Set properties
-with option/value pairs\&. Pairs are applied in order, and a failed setter leaves earlier
-successful assignments in effect\&. Use configure -name instead of cget -name\&.
+configure is inherited from oo::configurable\&. With no arguments it returns a dictionary of property
+names and values; with one property name it returns that value\&. Set properties with option/value
+pairs\&. Pairs are applied in order, and a failed setter leaves earlier successful assignments in
+effect\&. Use configure -name instead of cget -name\&.
 .PP
 Hull properties delegate directly to the ttk frame\&. Layout behavior properties use oo::configurable
 directly, without option objects\&. Appearance dictionaries take their initial values from the Tk option
@@ -734,6 +780,9 @@ Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widge
 -borderwidth
 Readable, writable\&. Hull border width, delegated to the ttk frame\&.
 .TP
+-buttonside
+Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. The indicator stays centered in the full strip\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
+.TP
 -class
 Readable\&. Read-only hull class override; empty when the default ttk class is used\&.
 .TP
@@ -744,7 +793,7 @@ Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
 Readable, writable\&. Dictionary of docking preview and detection settings: -color, -linewidth, -edgewidth, -outerwidth, and -threshold\&. Defaults come from the Tk option database\&. Partial updates retain other keys\&.
 .TP
 -draghandles
-Readable, writable\&. Boolean enabling manager-owned textless grips for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape or an outside drop cancels\&. Disabling removes grips and wrappers without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
+Readable, writable\&. Boolean enabling manager-owned textless grips for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape cancels; an outside drop undocks\&. Floating grips move and dock owned content\&. Disabling removes docked and floating grips without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
 .TP
 -height
 Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
@@ -786,14 +835,17 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+-buttonside side
+Align header buttons left or right in docked and floating content; default right\&.
 .TP
 -dockopts dictionary
 Docking colors, preview line width, and detection distances; option-database defaults\&.
@@ -961,9 +1013,10 @@ Token returned by this manager's undock command\&.
 .PP
 \fBDescription\fR
 .PP
-At most one destination is allowed\&. With no destination, replaces an untouched empty placeholder left by
-undocking the root, or docks to the right of the current root\&. Explicit destinations follow move semantics:
-reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split\&.
+At most one destination is allowed\&. With no destination, tries the saved sibling positions in the original
+orientation, then replaces an untouched root placeholder or docks to the right of the current root\&. Explicit
+destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
+target in a new split\&.
 The floating token expires; all content widgets retain their pathnames and state\&. Arbitrary windows and
 other managers' tokens are rejected\&. Custom toplevel bindtags are adjusted; literal paths in scripts are not\&.
 .PP
