@@ -2874,6 +2874,279 @@ test splitlayout-sharedborder-26.3 {the separator participates in header draggin
     list $armed [::sltest::dockstate $m] [grab current $m]
 } -cleanup {::sltest::cleanup} -result {1 {} {}}
 
+# Observe requested minima separately from platform-dependent effective WM limits.
+proc ::sltest::watchMinima {} {
+    set ::sltest::minimumRequests {}
+    rename ::wm ::sltest::minimumRealWm
+    proc ::wm {args} {
+        if {[llength $args] == 4 && [lindex $args 0] eq {minsize}} {
+            dict set ::sltest::minimumRequests [lindex $args 1] [lrange $args 2 3]
+        }
+        tailcall ::sltest::minimumRealWm {*}$args
+    }
+}
+proc ::sltest::unwatchMinima {} {
+    if {[llength [info commands ::sltest::minimumRealWm]]} {
+        rename ::wm {}
+        rename ::sltest::minimumRealWm ::wm
+    }
+    unset -nocomplain ::sltest::minimumRequests
+}
+proc ::sltest::minimumApplied {m token} {
+    set frame [$m frame $token]
+    set required [$m requiredsize $token]
+    lassign [wm minsize $frame] w h
+    expr {[dict exists $::sltest::minimumRequests $frame] &&
+            [dict get $::sltest::minimumRequests $frame] eq $required &&
+            $w >= [lindex $required 0] && $h >= [lindex $required 1]}
+}
+
+test splitlayout-minsize-27.1 {content minima validate atomically and reject split identifiers} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+} -body {
+    set initial [$m minsize $root]
+    $m minsize $root 200 120
+    set rejected {}
+    foreach args {{-1 5} {5 -1} {1.5 8} {8} {8 9 10} {2147483648 0}} {
+        lappend rejected [catch {$m minsize $root {*}$args}]
+    }
+    set after [$m minsize $root]
+    lassign [$m split $root -orient horizontal -keep second] a b
+    list $initial $rejected $after [catch {$m minsize $root}] [$m minsize $a] [$m minsize $b]
+} -cleanup {::sltest::cleanup} -result {{0 0} {1 1 1 1 1 1} {200 120} 1 {0 0} {200 120}}
+
+test splitlayout-minsize-27.2 {nested requirements include actual themed sashes and structure insets} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    lassign [$m split $b -orient vertical] c d
+    $m minsize $a 140 80
+    $m minsize $c 200 90
+    $m minsize $d 120 110
+    update
+} -body {
+    set pw [$m panedwindow $root]
+    set inner [$m panedwindow $b]
+    set gx [expr {[winfo rootx [$m widget $b]]-[winfo rootx [$m widget $a]]-[winfo width [$m widget $a]]}]
+    set gy [expr {[winfo rooty [$m widget $d]]-[winfo rooty [$m widget $c]]-[winfo height [$m widget $c]]}]
+    set plain [expr {[$m requiredsize $root] eq [list [expr {340+$gx}] [expr {200+$gy}]]}]
+    $m configure -showstructure true -structureopts {-borderwidth 2 -padding 3}
+    update
+    list $plain [expr {[$m requiredsize $root] eq [list [expr {360+$gx}] [expr {220+$gy}]]}]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-minsize-27.3 {proportions respect multi-pane minima and redistribute remaining space} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    set c [$m insert $b -side after]
+    $m minsize $a 300 50
+    $m minsize $b 100 50
+    $m minsize $c 150 50
+    $m proportions $root {1 8 1}
+    update
+} -body {
+    list [expr {[winfo width [$m frame $a]] >= 300}] [expr {[winfo width [$m frame $b]] >= 100}] \
+            [expr {[winfo width [$m frame $c]] >= 150}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+foreach opaque {true false} {
+    test splitlayout-minsize-27.4-$opaque {both live and deferred sash gestures clamp to content minima} -setup {
+        set m [::sltest::setup]
+        set root [$m root]
+        lassign [$m split $root -orient horizontal] a b
+        $m configure -opaqueresize $opaque
+        $m minsize $a 250 80
+        $m minsize $b 300 90
+        update
+    } -body {
+        set pw [$m panedwindow $root]
+        ::sltest::gesture $pw 0 -700
+        update
+        set live [expr {$opaque ? [winfo width [$m frame $a]] >= 250 : 1}]
+        # Release at the active target using the same pointer delta as motion.
+        set ns [info object namespace $m]
+        set drag [set ${ns}::Drag]
+        set x [expr {[dict get $drag start]-700}]
+        set y [expr {[winfo rooty $pw]+[winfo height $pw]/2}]
+        event generate $pw <ButtonRelease-1> -rootx $x -rooty $y \
+                -x [expr {$x-[winfo rootx $pw]}] -y [expr {$y-[winfo rooty $pw]}]
+        update
+        list $live [expr {[winfo width [$m frame $a]] >= 250}] \
+                [expr {[winfo width [$m frame $b]] >= 300}] [set ${ns}::Drag]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 {}}
+}
+
+test splitlayout-minsize-27.5 {undersized owner compresses minima proportionally and restores constraints on growth} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    $m minsize $a 300 50
+    $m minsize $b 600 50
+    wm geometry .sltest 500x300
+    update
+} -body {
+    set aw [winfo width [$m frame $a]]
+    set bw [winfo width [$m frame $b]]
+    set compressed [expr {abs(2*$aw-$bw) <= 2}]
+    wm geometry .sltest 1100x400
+    update
+    list $compressed [expr {[winfo width [$m frame $a]] >= 300}] [expr {[winfo width [$m frame $b]] >= 600}] \
+            [$m minsize $a] [$m minsize $b]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {300 50} {600 50}}
+
+test splitlayout-minsize-27.6 {minima follow content through swaps moves floating and redocking} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    $m minsize $a 200 100
+    $m minsize $b 300 150
+    set original [$m frame $a]
+} -body {
+    $m swap $a $b
+    set swapped [list [$m minsize $a] [$m minsize $b]]
+    $m move $b -bottom $a
+    set token [$m undock $b]
+    update
+    set floating [list [$m minsize $token] [wm minsize [$m frame $token]]]
+    $m minsize $token 220 130
+    set leaf [$m dock $token]
+    update
+    list $swapped $floating [$m minsize $leaf] [expr {[$m frame $leaf] eq $original}]
+} -cleanup {::sltest::cleanup} -result {{{300 150} {200 100}} {{200 100} {200 100}} {220 130} 1}
+
+test splitlayout-minsize-27.7 {floating minima track decoration and clearing content minima} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m minsize $a 200 120
+    ::sltest::watchMinima
+    set token [$m undock $a]
+    update
+} -body {
+    set frame [$m frame $token]
+    set first [::sltest::minimumApplied $m $token]
+    $m configure -leafborder true -leafborderwidth 4 -headerborderwidth 3 -headerrelief ridge
+    update
+    set decorated [::sltest::minimumApplied $m $token]
+    $m minsize $token 0 0
+    $m configure -draghandles false -leafborder false
+    update
+    list $first $decorated [$m minsize $token] [$m requiredsize $token] [dict get $::sltest::minimumRequests $frame]
+} -cleanup {
+    ::sltest::unwatchMinima
+    ::sltest::cleanup
+} -result {1 1 {0 0} {0 0} {0 0}}
+
+test splitlayout-minsize-27.8 {deleting content removes its minimum metadata} -setup {
+    set m [::sltest::setup]
+    set id [$m root]
+    $m minsize $id 200 100
+    set frame [$m frame $id]
+} -body {
+    $m clear
+    update
+    set data [set [info object namespace $m]::Minimums]
+    list [dict exists $data $frame] [$m minsize [$m root]]
+} -cleanup {::sltest::cleanup} -result {0 {0 0}}
+
+test splitlayout-minsize-27.9 {sash measurement follows available themes and orientation} -setup {
+    set oldTheme [ttk::style theme use]
+    set m [::sltest::setup]
+} -body {
+    set checks {}
+    foreach theme [ttk::style theme names] {
+        ttk::style theme use $theme
+        foreach orient {horizontal vertical} {
+            $m clear
+            set root [$m root]
+            lassign [$m split $root -orient $orient] a b
+            $m minsize $a 150 100
+            $m minsize $b 200 120
+            update
+            set fa [$m frame $a]
+            set fb [$m frame $b]
+            if {$orient eq {horizontal}} {
+                set gap [expr {[winfo rootx $fb]-[winfo rootx $fa]-[winfo width $fa]}]
+                set expected [list [expr {350+$gap}] 120]
+            } else {
+                set gap [expr {[winfo rooty $fb]-[winfo rooty $fa]-[winfo height $fa]}]
+                set expected [list 200 [expr {220+$gap}]]
+            }
+            lappend checks [expr {[$m requiredsize $root] eq $expected}]
+        }
+    }
+    expr {0 ni $checks}
+} -cleanup {
+    ttk::style theme use $oldTheme
+    ::sltest::cleanup
+} -result 1
+
+foreach opaque {true false} {
+    test splitlayout-minsize-27.10-$opaque {vertical and nested minima constrain both ends of a sash gesture} -setup {
+        set m [::sltest::setup]
+        $m configure -opaqueresize $opaque
+        set root [$m root]
+        lassign [$m split $root -orient vertical] a b
+        lassign [$m split $b -orient horizontal] c d
+        $m minsize $a 100 180
+        $m minsize $c 150 220
+        $m minsize $d 150 200
+        update
+    } -body {
+        set result {}
+        set pw [$m panedwindow $root]
+        foreach amount {-900 900} {
+            ::sltest::gesture $pw 0 $amount 1
+            update
+            lappend result [expr {[winfo height [$m frame $a]] >= 180 &&
+                    [winfo height [$m frame $c]] >= 220 && [winfo height [$m frame $d]] >= 200}]
+        }
+        set result
+    } -cleanup {::sltest::cleanup} -result {1 1}
+}
+
+test splitlayout-minsize-27.11 {invalid updates retain an active preview and valid changes cancel it} -setup {
+    set m [::sltest::setup]
+    $m configure -opaqueresize false
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    $m minsize $a 200 100
+    update
+} -body {
+    set pw [$m panedwindow $root]
+    ::sltest::gesture $pw 0 40
+    set ns [info object namespace $m]
+    set before [set ${ns}::Drag]
+    set bad [catch {$m minsize $a 250 invalid}]
+    set retained [expr {$before eq [set ${ns}::Drag]}]
+    $m minsize $a 250 120
+    list $bad $retained [set ${ns}::Drag] [$m minsize $a]
+} -cleanup {::sltest::cleanup} -result {1 1 {} {250 120}}
+
+test splitlayout-minsize-27.12 {requiredsize works before mapping and never constrains the owner window} -setup {
+    ::sltest::cleanup
+    toplevel .sltest
+    wm withdraw .sltest
+    ::sltest::watchMinima
+    splitlayout .sltest.layout
+    set m .sltest.layout
+} -body {
+    set root [$m root]
+    lassign [$m split $root -orient horizontal] a b
+    $m minsize $a 200 100
+    $m minsize $b 250 120
+    set before [$m requiredsize $root]
+    pack $m -fill both -expand 1
+    wm deiconify .sltest
+    update
+    list [expr {$before eq [$m requiredsize $root]}] \
+            [expr {[lindex $before 0] > 450 && [lindex $before 1] == 120}] \
+            [expr {![dict exists $::sltest::minimumRequests .sltest]}]
+} -cleanup {
+    ::sltest::unwatchMinima
+    ::sltest::cleanup
+} -result {1 1 1}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

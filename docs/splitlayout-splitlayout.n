@@ -29,6 +29,8 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ locate\fP \fIpath\fP
 .br
+\fBSPLITLAYOUTOBJ minsize\fP \fIid ?width height?\fP
+.br
 \fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
 .br
 \fBSPLITLAYOUTOBJ node\fP \fIpath\fP
@@ -42,6 +44,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ ratio\fP \fInode ?value?\fP
 .br
 \fBSPLITLAYOUTOBJ remove\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ requiredsize\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ retain\fP \fIid\fP
 .br
@@ -146,6 +150,48 @@ set shares [\&.layout proportions $root]
 .PP
 Geometry changes settle through Tk's event loop\&. Immediately after setting proportions, a query can return the
 stored values before the sashes have moved\&.
+.SH "MINIMUM CONTENT SIZES"
+.PP
+.RS 4n
+.nf
+$manager minsize $leaf 200 120
+puts [$manager minsize $leaf]               ;# 200 120 (content area)
+puts [$manager requiredsize [$manager root]] ;# Recursive outer minimum
+$manager minsize $leaf 0 0                  ;# Clear the content-area minimum
+.fi
+.RE
+.PP
+minsize id ?width height? accepts a leaf or an owned floating token\&. Both dimensions must be supplied together
+as nonnegative integer pixels; the default is {0 0}\&. Splits have calculated requirements, not independently
+assignable minima\&. Values belong to content: they follow swaps, moves, the child selected by split -keep, and
+undocking/redocking\&. A newly created leaf starts at {0 0}\&. Removing content removes its stored minimum\&.
+.PP
+requiredsize id accepts a leaf, split, or floating token and returns {width height}\&. It adds header/button
+space and leaf borders to the content minimum\&. For a horizontal split, child widths and themed sash widths are
+summed and the largest child height is used\&. Vertical splits use the opposite axes\&. Each split's structure
+border and padding are added when enabled\&. Removing, inserting, or moving children updates the calculated
+requirement\&.  The query excludes the manager hull's padding/border, native window decorations, and application
+widget requests\&.  It works before mapping; sash dimensions come from the active ttk theme without modifying its
+styles\&.
+.PP
+With explicit minima configured, requested proportions are fitted to available space while respecting child
+requirements\&. Both live and deferred sash gestures stop at the adjacent panes' feasible limits\&. When the parent
+is too small, child requirements along each split axis are compressed proportionally; requested minima are
+retained and apply again when space becomes available\&. A cross-axis shortage likewise cannot satisfy the
+requested minimum\&.  Very small allocations may leave no visible content after sashes and decoration consume the
+available pixels\&.  Setting {0 0} clears the content requirement; enabled headers and borders still require
+space\&.  Layouts that have never been assigned minima retain their existing sash behavior\&.
+.PP
+Floating windows receive wm minsize based on their content and decoration\&. Header visibility, image sizes,
+border settings, and theme changes refresh constraints through the normal idle geometry pass\&. The manager does
+\fBnot\fP set wm minsize on the application's owning toplevel: applications can use requiredsize and account
+for their other widgets if they want to enforce a window minimum\&. Native window-manager behavior remains
+platform-dependent\&. Tk may report a larger minimum than requested because of native window limits\&. In
+particular, Windows can report a positive minimum width after setting wm minsize to 0 0, and its reported
+limits can change when a window is first mapped\&.  requiredsize reports the manager's calculated requirement,
+not the native effective window minimum\&.  Constraints cover manager operations and gestures; direct
+modifications through the exposed native panedwindow command bypass the manager until its next geometry
+application\&.
 .SH "MOVING PANES"
 .PP
 move relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
@@ -823,6 +869,9 @@ Collects the leaves below a logical node\&.
 locate
 Finds the leaf containing an application widget\&.
 .TP
+minsize
+Gets or sets the minimum content-area dimensions of a leaf or floating window\&.
+.TP
 move
 Moves an existing leaf to an edge or sibling position without destroying its content\&.
 .TP
@@ -843,6 +892,9 @@ Queries or sets the first pane fraction of a two-child split\&.
 .TP
 remove
 Removes a docked subtree or destroys owned floating content\&.
+.TP
+requiredsize
+Calculates a node's minimum outer size, including manager-owned decoration\&.
 .TP
 retain
 Keeps a node while removing its siblings and collapsing its parent\&.
@@ -1314,6 +1366,38 @@ A split panedwindow does not identify a leaf\&.
 The containing leaf identifier, or empty for a missing or unrelated widget\&.
 .PP
 .RS -4n
+\fBminsize\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Gets or sets the minimum content-area dimensions of a leaf or floating window\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ minsize\fP \fIid ?width height?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+height
+Optional nonnegative integer minimum content height; must accompany width\&.
+.TP
+id
+Leaf identifier or owned floating token; splits cannot own content minima\&.
+.TP
+width
+Optional nonnegative integer minimum content width in pixels\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Defaults to {0 0}\&. The values follow content through retained splits, swaps, moves, and docking\&.
+Header and border space is added by requiredsize\&. Validation is atomic; setting cancels active gestures\&.
+.PP
+\fBReturn value\fR
+.PP
+The content minimum as {width height}\&.
+.PP
+.RS -4n
 \fBmove\fR (::splitlayout::splitlayout)
 .RE
 .PP
@@ -1527,6 +1611,33 @@ weights\&. If only one child remains, that child replaces the parent split\&. Su
 \fBReturn value\fR
 .PP
 The surviving parent split, its promoted child, or new root; empty for floating removal\&.
+.PP
+.RS -4n
+\fBrequiredsize\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Calculates a node's minimum outer size, including manager-owned decoration\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ requiredsize\fP \fIid\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Leaf, split, or owned floating token\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Splits sum child minima and themed sashes along their orientation, and take the maximum across it\&.
+Includes header/button space, leaf borders, and split outlines/padding\&. Does not include hull padding,
+native window decorations, or application widget requests\&. This query does not resize the owner window\&.
+.PP
+\fBReturn value\fR
+.PP
+A two-element {width height} list in pixels\&.
 .PP
 .RS -4n
 \fBretain\fR (::splitlayout::splitlayout)

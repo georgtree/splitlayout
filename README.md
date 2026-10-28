@@ -235,3 +235,42 @@ to change the default. Dictionary updates are validated atomically and retain un
 Changes cancel active gestures and preserve content, titles, and logical split proportions.
 Floating borders temporarily use the content frame's background as their base color; the prior background
 is restored when the border is disabled or the window is docked.
+
+## Minimum content sizes
+
+```tcl
+$manager minsize $leaf 200 120
+puts [$manager minsize $leaf]               ;# 200 120 (content area)
+puts [$manager requiredsize [$manager root]] ;# Recursive outer minimum
+$manager minsize $leaf 0 0                  ;# Clear the content-area minimum
+```
+
+`minsize id ?width height?` accepts a leaf or an owned floating token. Both dimensions must be supplied together
+as nonnegative integer pixels; the default is `{0 0}`. Splits have calculated requirements, not independently
+assignable minima. Values belong to content: they follow swaps, moves, the child selected by `split -keep`, and
+undocking/redocking. A newly created leaf starts at `{0 0}`. Removing content removes its stored minimum.
+
+`requiredsize id` accepts a leaf, split, or floating token and returns `{width height}`. It adds header/button
+space and leaf borders to the content minimum. For a horizontal split, child widths and themed sash widths are
+summed and the largest child height is used. Vertical splits use the opposite axes. Each split's structure border
+and padding are added when enabled. Removing, inserting, or moving children updates the calculated requirement.
+The query excludes the manager hull's padding/border, native window decorations, and application widget requests.
+It works before mapping; sash dimensions come from the active ttk theme without modifying its styles.
+
+With explicit minima configured, requested proportions are fitted to available space while respecting child
+requirements. Both live and deferred sash gestures stop at the adjacent panes' feasible limits. When the parent
+is too small, child requirements along each split axis are compressed proportionally; requested minima are retained
+and apply again when space becomes available. A cross-axis shortage likewise cannot satisfy the requested minimum.
+Very small allocations may leave no visible content after sashes and decoration consume the available pixels.
+Setting `{0 0}` clears the content requirement; enabled headers and borders still require space.
+Layouts that have never been assigned minima retain their existing sash behavior.
+
+Floating windows receive `wm minsize` based on their content and decoration. Header visibility, image sizes, border
+settings, and theme changes refresh constraints through the normal idle geometry pass. The manager does **not** set
+`wm minsize` on the application's owning toplevel: applications can use `requiredsize` and account for their other
+widgets if they want to enforce a window minimum. Native window-manager behavior remains platform-dependent. Tk may report a larger
+minimum than requested because of native window limits. In particular, Windows can report a positive minimum
+width after setting `wm minsize` to `0 0`, and its reported limits can change when a window is first mapped.
+`requiredsize` reports the manager's calculated requirement, not the native effective window minimum.
+Constraints cover manager operations and gestures; direct modifications through the exposed native panedwindow
+command bypass the manager until its next geometry application.

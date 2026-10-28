@@ -88,6 +88,47 @@ namespace eval ::splitlayout {
         Geometry changes settle through Tk's event loop. Immediately after setting proportions, a query can return the
         stored values before the sashes have moved.
 
+        ## Minimum content sizes
+
+        ```tcl
+        $manager minsize $leaf 200 120
+        puts [$manager minsize $leaf]               ;# 200 120 (content area)
+        puts [$manager requiredsize [$manager root]] ;# Recursive outer minimum
+        $manager minsize $leaf 0 0                  ;# Clear the content-area minimum
+        ```
+
+        `minsize id ?width height?` accepts a leaf or an owned floating token. Both dimensions must be supplied together
+        as nonnegative integer pixels; the default is `{0 0}`. Splits have calculated requirements, not independently
+        assignable minima. Values belong to content: they follow swaps, moves, the child selected by `split -keep`, and
+        undocking/redocking. A newly created leaf starts at `{0 0}`. Removing content removes its stored minimum.
+
+        `requiredsize id` accepts a leaf, split, or floating token and returns `{width height}`. It adds header/button
+        space and leaf borders to the content minimum. For a horizontal split, child widths and themed sash widths are
+        summed and the largest child height is used. Vertical splits use the opposite axes. Each split's structure
+        border and padding are added when enabled. Removing, inserting, or moving children updates the calculated
+        requirement.  The query excludes the manager hull's padding/border, native window decorations, and application
+        widget requests.  It works before mapping; sash dimensions come from the active ttk theme without modifying its
+        styles.
+
+        With explicit minima configured, requested proportions are fitted to available space while respecting child
+        requirements. Both live and deferred sash gestures stop at the adjacent panes' feasible limits. When the parent
+        is too small, child requirements along each split axis are compressed proportionally; requested minima are
+        retained and apply again when space becomes available. A cross-axis shortage likewise cannot satisfy the
+        requested minimum.  Very small allocations may leave no visible content after sashes and decoration consume the
+        available pixels.  Setting `{0 0}` clears the content requirement; enabled headers and borders still require
+        space.  Layouts that have never been assigned minima retain their existing sash behavior.
+
+        Floating windows receive `wm minsize` based on their content and decoration. Header visibility, image sizes,
+        border settings, and theme changes refresh constraints through the normal idle geometry pass. The manager does
+        **not** set `wm minsize` on the application's owning toplevel: applications can use `requiredsize` and account
+        for their other widgets if they want to enforce a window minimum. Native window-manager behavior remains
+        platform-dependent. Tk may report a larger minimum than requested because of native window limits. In
+        particular, Windows can report a positive minimum width after setting `wm minsize` to `0 0`, and its reported
+        limits can change when a window is first mapped.  `requiredsize` reports the manager's calculated requirement,
+        not the native effective window minimum.  Constraints cover manager operations and gestures; direct
+        modifications through the exposed native panedwindow command bypass the manager until its next geometry
+        application.
+
         ## Moving panes
         `move` relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
         application state. Supply exactly one destination option:
@@ -674,7 +715,7 @@ namespace eval ::splitlayout {
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
             Borders Settings Floating VacantRoot Icons ButtonSide HeaderRelief HeaderBorder Tooltips TooltipReady\
-            Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief
+            Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1165,6 +1206,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set HeaderRefresh {}
         set Icons {}
         set ButtonImages [dict create dock {} undock {} delete {}]
+        set Minimums {}
         set Titles {}
         set Headers {}
         set TooltipReady 0
@@ -1349,6 +1391,236 @@ oo::configurable create ::splitlayout::splitlayout {
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
         return $id
     }
+    method minsize {args} {
+        # Gets or sets the minimum content-area dimensions of a leaf or floating window.
+        #  id - Leaf identifier or owned floating token; splits cannot own content minima.
+        #  width - Optional nonnegative integer minimum content width in pixels.
+        #  height - Optional nonnegative integer minimum content height; must accompany width.
+        #
+        # Defaults to {0 0}. The values follow content through retained splits, swaps, moves, and docking.
+        # Header and border space is added by requiredsize. Validation is atomic; setting cancels active gestures.
+        # Returns: The content minimum as {width height}.
+        # Synopsis: id ?width height?
+        set opts [argparse -inline -pfirst {
+            id
+            {width -optional}
+            {height -optional}
+        }]
+        set frame [my frame [dict get $opts id]]
+        if {[dict exists $opts width] != [dict exists $opts height]} {
+            return -code error {minsize requires both width and height}
+        }
+        if {[dict exists $opts width]} {
+            set size {}
+            foreach key {width height} {
+                set value [dict get $opts $key]
+                if {![string is entier -strict $value] || ($value < 0) || ($value > 2147483647)} {
+                    return -code error {minimum dimensions must be integers from 0 to 2147483647}
+                }
+                lappend size [expr {$value+0}]
+            }
+            my CancelDrag
+            dict set Minimums $frame $size
+            my RefreshMinimums
+        }
+        if {[dict exists $Minimums $frame]} {
+            return [dict get $Minimums $frame]
+        }
+        return {0 0}
+    }
+    method requiredsize {args} {
+        # Calculates a node's minimum outer size, including manager-owned decoration.
+        #  id - Leaf, split, or owned floating token.
+        #
+        # Splits sum child minima and themed sashes along their orientation, and take the maximum across it.
+        # Includes header/button space, leaf borders, and split outlines/padding. Does not include hull padding,
+        # native window decorations, or application widget requests. This query does not resize the owner window.
+        # Returns: A two-element {width height} list in pixels.
+        # Synopsis: id
+        set opts [argparse -inline -pfirst {id}]
+        set id [dict get $opts id]
+        if {![dict exists $Floating $id] && [my type $id] eq {split}} {
+            set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
+            set along 0
+            set across 0
+            foreach child [my children $id] {
+                lassign [my requiredsize $child] w h
+                incr along [expr {$horizontal ? $w : $h}]
+                set across [expr {max($across,$horizontal ? $h : $w)}]
+            }
+            incr along [expr {([llength [my children $id]]-1)*[my SashThickness $id]}]
+            set inset [expr {$Structure ? 2*([dict get $Settings structureopts -borderwidth]+
+                                             [dict get $Settings structureopts -padding]) : 0}]
+            return [expr {$horizontal ? [list [expr {$along+$inset}] [expr {$across+$inset}]] :
+                          [list [expr {$across+$inset}] [expr {$along+$inset}]]}]
+        }
+        lassign [my minsize $id] w h
+        set inset [expr {$LeafBorder ? 2*$LeafWidth : 0}]
+        if {$Handles} {
+            set buttons 0
+            set grip {}
+            set action undock
+            if {[dict exists $Floating $id]} {
+                set action dock
+                if {[dict exists $Floating $id grip]} {
+                    set grip [dict get $Floating $id grip]
+                }
+            } elseif {[dict exists $Panels $id]} {
+                set grip [dict get $Panels $id grip]
+            }
+            foreach kind [list $action delete] name {toggle delete} {
+                set width [expr {max(22,[image width [my ButtonImage $kind]]+6)}]
+                if {($grip ne {}) && [winfo exists $grip.$name]} {
+                    set width [expr {max($width,[winfo reqwidth $grip.$name])}]
+                }
+                incr buttons $width
+            }
+            set w [expr {max($w,$buttons+8+($LeafBorder ? 0 : 2*$HeaderBorder))}]
+            incr h [my HeaderHeight]
+        }
+        return [list [expr {$w+$inset}] [expr {$h+$inset}]]
+    }
+    method SashThickness {id} {
+        # Measures the active ttk sash layout without mapping or resizing a pane.
+        #  id - Split identifier.
+        #
+        # An unmanaged ttk label measures the same sublayout as the native panedwindow. It is owned by that split and
+        # disappears with it. No style definitions are changed; custom themes and Tk scaling are respected.
+        # Returns: Sash thickness in pixels.
+        set pw [my panedwindow $id]
+        set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
+        set style [$pw cget -style]
+        if {$style eq {}} {
+            set style TPanedwindow
+        }
+        append style [expr {$horizontal ? {.Vertical.Sash} : {.Horizontal.Sash}}]
+        set probe $pw.minimumMeasure
+        if {![winfo exists $probe]} {
+            ttk::label $probe -style $style
+        }
+        if {[$probe cget -style] ne $style} {
+            $probe configure -style $style
+        }
+        return [expr {$horizontal ? [winfo reqwidth $probe] : [winfo reqheight $probe]}]
+    }
+    method RefreshMinimums {} {
+        # Reapplies constraints after content minima, decoration, or theme geometry changes.
+        #
+        # Split changes are coalesced at idle. Only managed floating windows receive wm minsize;
+        # the application's owner toplevel is never constrained by this manager.
+        # Returns: Nothing.
+        if {$Closing || ![info exists Root]} {
+            return
+        }
+        dict for {id data} $Floating {
+            set frame [dict get $data frame]
+            if {[dict exists $Minimums $frame]} {
+                wm minsize $frame {*}[my requiredsize $id]
+            }
+        }
+        if {![dict size $Minimums]} {
+            return
+        }
+        dict for {id data} $Nodes {
+            if {[dict get $data type] eq {split}} {
+                my Schedule $id
+            }
+        }
+    }
+    method AllocateMinimums {total weights minima} {
+        # Allocates integer pane extents subject to minima and preferred proportions.
+        #  total - Available content pixels, excluding sashes.
+        #  weights - Positive preferred pane fractions.
+        #  minima - Nonnegative minimum pane extents.
+        #
+        # Repeatedly freezes panes whose preferred share is below their minimum. If space is insufficient,
+        # compresses minima proportionally. Cumulative rounding preserves the available total exactly.
+        # Returns: Integer pane extents in input order.
+        set total [expr {max(0,$total)}]
+        set sum 0
+        foreach value $minima {incr sum $value}
+        set sizes [lrepeat [llength $weights] 0]
+        if {$sum > $total} {
+            foreach value $minima {lappend compressed [expr {double($total)*$value/$sum}]}
+            set sizes $compressed
+        } else {
+            set remaining $total
+            set active {}
+            for {set i 0} {$i < [llength $weights]} {incr i} {
+                lappend active $i
+            }
+            while {[llength $active]} {
+                set weight 0.0
+                foreach i $active {
+                    set weight [expr {$weight+[lindex $weights $i]}]
+                }
+                set frozen {}
+                foreach i $active {
+                    if {$remaining*[lindex $weights $i]/$weight < [lindex $minima $i]} {
+                        lappend frozen $i
+                    }
+                }
+                if {![llength $frozen]} {
+                    foreach i $active {
+                        lset sizes $i [expr {$remaining*[lindex $weights $i]/$weight}]
+                    }
+                    break
+                }
+                foreach i $frozen {
+                    lset sizes $i [lindex $minima $i]
+                    incr remaining -[lindex $minima $i]
+                    set active [lsearch -all -inline -not -exact $active $i]
+                }
+            }
+        }
+        set result {}
+        set sum 0.0
+        set previous 0
+        foreach size $sizes {
+            set sum [expr {$sum+$size}]
+            set end [expr {round($sum)}]
+            lappend result [expr {$end-$previous}]
+            set previous $end
+        }
+        return $result
+    }
+    method PaneMinimums {id} {
+        # Collects child minima along a split's axis.
+        #  id - Split identifier.
+        # Returns: Minimum extents in pane order.
+        set axis [expr {[dict get $Nodes $id orient] eq {horizontal} ? 0 : 1}]
+        set result {}
+        foreach child [my children $id] {
+            lappend result [lindex [my requiredsize $child] $axis]
+        }
+        return $result
+    }
+    method ConstrainSash {id sash target} {
+        # Clamps a requested sash position to its adjacent panes' current feasible minima.
+        #  id - Split identifier.
+        #  sash - Zero-based sash index.
+        #  target - Requested native sash coordinate.
+        #
+        # In undersized layouts, proportional compressed minima become the temporary limits.
+        # Returns: A feasible native sash coordinate.
+        if {![dict size $Minimums]} {return $target}
+        set pw [my panedwindow $id]
+        set gap [my SashThickness $id]
+        set minima [my PaneMinimums $id]
+        set available [expr {max(0,[my Extent $id]-([llength $minima]-1)*$gap)}]
+        set sum 0
+        foreach value $minima {
+            incr sum $value
+        }
+        if {$sum > $available} {
+            set minima [my AllocateMinimums $available [dict get $Nodes $id proportions] $minima]
+        }
+        set start [expr {$sash ? [$pw sashpos [expr {$sash-1}]]+$gap : 0}]
+        set end [expr {$sash < [llength $minima]-2 ? [$pw sashpos [expr {$sash+1}]] : [my Extent $id]}]
+        set lower [expr {$start+[lindex $minima $sash]}]
+        set upper [expr {$end-$gap-[lindex $minima [expr {$sash+1}]]}]
+        return [expr {max($lower,min($upper,$target))}]
+    }
     method title {args} {
         # Gets or sets the optional header title belonging to managed content.
         #  id - Docked leaf identifier or owned floating token.
@@ -1374,13 +1646,18 @@ oo::configurable create ::splitlayout::splitlayout {
         return
     }
     method ContentTitleDestroyed {frame path} {
-        # Discards title metadata when its content frame is destroyed.
+        # Discards title and minimum-size metadata when its content frame is destroyed.
         #  frame - Content frame associated with this binding.
         #  path - Widget reported by Destroy; child events are ignored.
         #
         # Returns: Nothing.
-        if {($frame eq $path) && [dict exists $Titles $frame]} {
-            dict unset Titles $frame
+        if {$frame eq $path} {
+            if {[dict exists $Titles $frame]} {
+                dict unset Titles $frame
+            }
+            if {[dict exists $Minimums $frame]} {
+                dict unset Minimums $frame
+            }
         }
     }
     method floating {{id {}}} {
@@ -1572,6 +1849,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         my Rebuild
+        my RefreshMinimums
         wm deiconify $frame
         raise $frame
         return $token
@@ -1966,6 +2244,7 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $deferredTag <Unmap> [namespace code {my CancelDrag}]
         bindtags $pw [linsert [bindtags $pw] 0 $deferredTag]
         bind $pw <Configure> [namespace code [list my SplitConfigure $id]]
+        bind $pw <<ThemeChanged>> [namespace code {my RefreshMinimums}]
         return $pw
     }
     method move {args} {
@@ -2327,7 +2606,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  id - Split identifier whose idle callback is running.
         #
         # Clears the pending token and ignores removed nodes or unusable geometry. Cumulative proportions determine
-        # sash positions along the split extent. Two passes accommodate native sash constraints without nested event
+        # sash positions along the split extent, adjusted for configured recursive minima. Two passes avoid nested event
         # processing.
         #
         # Returns: Nothing.
@@ -2351,6 +2630,19 @@ oo::configurable create ::splitlayout::splitlayout {
             $pw pane [my widget $child] -weight [expr {max(1,round(10000*$fraction))}]
             set sum [expr {$sum+$fraction}]
             lappend positions [expr {round($size*$sum)}]
+        }
+        if {[dict size $Minimums]} {
+            set gap [my SashThickness $id]
+            set count [llength [my children $id]]
+            set extents [my AllocateMinimums [expr {$size-($count-1)*$gap}] [dict get $Nodes $id proportions]\
+                                 [my PaneMinimums $id]]
+            set positions {}
+            set position 0
+            foreach extent $extents {
+                incr position $extent
+                lappend positions $position
+                incr position $gap
+            }
         }
         # Moving a sash can constrain its neighbours. Two passes establish
         # all ordered target positions regardless of the previous positions.
@@ -2386,6 +2678,29 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set pw [my panedwindow $id]
         set count [llength [my children $id]]
+        if {[dict size $Minimums]} {
+            set gap [my SashThickness $id]
+            set available [expr {[my Extent $id]-($count-1)*$gap}]
+            set minimum 0
+            foreach value [my PaneMinimums $id] {
+                incr minimum $value
+            }
+            if {$available < $minimum} {
+                return
+            }
+            if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ($available > 0)} {
+                set weights {}
+                set previous 0
+                for {set i 0} {$i < $count-1} {incr i} {
+                    set position [$pw sashpos $i]
+                    lappend weights [expr {max(0.000001,$position-$previous)}]
+                    set previous [expr {$position+$gap}]
+                }
+                lappend weights [expr {max(0.000001,[my Extent $id]-$previous)}]
+                dict set Nodes $id proportions [my Normalize $weights $count]
+            }
+            return
+        }
         if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ([my Extent $id] > 1)} {
             set weights {}
             set previous 0.0
@@ -2932,6 +3247,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 my DrawGrip $grip
             }
         }
+        my RefreshMinimums
     }
     method ClearHeaderTips {grip} {
         # Removes only this header's Tklib tooltip registrations.
@@ -3629,19 +3945,19 @@ oo::configurable create ::splitlayout::splitlayout {
     # Deferred sash mode intercepts gestures before TPanedwindow bindings.
     # Its preview mode is independent of the docking preview.
     method DeferredPress {pw rootX rootY x y} {
-        # Starts a deferred sash gesture when live resizing is disabled.
+        # Starts a deferred sash gesture, or a constrained live gesture when content minima are configured.
         #  pw - Panedwindow receiving the button press.
         #  rootX - Pointer x coordinate in screen coordinates.
         #  rootY - Pointer y coordinate in screen coordinates.
         #  x - Pointer x coordinate relative to the panedwindow.
         #  y - Pointer y coordinate relative to the panedwindow.
         #
-        # Runs before the native panedwindow class binding. Non-sash presses and live-resize mode pass through. An
+        # Runs before native class bindings. Non-sash presses and unconstrained live-resize mode pass through. An
         # accepted gesture applies any pending proportions, records the initial sash and focus state, and creates the
         # configured preview surface without resizing content.
         #
         # Returns: Nothing for a pass-through event; Tcl break completion for an accepted gesture.
-        if {$Opaque} {
+        if {$Opaque && ![dict size $Minimums]} {
             return
         }
         my CancelDrag
@@ -3660,7 +3976,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set orient [$pw cget -orient]
         set coordinate [expr {$orient eq {horizontal} ? $rootX : $rootY}]
         set proxy {}
-        if {$Preview ne {none}} {
+        if {!$Opaque && ($Preview ne {none})} {
             set proxy $W.proxy[incr Serial]
             if {$Preview eq {window}} {
                 toplevel $proxy -background [dict get $Settings sashpreviewopts -color] -borderwidth 0 -takefocus 0
@@ -3681,18 +3997,22 @@ oo::configurable create ::splitlayout::splitlayout {
         return -code break
     }
     method DeferredMotion {pw rootX rootY} {
-        # Handles pointer motion for an active deferred sash gesture.
+        # Handles pointer motion for an active deferred or constrained live sash gesture.
         #  pw - Panedwindow receiving the motion event.
         #  rootX - Pointer x coordinate in screen coordinates.
         #  rootY - Pointer y coordinate in screen coordinates.
         #
-        # Only a gesture belonging to this panedwindow updates the preview target.
+        # Only a gesture belonging to this panedwindow updates the target; live mode applies it immediately.
         #
         # Returns: Nothing for an unrelated event; Tcl break completion for handled motion.
         if {($Drag eq {}) || ([dict get $Drag pw] ne $pw)} {
             return
         }
         my MoveProxy $rootX $rootY
+        if {$Opaque} {
+            $pw sashpos [dict get $Drag sash] [dict get $Drag target]
+            my SashMoved $pw
+        }
         return -code break
     }
     method MoveProxy {rootX rootY {show 1}} {
@@ -3718,7 +4038,8 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$sash < [llength [$pw panes]]-2} {
             set upper [$pw sashpos [expr {$sash+1}]]
         }
-        dict set Drag target [expr {max($lower,min($upper,$target))}]
+        set target [expr {max($lower,min($upper,$target))}]
+        dict set Drag target [my ConstrainSash [dict get $Drag id] $sash $target]
         if {$show && ([dict get $Drag proxy] ne {}) && ([dict get $Drag previewAfter] eq {})} {
             dict set Drag previewAfter [after idle [namespace code {my ShowProxy}]]
         }
@@ -3800,7 +4121,7 @@ oo::configurable create ::splitlayout::splitlayout {
     method DeferredEscape {} {
         # Cancels a deferred sash gesture in response to Escape.
         #
-        # Discards the preview target without committing it to the native sash.
+        # Discards the deferred target; movement already applied in live mode is retained.
         #
         # Returns: Nothing without an active gesture; Tcl break completion after cancellation.
         if {$Drag eq {}} {
@@ -3847,7 +4168,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my CancelDock
         # An external resize/move invalidates preview coordinates. Cancel the
         # preview and let the normal ratio handler process the new geometry.
-        if {$Drag ne {}} {
+        if {$Drag ne {} && !$Opaque} {
             my CancelDrag
         }
         my Schedule $id
