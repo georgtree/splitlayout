@@ -251,6 +251,32 @@ value to restore one built-in bitmap, for example -buttonimages {dock {}}\&. An 
 Image validation is atomic\&. Supplied images remain application-owned and are never deleted, recolored, or scaled\&.
 Button widths and header height accommodate them\&. Keep images alive while used and clear the override before
 deleting them\&. Reapply an override after changing an image's dimensions in place to refresh header sizing\&.
+.SH "LEAF OUTLINES"
+.PP
+Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
+The header and content share the same inner left and right edges\&. Floating windows use the same settings\&.
+With leaf outlines enabled, the header draws only its bottom separator, avoiding doubled top and side borders\&.
+-headerborderwidth sets separator thickness and -headerrelief its native bottom-edge relief\&. Flat or zero width
+hides the separator\&. Disabling leaf outlines restores the full header rectangle\&.
+The outline remains when -draghandles false; -showstructure continues to describe split groups separately\&.
+No application widgets are recreated or reparented\&. Geometry managers reserve the border's thickness\&.
+.PP
+.RS 4n
+.nf
+$manager configure -leafborder true -leafborderwidth 2 -leafrelief ridge
+$manager configure -leafopts {-color #808080}
+.fi
+.RE
+.PP
+-leafborder defaults to false, -leafborderwidth to 1, and -leafrelief to solid\&.
+Relief accepts flat, solid, raised, sunken, ridge, and groove\&. Flat or zero width hides the visible line\&.
+-leafopts accepts -color, the classic border's base color (default #909090); raised relief shades derive
+from that color, while solid relief uses Tk's solid-border rendering\&. It does not override ttk styles\&.
+Set the option database resource *splitlayoutLeafColor (class SplitlayoutLeafColor) before construction
+to change the default\&. Dictionary updates are validated atomically and retain unspecified keys\&.
+Changes cancel active gestures and preserve content, titles, and logical split proportions\&.
+Floating borders temporarily use the content frame's background as their base color; the prior background
+is restored when the border is disabled or the window is docked\&.
 
 
 .SH SEE ALSO

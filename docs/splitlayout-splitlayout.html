@@ -309,6 +309,29 @@ children inside the content frame. Use <code class="docutils literal notranslate
 controlled independently by <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>. Changing alignment cancels an active drag without moving content. It
 is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
 theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> and its option-database resources.</p>
+<section id="leaf-outlines">
+<span id="r-splitlayout-leaf-outlines"></span><span id="r-3a3asplitlayoutqzleaf20outlines"></span><h3>Leaf outlines<a class="headerlink" href="#leaf-outlines" title="Link to this heading">¶</a></h3>
+<p>Enable <code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">true</span></code> to surround each leaf’s header and content with one independent outline.
+The header and content share the same inner left and right edges. Floating windows use the same settings.
+With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted.
+<code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code> sets separator thickness and <code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code> its native bottom-edge relief. Flat or zero
+thickness hides the separator. Disabling leaf outlines restores the header’s complete rectangle.
+The outline remains when <code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">false</span></code>; <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code> continues to describe split groups separately.
+No application widgets are recreated or reparented. Geometry managers reserve the border’s thickness.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>leafborder<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>leafborderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>leafrelief<span class="w"> </span>ridge
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>leafopts<span class="w"> </span><span class="k">{</span><span class="nv">-color</span><span class="w"> </span><span class="err">#</span><span class="mi">808080</span><span class="k">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code> defaults to false, <code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code> to 1, and <code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code> to solid.
+Relief accepts flat, solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.
+<code class="docutils literal notranslate"><span class="pre">-leafopts</span></code> accepts <code class="docutils literal notranslate"><span class="pre">-color</span></code>, the classic border’s base color (default #909090); raised relief shades derive
+from that color, while solid relief uses Tk’s solid-border rendering. It does not override ttk styles.
+Set the option database resource <code class="docutils literal notranslate"><span class="pre">*splitlayoutLeafColor</span></code> (class <code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafColor</span></code>) before construction
+to change the default. Dictionary updates are validated atomically and retain unspecified keys.
+Changes cancel active gestures and preserve content, titles, and logical split proportions.
+Floating borders temporarily use the content frame’s background as their base color; the prior background
+is restored when the border is disabled or the window is docked.</p>
+</section>
 <section id="header-appearance-and-titles">
 <span id="r-splitlayout-header-appearance-and-titles"></span><span id="r-3a3asplitlayoutqzheader20appearance20and20titles"></span><h3>Header appearance and titles<a class="headerlink" href="#header-appearance-and-titles" title="Link to this heading">¶</a></h3>
 <p>The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
@@ -465,6 +488,22 @@ the hull.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 <td><p>Rectangular header relief.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Outline each leaf, including floating windows.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Nonnegative leaf outline thickness in pixels.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">solid</span></code></p></td>
+<td><p>Leaf outline relief, independent of the header.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p>option database</p></td>
+<td><p>Leaf border base color (<code class="docutils literal notranslate"><span class="pre">-color</span></code>).</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Nonnegative header border thickness in pixels.</p></td>
@@ -604,37 +643,43 @@ explicit per-instance overrides. No option instances are created.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockThreshold</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLeafColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafColor</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">#909090</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#909090</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-activecolor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureActiveColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureActiveColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#448aff</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureBorderWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureBorderWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-padding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructurePadding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructurePadding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#606060</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewWidth</span></code></p></td>
@@ -713,11 +758,11 @@ reused.  <code class="docutils literal notranslate"><span class="pre">floating</
 <code class="docutils literal notranslate"><span class="pre">geometry</span></code>, <code class="docutils literal notranslate"><span class="pre">state</span></code>, and <code class="docutils literal notranslate"><span class="pre">onclose</span></code>. <code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">$token</span></code> returns the retained frame. Docked-tree commands (<code class="docutils literal notranslate"><span class="pre">tree</span></code>,
 <code class="docutils literal notranslate"><span class="pre">leaves</span></code>, <code class="docutils literal notranslate"><span class="pre">node</span></code>, and <code class="docutils literal notranslate"><span class="pre">locate</span></code>) exclude floating content; <code class="docutils literal notranslate"><span class="pre">widgets</span></code> still exposes its actual Tk ancestry and
 <code class="docutils literal notranslate"><span class="pre">wm</span></code> geometry manager.</p>
-<p>Content frames are <strong>classic borderless ``labelframe`` widgets with class ``Frame``</strong>, because Tk’s <code class="docutils literal notranslate"><span class="pre">wm</span> <span class="pre">manage</span></code>
-cannot promote <code class="docutils literal notranslate"><span class="pre">ttk::frame</span></code>.  The hull, leaf wrappers, and panedwindows retain their ttk behavior. Code using
-<code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">$leaf</span></code> for <code class="docutils literal notranslate"><span class="pre">pack</span></code>, <code class="docutils literal notranslate"><span class="pre">grid</span></code>, or child creation continues to work; ttk-only frame options such as <code class="docutils literal notranslate"><span class="pre">-style</span></code>
-are no longer available on that content frame. Place themed widgets inside it when needed. Actual parentage
-remains the layout hull throughout the round trip.</p>
+<p>Content frames are <strong>classic ``labelframe`` widgets with class ``Frame``</strong>, borderless while docked, because Tk’s
+<code class="docutils literal notranslate"><span class="pre">wm</span> <span class="pre">manage</span></code> cannot promote <code class="docutils literal notranslate"><span class="pre">ttk::frame</span></code>. The hull, leaf wrappers, and panedwindows retain their ttk
+behavior. Code using <code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">$leaf</span></code> for <code class="docutils literal notranslate"><span class="pre">pack</span></code>, <code class="docutils literal notranslate"><span class="pre">grid</span></code>, or child creation continues to work; ttk-only frame
+options such as <code class="docutils literal notranslate"><span class="pre">-style</span></code> are no longer available on that content frame. Place themed widgets inside it when
+needed. Actual parentage remains the layout hull throughout the round trip.</p>
 <p>Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the
 old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
 floating. Binding scripts containing literal window paths are not rewritten. Applications that cache <code class="docutils literal notranslate"><span class="pre">winfo</span>
@@ -866,10 +911,22 @@ database; see the namespace resource reference.</p>
 <dd class="field-even"><p>Readable, writable. Nonnegative integer header border thickness in pixels; default 1. Changes cancel an active drag and update the reserved header height.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat. Affects the full rectangular docked and floating header, including the area around its buttons. Button styling remains controlled by ttk. Changes cancel an active drag.</p>
+<dd class="field-odd"><p>Readable, writable. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat. Controls the full header rectangle, or only its bottom separator when leafborder is enabled. Button styling remains controlled by ttk. Changes cancel an active drag.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Requested hull height, delegated to the ttk frame; constructor default 600.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling a border around each leaf’s header and content; default false. Works for floating windows and with draghandles disabled, independently of showstructure.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Nonnegative integer leaf border thickness in pixels; default 1. Zero hides the border.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Dictionary with -color, the classic leaf border base color; default #909090. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database. Changes cancel gestures, preserve content, and update docked and floating leaves.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
@@ -911,8 +968,8 @@ database; see the namespace resource reference.</p>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h4>
 <p>Creates a split layout with one empty root leaf.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em>
-<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em>
+<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
@@ -935,6 +992,18 @@ database; see the namespace resource reference.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-height</span> <span class="pre">height</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Nonnegative requested hull height in pixels; default 600.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Enable independent leaf outlines; default false.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span> <span class="pre">pixels</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Nonnegative leaf outline thickness; default 1.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Leaf border base color; option-database defaults.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span> <span class="pre">relief</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Leaf border relief; default solid.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Enable live sash resizing; default true.</p>
@@ -1503,6 +1572,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 <li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
 <li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
 <li><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
+<li><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
 <li><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
 <li><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
 <li><a class="reference internal" href="#optional-tooltips">Optional tooltips</a></li>

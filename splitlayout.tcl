@@ -239,6 +239,31 @@ namespace eval ::splitlayout {
         is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
         theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
 
+        ### Leaf outlines
+
+        Enable `-leafborder true` to surround each leaf's header and content with one independent outline.
+        The header and content share the same inner left and right edges. Floating windows use the same settings.
+        With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted.
+        `-headerborderwidth` sets separator thickness and `-headerrelief` its native bottom-edge relief. Flat or zero
+        thickness hides the separator. Disabling leaf outlines restores the header's complete rectangle.
+        The outline remains when `-draghandles false`; `-showstructure` continues to describe split groups separately.
+        No application widgets are recreated or reparented. Geometry managers reserve the border's thickness.
+
+        ```tcl
+        $manager configure -leafborder true -leafborderwidth 2 -leafrelief ridge
+        $manager configure -leafopts {-color #808080}
+        ```
+
+        `-leafborder` defaults to false, `-leafborderwidth` to 1, and `-leafrelief` to solid.
+        Relief accepts flat, solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.
+        `-leafopts` accepts `-color`, the classic border's base color (default #909090); raised relief shades derive
+        from that color, while solid relief uses Tk's solid-border rendering. It does not override ttk styles.
+        Set the option database resource `*splitlayoutLeafColor` (class `SplitlayoutLeafColor`) before construction
+        to change the default. Dictionary updates are validated atomically and retain unspecified keys.
+        Changes cancel active gestures and preserve content, titles, and logical split proportions.
+        Floating borders temporarily use the content frame's background as their base color; the prior background
+        is restored when the border is disabled or the window is docked.
+
         ### Header appearance and titles
         The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
         dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
@@ -372,6 +397,10 @@ namespace eval ::splitlayout {
         | `-titlealign` | `center` | Align the optional header title left, center, or right. |
         | `-buttonimages` | Empty values | Optional dock, undock, and delete Tk image overrides. |
         | `-headerrelief` | `flat` | Rectangular header relief. |
+        | `-leafborder` | `false` | Outline each leaf, including floating windows. |
+        | `-leafborderwidth` | `1` | Nonnegative leaf outline thickness in pixels. |
+        | `-leafrelief` | `solid` | Leaf outline relief, independent of the header. |
+        | `-leafopts` | option database | Leaf border base color (`-color`). |
         | `-headerborderwidth` | `1` | Nonnegative header border thickness in pixels. |
         | `-tooltips` | `true` | Use Tklib tooltips when available. |
         | `-draghandles`   | `false`  | Show docking grips on all current and future leaves.    |
@@ -452,6 +481,7 @@ namespace eval ::splitlayout {
         | `-dockopts`        | `-edgewidth`   | `splitlayoutDockEdgeWidth`        | `SplitlayoutDockEdgeWidth`        | `24`      |
         | `-dockopts`        | `-outerwidth`  | `splitlayoutDockOuterWidth`       | `SplitlayoutDockOuterWidth`       | `12`      |
         | `-dockopts`        | `-threshold`   | `splitlayoutDockThreshold`        | `SplitlayoutDockThreshold`        | `5`       |
+        | `-leafopts` | `-color` | `splitlayoutLeafColor` | `SplitlayoutLeafColor` | `#909090` |
         | `-structureopts`   | `-color`       | `splitlayoutStructureColor`       | `SplitlayoutStructureColor`       | `#909090` |
         | `-structureopts`   | `-activecolor` | `splitlayoutStructureActiveColor` | `SplitlayoutStructureActiveColor` | `#448aff` |
         | `-structureopts`   | `-borderwidth` | `splitlayoutStructureBorderWidth` | `SplitlayoutStructureBorderWidth` | `1`       |
@@ -547,11 +577,11 @@ namespace eval ::splitlayout {
         `leaves`, `node`, and `locate`) exclude floating content; `widgets` still exposes its actual Tk ancestry and
         `wm` geometry manager.
 
-        Content frames are **classic borderless `labelframe` widgets with class `Frame`**, because Tk's `wm manage`
-        cannot promote `ttk::frame`.  The hull, leaf wrappers, and panedwindows retain their ttk behavior. Code using
-        `frame $leaf` for `pack`, `grid`, or child creation continues to work; ttk-only frame options such as `-style`
-        are no longer available on that content frame. Place themed widgets inside it when needed. Actual parentage
-        remains the layout hull throughout the round trip.
+        Content frames are **classic `labelframe` widgets with class `Frame`**, borderless while docked, because Tk's
+        `wm manage` cannot promote `ttk::frame`. The hull, leaf wrappers, and panedwindows retain their ttk
+        behavior. Code using `frame $leaf` for `pack`, `grid`, or child creation continues to work; ttk-only frame
+        options such as `-style` are no longer available on that content frame. Place themed widgets inside it when
+        needed. Actual parentage remains the layout hull throughout the round trip.
 
         Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the
         old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
@@ -625,6 +655,9 @@ namespace eval ::splitlayout {
             -borderwidth {splitlayoutStructureBorderWidth nonnegative 1}
             -padding {splitlayoutStructurePadding nonnegative 2}
         }
+        leafopts {
+            -color {splitlayoutLeafColor color #909090}
+        }
         sashpreviewopts {
             -color {splitlayoutSashPreviewColor color #606060}
             -width {splitlayoutSashPreviewWidth positive 3}
@@ -641,7 +674,7 @@ namespace eval ::splitlayout {
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
             Borders Settings Floating VacantRoot Icons ButtonSide HeaderRelief HeaderBorder Tooltips TooltipReady\
-            Titles Headers TitleAlign ButtonImages HeaderRefresh
+            Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -693,12 +726,27 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
                 -headerrelief {
                     Header relief: flat, raised, sunken, ridge, groove, or solid; default flat.
-                    Affects the full rectangular docked and floating header, including the area around its buttons.
+                    Controls the full header rectangle, or only its bottom separator when leafborder is enabled.
                     Button styling remains controlled by ttk. Changes cancel an active drag.
                 }
                 -headerborderwidth {
                     Nonnegative integer header border thickness in pixels; default 1.
                     Changes cancel an active drag and update the reserved header height.
+                }
+                -leafborder {
+                    Boolean enabling a border around each leaf's header and content; default false.
+                    Works for floating windows and with draghandles disabled, independently of showstructure.
+                }
+                -leafborderwidth {
+                    Nonnegative integer leaf border thickness in pixels; default 1. Zero hides the border.
+                }
+                -leafrelief {
+                    Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid.
+                }
+                -leafopts {
+                    Dictionary with -color, the classic leaf border base color; default #909090.
+                    Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database.
+                    Changes cancel gestures, preserve content, and update docked and floating leaves.
                 }
                 -tooltips {
                     Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package
@@ -869,6 +917,50 @@ oo::configurable create ::splitlayout::splitlayout {
             my RefreshHeaders
         }
     }
+    property leafborder -get {
+        return $LeafBorder
+    } -set {
+        if {![string is boolean -strict $value]} {
+            return -code error {leafborder must be boolean}
+        }
+        my CancelDrag
+        set LeafBorder [expr {!!$value}]
+        if {[info exists Root]} {
+            my CaptureAll
+            my Rebuild
+        }
+    }
+    property leafborderwidth -get {
+        return $LeafWidth
+    } -set {
+        if {![string is integer -strict $value] || ($value < 0)} {
+            return -code error {leafborderwidth must be a nonnegative integer}
+        }
+        my CancelDrag
+        set LeafWidth $value
+        if {[info exists Root]} {
+            my CaptureAll
+            my Rebuild
+        }
+    }
+    property leafrelief -get {
+        return $LeafRelief
+    } -set {
+        if {$value ni {flat raised sunken ridge groove solid}} {
+            return -code error {invalid leaf relief}
+        }
+        my CancelDrag
+        set LeafRelief $value
+        if {[info exists Root]} {
+            my CaptureAll
+            my Rebuild
+        }
+    }
+    property leafopts -get {
+        return [dict get $Settings leafopts]
+    } -set {
+        my SetAppearance leafopts $value
+    }
     property tooltips -get {
         return $Tooltips
     } -set {
@@ -918,7 +1010,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method SetAppearance {group value} {
         # Validates and applies an appearance dictionary without creating option instances.
-        #  group - Resource group: dockopts, structureopts, or sashpreviewopts.
+        #  group - Resource group: dockopts, structureopts, leafopts, or sashpreviewopts.
         #  value - Dictionary of keys to override; unspecified keys retain current values.
         #
         # On first assignment, query the hull's option database using package-specific resource names and classes.
@@ -964,11 +1056,11 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         my CancelDrag
-        if {($group eq {structureopts}) && [info exists Root]} {
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
             my CaptureAll
         }
         dict set Settings $group $candidate
-        if {($group eq {structureopts}) && [info exists Root]} {
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
             my Rebuild
         }
         return
@@ -1048,6 +1140,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -titlealign alignment - Header title alignment: left, center, or right; default center.
         #  -buttonimages dictionary - Optional dock, undock, and delete Tk image overrides; default built-in bitmaps.
         #  -headerrelief relief - Header border: flat, raised, sunken, ridge, groove, or solid; default flat.
+        #  -leafborder boolean - Enable independent leaf outlines; default false.
+        #  -leafborderwidth pixels - Nonnegative leaf outline thickness; default 1.
+        #  -leafrelief relief - Leaf border relief; default solid.
+        #  -leafopts dictionary - Leaf border base color; option-database defaults.
         #  -headerborderwidth pixels - Nonnegative header border thickness; default 1.
         #  -tooltips boolean - Show Tklib tooltips when the optional package is available; default true.
         #  -showstructure boolean - Outline and inset all split regions; default false.
@@ -1063,6 +1159,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
         #  ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
+        #  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary?
         #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
         #  ?-titlealign alignment? ?-buttonimages dictionary?
         set HeaderRefresh {}
@@ -1087,6 +1184,10 @@ oo::configurable create ::splitlayout::splitlayout {
             path
             {-dockopts= -default {}}
             {-structureopts= -default {}}
+            {-leafopts= -default {}}
+            {-leafborder= -default false -type boolean}
+            {-leafborderwidth= -default 1 -type integer}
+            {-leafrelief= -default solid -enum {flat raised sunken ridge groove solid}}
             {-sashpreviewopts= -default {}}
             {-width= -default 800 -type integer}
             {-height= -default 600 -type integer}
@@ -1102,6 +1203,8 @@ oo::configurable create ::splitlayout::splitlayout {
             {-sashpreview= -default window -enum {window inline none}}
         }]
         my configure -opaqueresize [dict get $options opaqueresize] -sashpreview [dict get $options sashpreview]
+        my configure -leafborder [dict get $options leafborder] -leafborderwidth [dict get $options leafborderwidth]\
+                -leafrelief [dict get $options leafrelief]
         my configure -showstructure [dict get $options showstructure]
         my configure -draghandles [dict get $options draghandles]
         my configure -buttonside [dict get $options buttonside]
@@ -1124,7 +1227,7 @@ oo::configurable create ::splitlayout::splitlayout {
         ttk::frame $W -width [dict get $options width] -height [dict get $options height]
         set Owned 1
         rename ::$W $Hull
-        foreach group {dockopts structureopts sashpreviewopts} {
+        foreach group {dockopts structureopts leafopts sashpreviewopts} {
             my configure -$group [dict get $options $group]
         }
         pack propagate $W 0
@@ -1565,6 +1668,9 @@ oo::configurable create ::splitlayout::splitlayout {
             return -options $options $message
         }
         my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
+        if {[dict exists $Floating $token leafbackground]} {
+            $frame configure -background [dict get $Floating $token leafbackground]
+        }
         dict unset Floating $token
         set source [my NewLeaf $parent $frame]
         if {$replace} {
@@ -2735,6 +2841,14 @@ oo::configurable create ::splitlayout::splitlayout {
         # A labelframe label widget reserves header space without participating in the application's pack or grid.
         # Returns: Nothing.
         dict for {id data} $Floating {
+            set frame [dict get $data frame]
+            if {$LeafBorder && ![dict exists $data leafbackground]} {
+                dict set Floating $id leafbackground [$frame cget -background]
+            } elseif {!$LeafBorder && [dict exists $data leafbackground]} {
+                $frame configure -background [dict get $data leafbackground]
+                dict unset Floating $id leafbackground
+            }
+            my ApplyLeafBorder $frame
             if {!$Handles} {
                 my RemoveFloatingGrip $id
                 continue
@@ -2751,6 +2865,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Floating $id reserve $reserve
             $frame configure -labelwidget $reserve -labelanchor nw
             place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight]
+            my DrawGrip $grip
             raise $grip
         }
     }
@@ -2770,7 +2885,7 @@ oo::configurable create ::splitlayout::splitlayout {
         dict unset Floating $id reserve
     }
     method HeaderHeight {} {
-        # Computes the complete header height, including its configurable border.
+        # Computes header height with a full border, or only the bottom border when leaf outlines are enabled.
         #
         # Returns: Height in pixels, large enough for the current theme font and buttons.
         set font [ttk::style lookup TLabel -font]
@@ -2788,7 +2903,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
             }
         }
-        return [expr {$height+2*$HeaderBorder}]
+        return [expr {$height+($LeafBorder ? 1 : 2)*$HeaderBorder}]
     }
     method RefreshHeaders {} {
         # Redraws existing headers and coalesces a second pass after ttk updates image geometry requests.
@@ -2874,24 +2989,50 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         dict for {id panel} $Panels {
-            if {!$Handles || ![dict exists $Nodes $id] || ([my type $id] ne {leaf})} {
+            if {(!$Handles && !$LeafBorder) || ![dict exists $Nodes $id] || ([my type $id] ne {leaf})} {
                 destroy [dict get $panel pane]
                 dict unset Panels $id
             }
         }
         my SyncFloatingGrips
-        if {!$Handles} {return}
         foreach id [my leaves] {
-            if {[dict exists $Panels $id]} {
-                continue
+            # A redocked content frame no longer supplies its own floating border.
+            [my frame $id] configure -borderwidth 0 -relief flat
+            if {!$Handles && !$LeafBorder} {continue}
+            if {![dict exists $Panels $id]} {
+                set pane [::frame $W.pane[incr Serial] -borderwidth 0 -highlightthickness 0]
+                dict set Panels $id [dict create pane $pane grip {}]
+                bind $pane <Map> [namespace code [list my PanelMapped $id]]
+                bind $pane <Configure> [namespace code {my CancelDock}]
             }
-            set pane [ttk::frame $W.pane[incr Serial]]
-            set grip [my MakeGrip $pane.grip $id 0]
-            pack $grip -side top -fill x
-            dict set Panels $id [dict create pane $pane grip $grip]
-            bind $pane <Map> [namespace code [list my PanelMapped $id]]
-            bind $pane <Configure> [namespace code {my CancelDock}]
-            my DrawGrip $grip
+            set pane [dict get $Panels $id pane]
+            set bg [ttk::style lookup TFrame -background]
+            if {$bg eq {}} {set bg #d9d9d9}
+            $pane configure -background $bg
+            my ApplyLeafBorder $pane
+            set grip [dict get $Panels $id grip]
+            if {$Handles} {
+                if {$grip eq {}} {
+                    set grip [my MakeGrip $pane.grip $id 0]
+                    dict set Panels $id grip $grip
+                }
+                pack $grip -side top -fill x
+                my DrawGrip $grip
+            } elseif {$grip ne {}} {
+                destroy $grip
+                dict set Panels $id grip {}
+            }
+        }
+    }
+    method ApplyLeafBorder {path} {
+        # Applies the independent leaf outline to a pane wrapper or floating content frame.
+        #  path - Classic frame or labelframe owned by the manager.
+        #
+        # Native internal borders reserve space for application geometry without changing widget ancestry.
+        # Returns: Nothing.
+        $path configure -borderwidth [expr {$LeafBorder ? $LeafWidth : 0}] -relief $LeafRelief
+        if {$LeafBorder} {
+            $path configure -background [dict get $Settings leafopts -color]
         }
     }
     method ContentMapped {path} {
@@ -2919,11 +3060,43 @@ oo::configurable create ::splitlayout::splitlayout {
             my Schedule $parent
         }
     }
+    method HeaderSeparator {grip background} {
+        # Displays only the native bottom relief edge when the leaf supplies the outer border.
+        #  grip - Existing header canvas.
+        #  background - Theme background used to derive native relief colors.
+        #
+        # A clipping frame exposes the bottom edge of a larger classic frame, hiding its top and sides.
+        # Both pieces forward pointer gestures to the header. No application geometry is changed.
+        # Returns: Nothing.
+        set clip $grip.separator
+        if {!$LeafBorder || !$HeaderBorder || ($HeaderRelief eq {flat})} {
+            if {[winfo exists $clip]} {
+                place forget $clip
+            }
+            return
+        }
+        if {![winfo exists $clip]} {
+            ::frame $clip -borderwidth 0 -highlightthickness 0 -takefocus 0 -cursor fleur
+            ::frame $clip.edge -highlightthickness 0 -takefocus 0 -cursor fleur
+            foreach path [list $clip $clip.edge] {
+                foreach event {<ButtonPress-1> <B1-Motion> <ButtonRelease-1>} {
+                    bind $path $event [bind $grip $event]
+                }
+            }
+        }
+        $clip configure -background $background
+        $clip.edge configure -background $background -borderwidth $HeaderBorder -relief $HeaderRelief
+        place $clip -bordermode ignore -relx 0 -rely 1 -y [expr {-$HeaderBorder}] -relwidth 1 -height $HeaderBorder
+        place $clip.edge -bordermode ignore -x [expr {-$HeaderBorder}] -y [expr {-$HeaderBorder-1}] -relwidth 1\
+                -width [expr {2*$HeaderBorder}] -height [expr {2*$HeaderBorder+1}]
+        raise $clip
+    }
     method DrawGrip {grip} {
         # Draws the rectangular header, configured action images, and aligned optional title using theme colors.
         #  grip - Header canvas pathname owned by this manager.
         #
-        # Buttons stay within the border. Title bounds exclude the buttons; center alignment uses symmetric bounds.
+        # With leaf outlines enabled, only the bottom separator is drawn; the leaf owns the top and side edges.
+        # Buttons stay above the separator. Title bounds exclude the buttons; center alignment uses symmetric bounds.
         # Returns: Nothing.
         if {![winfo exists $grip]} {
             return
@@ -2951,12 +3124,15 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set widths $name [expr {max(22,[image width $image]+6,[winfo reqwidth $grip.$name])}]
         }
         set height [my HeaderHeight]
-        $grip configure -background $bg -relief $HeaderRelief -borderwidth $HeaderBorder\
-                -height [expr {$height-2*$HeaderBorder}]
+        set edge [expr {$LeafBorder ? 0 : $HeaderBorder}]
+        set bottom $HeaderBorder
+        $grip configure -background $bg -relief $HeaderRelief -borderwidth $edge -height [expr {$height-2*$edge}]
+        my HeaderSeparator $grip $bg
         set id [dict get $Headers $grip]
         if {[dict exists $Floating $id reserve]} {
-            [dict get $Floating $id reserve] configure -height $height
-            place configure $grip -height $height
+            set inset [expr {$LeafBorder ? $LeafWidth : 0}]
+            [dict get $Floating $id reserve] configure -height [expr {$height+$inset}]
+            place configure $grip -height $height -x $inset -y $inset -width [expr {-2*$inset}]
         }
         $grip delete heading
         dict for {name image} $Icons {
@@ -2966,13 +3142,13 @@ oo::configurable create ::splitlayout::splitlayout {
         set deleteWidth [dict get $widths delete]
         set buttonsWidth [expr {$toggleWidth+$deleteWidth}]
         foreach name {toggle delete} {
-            place configure $grip.$name -bordermode ignore -rely 0 -y $HeaderBorder -relheight 1\
-                    -height [expr {-2*$HeaderBorder}] -width [dict get $widths $name]
+            place configure $grip.$name -bordermode ignore -rely 0 -y $edge -relheight 1\
+                    -height [expr {-$edge-$bottom}] -width [dict get $widths $name]
             if {$ButtonSide eq {right}} {
-                place configure $grip.$name -relx 1 -x [expr {-$HeaderBorder-($name eq {delete} ? $deleteWidth :\
+                place configure $grip.$name -relx 1 -x [expr {-$edge-($name eq {delete} ? $deleteWidth :\
                                                                                       $buttonsWidth)}]
             } else {
-                place configure $grip.$name -relx 0 -x [expr {$HeaderBorder+($name eq {delete} ? $toggleWidth : 0)}]
+                place configure $grip.$name -relx 0 -x [expr {$edge+($name eq {delete} ? $toggleWidth : 0)}]
             }
         }
         if {![dict exists $Floating $id] && (![dict exists $Nodes $id] || ([my type $id] ne {leaf}))} {
@@ -2983,8 +3159,8 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         set text [string map [list \n { } \r { } \t { }] [dict get $Titles $frame]]
-        set left [expr {$HeaderBorder+4+($ButtonSide eq {left} ? $buttonsWidth : 0)}]
-        set right [expr {[winfo width $grip]-$HeaderBorder-4-($ButtonSide eq {right} ? $buttonsWidth : 0)}]
+        set left [expr {$edge+4+($ButtonSide eq {left} ? $buttonsWidth : 0)}]
+        set right [expr {[winfo width $grip]-$edge-4-($ButtonSide eq {right} ? $buttonsWidth : 0)}]
         switch $TitleAlign {
             left {
                 set x $left
@@ -3022,8 +3198,8 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             set text "[string range $text 0 $low-1]$ellipsis"
         }
-        $grip create text $x [expr {[winfo height $grip]/2.0}] -text $text -font $font -fill $fg -anchor $anchor\
-                -tags heading
+        $grip create text $x [expr {($edge+[winfo height $grip]-$bottom)/2.0}] -text $text -font $font -fill $fg\
+                -anchor $anchor -tags heading
     }
     method DockPress {id x y} {
         # Arms a leaf drag and captures pointer events with a local grab.

@@ -186,7 +186,7 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
             [expr {{configure} ni [info class methods ::splitlayout::splitlayout]}]\
             [lsort [dict keys $values]] [dict get $values -width] [catch {$m cget -width}]\
             [catch {$m configure -class Other}] [$m configure -class]
-} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -cursor -dockopts -draghandles -headerborderwidth -headerrelief -height -opaqueresize\
+} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -cursor -dockopts -draghandles -headerborderwidth -headerrelief -height -leafborder -leafborderwidth -leafopts -leafrelief -opaqueresize\
                                                      -padding -relief -sashpreview -sashpreviewopts -showstructure\
                                                      -structureopts -style -takefocus -titlealign -tooltips -width} 800 1 1 {}}
 
@@ -2712,6 +2712,167 @@ test splitlayout-wm-24.4 {activation recovers from a delayed foreign focus notif
     destroy .foreign
     ::sltest::cleanup
 } -result {1 1}
+
+test splitlayout-leafborder-25.1 {border-only wrappers preserve gridded content and validate properties} -setup {
+    set m [::sltest::setup]
+    set id [$m root]
+    set f [$m frame $id]
+    entry $f.e
+    grid $f.e -sticky nsew
+    grid columnconfigure $f 0 -weight 1
+    grid rowconfigure $f 0 -weight 1
+    $f.e insert 0 preserved
+} -body {
+    set defaults [list [$m configure -leafborder] [$m configure -leafborderwidth] [$m configure -leafrelief]]
+    $m configure -leafborder true -leafborderwidth 3 -leafrelief ridge
+    update
+    set pane [$m widget $id]
+    set bounds [expr {[winfo rootx $f]-[winfo rootx $pane] == 3 && [winfo width $f] == [winfo width $pane]-6}]
+    set invalid [list [catch {$m configure -leafborder bad}] [catch {$m configure -leafborderwidth -1}] \
+            [catch {$m configure -leafrelief bad}] [catch {$m configure -leafopts {-color noSuchColor}}]]
+    $m configure -leafborder false
+    update
+    list $defaults $bounds $invalid [expr {[$m widget $id] eq $f}] [$f.e get] [winfo manager $f.e]
+} -cleanup {::sltest::cleanup} -result {{0 1 solid} 1 {1 1 1 1} 1 preserved grid}
+
+test splitlayout-leafborder-25.2 {docked and floating headers share border insets and content stays below header} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -leafborderwidth 3 -leafrelief groove -leafopts {-color orange}
+    set f [$m frame $a]
+    $f configure -background pink
+    frame $f.body
+    pack $f.body -fill both -expand 1
+    update
+} -body {
+    set pane [$m widget $a]
+    set g [::sltest::grip $m $a]
+    set docked [expr {[winfo rootx $g]-[winfo rootx $pane] == 3 &&
+            [winfo width $g] == [winfo width $pane]-6}]
+    set token [$m undock $a -geometry 400x300+850+100]
+    ::sltest::settle $f
+    set g [::sltest::floatgrip $m $token]
+    set floating [expr {[winfo x $g] == 3 && [winfo y $g] == 3 &&
+            [winfo width $g] == [winfo width $f]-6 &&
+            [winfo y $f.body] >= [winfo y $g]+[winfo height $g]}]
+    set colors [list [$f cget -background] [$f cget -relief]]
+    $m configure -draghandles false
+    update
+    set hidden [list [$f cget -borderwidth] [winfo exists $g]]
+    set leaf [$m dock $token]
+    update
+    list $docked $floating $colors $hidden [expr {[$m frame $leaf] eq $f}] [$f cget -borderwidth] \
+            [[$m widget $leaf] cget -borderwidth] [$f cget -background]
+} -cleanup {::sltest::cleanup} -result {1 1 {orange groove} {3 0} 1 0 3 pink}
+
+test splitlayout-leafborder-25.3 {database defaults and independent split styling} -setup {
+    option add *splitlayoutLeafColor purple userDefault
+    set m [::sltest::setup]
+} -body {
+    $m configure -leafborder true -showstructure true -leafborderwidth 2
+    lassign [$m split [$m root] -orient horizontal] a b
+    update
+    set border [$m widget [$m root]]
+    set result [list [dict get [$m configure -leafopts] -color] [[$m widget $a] cget -background] \
+            [$border cget -highlightbackground]]
+    $m configure -leafopts {-color orange}
+    $m swap $a $b
+    update
+    lappend result [[$m widget $b] cget -background] [$border cget -highlightbackground]
+} -cleanup {
+    option add *splitlayoutLeafColor #909090 userDefault
+    ::sltest::cleanup
+} -result {purple purple #909090 orange #909090}
+
+test splitlayout-leafborder-25.4 {floating gridded content survives live border and handle toggles} -setup {
+    set m [::sltest::setup]
+    $m destroy
+    set m [splitlayout .sltest.layout -leafborder true -leafborderwidth 4 -leafrelief raised -leafopts {-color orange}]
+    pack $m -fill both -expand 1
+    set id [$m root]
+    set f [$m frame $id]
+    $f configure -background pink
+    entry $f.e
+    $f.e insert 0 retained
+    grid $f.e -sticky nsew
+    grid columnconfigure $f 0 -weight 1
+    grid rowconfigure $f 0 -weight 1
+    set token [$m undock $id -geometry 400x300+850+100]
+    ::sltest::settle $f
+} -body {
+    $m configure -draghandles true
+    update
+    set grip [::sltest::floatgrip $m $token]
+    set inset [expr {[winfo x $grip] == 4 && [winfo y $f.e] >= [winfo y $grip]+[winfo height $grip]}]
+    $m configure -leafborder false
+    update
+    set off [list [$f cget -borderwidth] [$f cget -background] [winfo x $grip]]
+    $m configure -leafborder true -leafborderwidth 0
+    update
+    set zero [list [$f cget -borderwidth] [winfo x $grip]]
+    $m configure -leafborderwidth 2 -draghandles false
+    update
+    list $inset $off $zero [$f.e get] [winfo manager $f.e] [$f cget -borderwidth]
+} -cleanup {::sltest::cleanup} -result {1 {0 pink 0} {0 0} retained grid 2}
+
+test splitlayout-sharedborder-26.1 {one-pixel shared outline has no nested header border and toggles back} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -leafborderwidth 1 -headerborderwidth 1 -headerrelief solid
+    $m title $a Title
+    update
+} -body {
+    set g [::sltest::grip $m $a]
+    set pane [$m widget $a]
+    set shared [list [$g cget -borderwidth] [winfo height $g.separator] \
+            [expr {[winfo rootx $g]-[winfo rootx $pane] == 1}] \
+            [expr {[winfo width $g] == [winfo width $pane]-2}] \
+            [expr {[winfo y $g.toggle]+[winfo height $g.toggle] <= [winfo y $g.separator]}]]
+    set h [winfo height $g]
+    $m configure -leafborder false
+    update
+    set full [list [$g cget -borderwidth] [winfo ismapped $g.separator] [expr {[winfo height $g] == $h+1}]]
+    $m configure -leafborder true -headerrelief flat
+    update
+    list $shared $full [$g cget -borderwidth] [winfo ismapped $g.separator]
+} -cleanup {::sltest::cleanup} -result {{0 1 1 1 1} {1 0 1} 0 0}
+
+test splitlayout-sharedborder-26.2 {floating separators expose only native bottom relief and reserve content space} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -leafborderwidth 2 -headerborderwidth 3
+    set f [$m frame $a]
+    frame $f.body
+    pack $f.body -fill both -expand 1
+    set token [$m undock $a -geometry 400x300+850+100]
+    ::sltest::settle $f
+} -body {
+    set g [::sltest::floatgrip $m $token]
+    set checks {}
+    foreach relief {raised sunken ridge groove solid} {
+        $m configure -headerrelief $relief
+        update
+        set c $g.separator
+        lappend checks [expr {[$g cget -borderwidth] == 0 && [$c.edge cget -relief] eq $relief &&
+                [winfo height $c] == 3 && [winfo x $c.edge] == -3 && [winfo y $c.edge] == -4 &&
+                [winfo y $c]+[winfo height $c] == [winfo height $g] &&
+                [winfo y $f.body] >= [winfo y $g]+[winfo height $g]}]
+    }
+    $m configure -headerborderwidth 0
+    update
+    list $checks [winfo ismapped $g.separator]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1} 0}
+
+test splitlayout-sharedborder-26.3 {the separator participates in header dragging and Escape cleanup} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -headerborderwidth 4 -headerrelief ridge
+    update
+} -body {
+    set g [::sltest::grip $m $a]
+    ::sltest::dockevent $g.separator.edge <ButtonPress-1> [::sltest::point $g.separator]
+    set armed [expr {[dict get [::sltest::dockstate $m] grip] eq $g && [grab current $m] eq $g}]
+    ::sltest::await {[focus] eq $g} {separator drag focus}
+    event generate $g <Escape>
+    update
+    list $armed [::sltest::dockstate $m] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {1 {} {}}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

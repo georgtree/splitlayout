@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -325,6 +325,32 @@ configure to align buttons globally\&. Both docked and floating headers follow i
 controlled independently by -titlealign\&. Changing alignment cancels an active drag without moving content\&. It
 is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground follows the
 theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+.SS "LEAF OUTLINES"
+.PP
+Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
+The header and content share the same inner left and right edges\&. Floating windows use the same settings\&.
+With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted\&.
+-headerborderwidth sets separator thickness and -headerrelief its native bottom-edge relief\&. Flat or zero
+thickness hides the separator\&. Disabling leaf outlines restores the header's complete rectangle\&.
+The outline remains when -draghandles false; -showstructure continues to describe split groups separately\&.
+No application widgets are recreated or reparented\&. Geometry managers reserve the border's thickness\&.
+.PP
+.RS 4n
+.nf
+$manager configure -leafborder true -leafborderwidth 2 -leafrelief ridge
+$manager configure -leafopts {-color #808080}
+.fi
+.RE
+.PP
+-leafborder defaults to false, -leafborderwidth to 1, and -leafrelief to solid\&.
+Relief accepts flat, solid, raised, sunken, ridge, and groove\&. Flat or zero width hides the visible line\&.
+-leafopts accepts -color, the classic border's base color (default #909090); raised relief shades derive
+from that color, while solid relief uses Tk's solid-border rendering\&. It does not override ttk styles\&.
+Set the option database resource *splitlayoutLeafColor (class SplitlayoutLeafColor) before construction
+to change the default\&. Dictionary updates are validated atomically and retain unspecified keys\&.
+Changes cancel active gestures and preserve content, titles, and logical split proportions\&.
+Floating borders temporarily use the content frame's background as their base color; the prior background
+is restored when the border is disabled or the window is docked\&.
 .SS "HEADER APPEARANCE AND TITLES"
 .PP
 The old three-line indicator is replaced by the header surface itself\&. The title and empty header area accept
@@ -462,22 +488,26 @@ the hull\&.
 .PP
 .RS 4n
 .nf
-┌────────────────────┬──────────────┬────────────────────────────────────────────────────────────────────────────┐
-│ Option             │ Default      │ Meaning                                                                    │
-├────────────────────┼──────────────┼────────────────────────────────────────────────────────────────────────────┤
-│ -width             │ 800          │ Nonnegative requested hull width in pixels\&.                                │
-│ -height            │ 600          │ Nonnegative requested hull height in pixels\&.                               │
-│ -opaqueresize      │ true         │ Resize pane content continuously while dragging a sash\&.                    │
-│ -sashpreview       │ window       │ Deferred preview mode: window, inline, or none\&.                            │
-│ -buttonside        │ right        │ Place header buttons on the left or right; title alignment is independent\&. │
-│ -titlealign        │ center       │ Align the optional header title left, center, or right\&.                    │
-│ -buttonimages      │ Empty values │ Optional dock, undock, and delete Tk image overrides\&.                      │
-│ -headerrelief      │ flat         │ Rectangular header relief\&.                                                 │
-│ -headerborderwidth │ 1            │ Nonnegative header border thickness in pixels\&.                             │
-│ -tooltips          │ true         │ Use Tklib tooltips when available\&.                                         │
-│ -draghandles       │ false        │ Show docking grips on all current and future leaves\&.                       │
-│ -showstructure     │ false        │ Outline and inset all current and future splits\&.                           │
-└────────────────────┴──────────────┴────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────┐
+│ Option             │ Default         │ Meaning                                                                    │
+├────────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────┤
+│ -width             │ 800             │ Nonnegative requested hull width in pixels\&.                                │
+│ -height            │ 600             │ Nonnegative requested hull height in pixels\&.                               │
+│ -opaqueresize      │ true            │ Resize pane content continuously while dragging a sash\&.                    │
+│ -sashpreview       │ window          │ Deferred preview mode: window, inline, or none\&.                            │
+│ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
+│ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
+│ -buttonimages      │ Empty values    │ Optional dock, undock, and delete Tk image overrides\&.                      │
+│ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
+│ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
+│ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
+│ -leafrelief        │ solid           │ Leaf outline relief, independent of the header\&.                            │
+│ -leafopts          │ option database │ Leaf border base color (-color)\&.                                           │
+│ -headerborderwidth │ 1               │ Nonnegative header border thickness in pixels\&.                             │
+│ -tooltips          │ true            │ Use Tklib tooltips when available\&.                                         │
+│ -draghandles       │ false           │ Show docking grips on all current and future leaves\&.                       │
+│ -showstructure     │ false           │ Outline and inset all current and future splits\&.                           │
+└────────────────────┴─────────────────┴────────────────────────────────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
@@ -570,6 +600,7 @@ set docking [\&.layout configure -dockopts]
 │ -dockopts        │ -edgewidth   │ splitlayoutDockEdgeWidth        │ SplitlayoutDockEdgeWidth        │ 24      │
 │ -dockopts        │ -outerwidth  │ splitlayoutDockOuterWidth       │ SplitlayoutDockOuterWidth       │ 12      │
 │ -dockopts        │ -threshold   │ splitlayoutDockThreshold        │ SplitlayoutDockThreshold        │ 5       │
+│ -leafopts        │ -color       │ splitlayoutLeafColor            │ SplitlayoutLeafColor            │ #909090 │
 │ -structureopts   │ -color       │ splitlayoutStructureColor       │ SplitlayoutStructureColor       │ #909090 │
 │ -structureopts   │ -activecolor │ splitlayoutStructureActiveColor │ SplitlayoutStructureActiveColor │ #448aff │
 │ -structureopts   │ -borderwidth │ splitlayoutStructureBorderWidth │ SplitlayoutStructureBorderWidth │ 1       │
@@ -671,11 +702,11 @@ geometry, state, and onclose\&. frame $token returns the retained frame\&. Docke
 leaves, node, and locate) exclude floating content; widgets still exposes its actual Tk ancestry and
 wm geometry manager\&.
 .PP
-Content frames are \fBclassic borderless labelframe widgets with class Frame\fP, because Tk's wm manage
-cannot promote ttk::frame\&.  The hull, leaf wrappers, and panedwindows retain their ttk behavior\&. Code using
-frame $leaf for pack, grid, or child creation continues to work; ttk-only frame options such as -style
-are no longer available on that content frame\&. Place themed widgets inside it when needed\&. Actual parentage
-remains the layout hull throughout the round trip\&.
+Content frames are \fBclassic labelframe widgets with class Frame\fP, borderless while docked, because Tk's
+wm manage cannot promote ttk::frame\&. The hull, leaf wrappers, and panedwindows retain their ttk
+behavior\&. Code using frame $leaf for pack, grid, or child creation continues to work; ttk-only frame
+options such as -style are no longer available on that content frame\&. Place themed widgets inside it when
+needed\&. Actual parentage remains the layout hull throughout the round trip\&.
 .PP
 Tk default bindtags follow the changed toplevel\&. The manager also retargets explicit bindtag entries naming the
 old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
@@ -872,10 +903,22 @@ Readable, writable\&. Boolean enabling manager-owned rectangular headers for eve
 Readable, writable\&. Nonnegative integer header border thickness in pixels; default 1\&. Changes cancel an active drag and update the reserved header height\&.
 .TP
 -headerrelief
-Readable, writable\&. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat\&. Affects the full rectangular docked and floating header, including the area around its buttons\&. Button styling remains controlled by ttk\&. Changes cancel an active drag\&.
+Readable, writable\&. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat\&. Controls the full header rectangle, or only its bottom separator when leafborder is enabled\&. Button styling remains controlled by ttk\&. Changes cancel an active drag\&.
 .TP
 -height
 Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
+.TP
+-leafborder
+Readable, writable\&. Boolean enabling a border around each leaf's header and content; default false\&. Works for floating windows and with draghandles disabled, independently of showstructure\&.
+.TP
+-leafborderwidth
+Readable, writable\&. Nonnegative integer leaf border thickness in pixels; default 1\&. Zero hides the border\&.
+.TP
+-leafopts
+Readable, writable\&. Dictionary with -color, the classic leaf border base color; default #909090\&. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database\&. Changes cancel gestures, preserve content, and update docked and floating leaves\&.
+.TP
+-leafrelief
+Readable, writable\&. Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid\&.
 .TP
 -opaqueresize
 Readable, writable\&. Boolean enabling live sash resizing; default true\&. Values are normalized to 0 or 1\&. Changing the value cancels an active deferred drag without committing its target\&.
@@ -920,9 +963,9 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
 .br
 .RE
 .PP
@@ -949,6 +992,18 @@ Header border: flat, raised, sunken, ridge, groove, or solid; default flat\&.
 .TP
 -height height
 Nonnegative requested hull height in pixels; default 600\&.
+.TP
+-leafborder boolean
+Enable independent leaf outlines; default false\&.
+.TP
+-leafborderwidth pixels
+Nonnegative leaf outline thickness; default 1\&.
+.TP
+-leafopts dictionary
+Leaf border base color; option-database defaults\&.
+.TP
+-leafrelief relief
+Leaf border relief; default solid\&.
 .TP
 -opaqueresize boolean
 Enable live sash resizing; default true\&.
