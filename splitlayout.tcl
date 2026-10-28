@@ -3042,23 +3042,39 @@ oo::configurable create ::splitlayout::splitlayout {
         set grip [expr {$floating ? [dict get $Floating $id grip] : [dict get $Panels $id grip]}]
         my ClearHeaderTips $grip
         set previous [focus]
-        grab $grip
-        set Dock [dict create source $id grip $grip start [list $x $y] active 0 focus $previous target {} overlays {}\
-                          geometry [my DockBounds $W]]
+        set state [dict create source $id grip $grip start [list $x $y] active 0 focus $previous target {} overlays {}\
+                           geometry [my DockBounds $W]]
         if {$floating} {
-            dict set Dock floatingGeometry [wm geometry [my FloatingFrame $id]]
-            regexp {([+-][0-9]+)([+-][0-9]+)$} [dict get $Dock floatingGeometry] -> gx gy
             set frame [my FloatingFrame $id]
-            if {$gx < 0} {
-                set gx [expr {[winfo screenwidth $frame]-[winfo width $frame]+$gx}]
-            }
-            if {$gy < 0} {
-                set gy [expr {[winfo screenheight $frame]-[winfo height $frame]+$gy}]
-            }
-            dict set Dock floatingPosition [list $gx $gy]
+            set geometry [wm geometry $frame]
+            dict set state floatingGeometry $geometry
+            dict set state floatingPosition [my FloatingPosition $frame $geometry]
         }
+        # Finish preparing state before taking the grab, so a setup error cannot leave a partial gesture.
+        grab $grip
+        set Dock $state
         focus $grip
         return -code break
+    }
+    method FloatingPosition {frame geometry} {
+        # Converts a floating window's WM geometry position into absolute screen coordinates.
+        #  frame - Floating content frame.
+        #  geometry - Geometry returned by wm geometry, including size and position.
+        #
+        # Each position has an anchor sign and a separately signed offset. For example, +-32 means an absolute
+        # negative coordinate, whereas -32 means an offset from the opposite screen edge. Keep these distinct.
+        # Unrecognized forms use the current client origin rather than leaving gesture state incomplete.
+        # Returns: Screen x and y coordinates for the start of a floating drag.
+        if {![regexp {^[0-9]+x[0-9]+([+-])(-?[0-9]+)([+-])(-?[0-9]+)$} $geometry -> xs x ys y]} {
+            return [list [winfo rootx $frame] [winfo rooty $frame]]
+        }
+        if {$xs eq {-}} {
+            set x [expr {[winfo screenwidth $frame]-[winfo width $frame]-$x}]
+        }
+        if {$ys eq {-}} {
+            set y [expr {[winfo screenheight $frame]-[winfo height $frame]-$y}]
+        }
+        return [list $x $y]
     }
     method DockBounds {path} {
         # Returns a widget's screen rectangle.
@@ -3280,7 +3296,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[dict exists $Floating $source]} {
             lassign [dict get $Dock floatingPosition] fx fy
             lassign [dict get $Dock start] sx sy
-            wm geometry [my FloatingFrame $source] [format %+d%+d [expr {$fx+$x-$sx}] [expr {$fy+$y-$sy}]]
+            wm geometry [my FloatingFrame $source] [format +%d+%d [expr {$fx+$x-$sx}] [expr {$fy+$y-$sy}]]
         }
         set target [my DockTarget $x $y]
         if {$target ne [dict get $Dock target]} {

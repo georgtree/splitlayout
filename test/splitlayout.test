@@ -54,14 +54,33 @@ namespace eval ::sltest {
     # Synthetic button events do not activate a toplevel through the WM like a
     # real click. Establish display focus explicitly in the test harness only.
     proc activate {w} {
+        # Do not disturb an existing grab when testing rejection of a new gesture.
+        if {[grab current $w] ne {}} {return}
         set top [winfo toplevel $w]
+        await {[winfo ismapped $top]} "mapping $top before activation"
         raise $top
         set target [focus -lastfor $top]
-        if {$target eq {}} {
-            set target $top
+        if {$target eq {}} {set target $top}
+        set deadline [expr {[clock milliseconds]+3000}]
+        set stableSince {}
+        set requested 0
+        while {1} {
+            update
+            set now [clock milliseconds]
+            if {[focus -displayof $w] eq $target} {
+                if {$stableSince eq {}} {set stableSince $now}
+                if {$now-$stableSince >= 100} {return}
+            } else {
+                set stableSince {}
+                # A delayed focus notification from another mapped window can supersede the first request.
+                if {$now-$requested >= 100} {focus -force $target; set requested $now}
+            }
+            if {$now >= $deadline} {
+                error "timed out waiting for stable focus in $top (target=$target, focus=[focus], grab=[grab current .])"
+            }
+            after 10 [list set ::sltest::wake 1]
+            vwait ::sltest::wake
         }
-        focus -force $target
-        await {[focus -displayof $w] eq $target} "focus in $top"
     }
     proc setup {} {
         cleanup
@@ -1268,7 +1287,7 @@ test splitlayout-dock-13.7 {foreign layouts are not destinations and existing gr
     wm geometry .foreign 300x200+950+100
     splitlayout .foreign.layout -draghandles true
     pack .foreign.layout -fill both -expand 1
-    update
+    ::sltest::settle .foreign
 } -body {
     set g [::sltest::grip $m $a]
     grab .foreign
@@ -2606,6 +2625,93 @@ test splitlayout-buttonimages-23.7 {resetting large images restores compact butt
     ::sltest::settle $m
     list [expr {[winfo height $grip] < $largeHeight}] [winfo width $grip.toggle] [winfo width $grip.delete]
 } -cleanup {::sltest::cleanup; image delete $photo} -result {1 22 22}
+
+test splitlayout-wm-24.1 {geometry anchor signs and signed offsets are parsed separately} -setup {
+    set m [::sltest::setup]
+    set token [$m undock [$m root] -geometry 200x150+60+60]
+    set frame [$m frame $token]
+    ::sltest::settle $frame
+    set ns [info object namespace $m]
+} -body {
+    set farX [expr {[winfo screenwidth $frame]-[winfo width $frame]}]
+    set farY [expr {[winfo screenheight $frame]-[winfo height $frame]}]
+    set cases [list \
+        [list 200x150+20+30 {20 30}] \
+        [list 200x150+-32+-32 {-32 -32}] \
+        [list 200x150-32-40 [list [expr {$farX-32}] [expr {$farY-40}]]] \
+        [list 200x150+-32-40 [list -32 [expr {$farY-40}]]] \
+        [list 200x150--32+30 [list [expr {$farX+32}] 30]] \
+        [list unexpected [list [winfo rootx $frame] [winfo rooty $frame]]]]
+    lmap case $cases {
+        lassign $case geometry expected
+        expr {[namespace eval $ns [list my FloatingPosition $frame $geometry]] eq $expected}
+    }
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1}
+
+test splitlayout-wm-24.2 {reported WSL geometry arms a complete drag and preserves absolute negative positions} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set token [$m undock $a -geometry 200x150+900+100]
+    set frame [$m frame $token]
+    ::sltest::settle $frame
+    set grip [::sltest::floatgrip $m $token]
+    # Inject the exact backend response, avoiding platform-specific offscreen placement policies.
+    set ::sltest::wmFrame $frame
+    set ::sltest::wmMock 1
+    set ::sltest::wmRequests {}
+    rename ::wm ::sltest::realwm
+    proc ::wm {args} {
+        if {[lindex $args 0] eq {geometry} && [lindex $args 1] eq $::sltest::wmFrame} {
+            if {[llength $args] == 2 && $::sltest::wmMock} {return {200x150+-32+-32}}
+            if {[llength $args] == 3} {lappend ::sltest::wmRequests [lindex $args 2]}
+        }
+        tailcall ::sltest::realwm {*}$args
+    }
+} -body {
+    set start [::sltest::point $grip 0.2]
+    ::sltest::dockevent $grip <ButtonPress-1> $start
+    set state [::sltest::dockstate $m]
+    set initial [dict get $state floatingPosition]
+    set ::sltest::wmMock 0
+    ::sltest::await {[focus] eq $grip} {floating grip focus}
+    lassign $start x y
+    ::sltest::dockevent $grip <B1-Motion> [list [expr {$x+8}] [expr {$y+10}]]
+    set request [lindex $::sltest::wmRequests end]
+    event generate $grip <Escape>
+    update
+    list $initial $request [::sltest::dockstate $m] [grab current $m]
+} -cleanup {
+    rename ::wm {}
+    rename ::sltest::realwm ::wm
+    unset ::sltest::wmFrame ::sltest::wmMock ::sltest::wmRequests
+    ::sltest::cleanup
+} -result {{-32 -32} +-24+-22 {} {}}
+
+test splitlayout-wm-24.3 {failed floating drag preparation cannot leave a grab or partial state} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set token [$m undock $a]
+    ::sltest::settle [$m frame $token]
+    oo::objdefine $m {::oo::objdefine::method FloatingPosition {args} {error {simulated geometry-query failure}}}
+} -body {
+    set ns [info object namespace $m]
+    set failed [catch {namespace eval $ns [list my DockPress $token 100 100]} message]
+    list $failed $message [::sltest::dockstate $m] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {1 {simulated geometry-query failure} {} {}}
+
+test splitlayout-wm-24.4 {activation recovers from a delayed foreign focus notification} -setup {
+    set m [::sltest::setup]
+    toplevel .foreign
+    ::sltest::settle .foreign
+    focus -force .foreign
+    ::sltest::await {[focus] eq {.foreign}} {initial foreign focus}
+} -body {
+    set callback [after 40 {focus -force .foreign}]
+    ::sltest::activate .sltest
+    list [expr {[winfo toplevel [focus]] eq {.sltest}}] [expr {$callback ni [after info]}]
+} -cleanup {
+    if {[info exists callback]} {after cancel $callback}
+    destroy .foreign
+    ::sltest::cleanup
+} -result {1 1}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
