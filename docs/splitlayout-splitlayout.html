@@ -194,19 +194,24 @@ flags. Constraints are independent between manager instances, including nested m
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinned</span></code></p></td>
 <td><p>false</p></td>
 <td><p>Leaf / floating content</p></td>
-<td><p>Shorthand for <code class="docutils literal notranslate"><span class="pre">-nomove</span></code> plus <code class="docutils literal notranslate"><span class="pre">-noundock</span></code>; query is their logical AND.</p></td>
+<td><p>Set movement flags and block adjacent move/dock destinations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-minleaves</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code></p></td>
+<td><p>Leaf / floating content</p></td>
+<td><p>Edges blocking incoming move/dock placement while pinned.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-minleaves</span></code></p></td>
 <td><p>1</p></td>
 <td><p>Docked node</p></td>
 <td><p>Minimum descendant leaf count while this subtree is retained.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-maxleaves</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-maxleaves</span></code></p></td>
 <td><p>-1</p></td>
 <td><p>Docked node</p></td>
 <td><p>Maximum descendant leaf count; -1 means unlimited.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-maxdepth</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-maxdepth</span></code></p></td>
 <td><p>-1</p></td>
 <td><p>Docked node</p></td>
 <td><p>Maximum depth below the node; -1 means unlimited.</p></td>
@@ -224,10 +229,40 @@ position.</p>
 on screen. <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> is the separate restriction on leaving the docked tree. It does not prohibit returning
 floating content with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, or moving and swapping it while docked. The current public <code class="docutils literal notranslate"><span class="pre">move</span></code>, <code class="docutils literal notranslate"><span class="pre">swap</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">undock</span></code> commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> sets both movement flags; <code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">false</span></code> clears both, without changing other restrictions. It
-is not stored independently. Set it in a separate call from <code class="docutils literal notranslate"><span class="pre">-nomove</span></code> or <code class="docutils literal notranslate"><span class="pre">-noundock</span></code>; mixing them in one update
-is rejected rather than depending on argument order. A pinned leaf can still be deleted unless <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code> is
-also enabled.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> sets both movement flags and protects adjacent placement boundaries. <code class="docutils literal notranslate"><span class="pre">move</span></code> and <code class="docutils literal notranslate"><span class="pre">dock</span></code>,
+including gestures, reject placing content against the edges selected by <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code>. Shared slots check both
+neighbors: naming the unpinned neighbor with <code class="docutils literal notranslate"><span class="pre">-before</span></code> or <code class="docutils literal notranslate"><span class="pre">-after</span></code> cannot bypass the restriction. Sash and
+outer-rim drop zones use the same validation. For a nested neighbor, only leaves touching the insertion
+boundary matter; a pinned leaf elsewhere in that subtree does not block it. Pinned flags are not imposed on
+ancestors. The same checks apply to remembered docking positions and floating-window docking gestures.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> is a list of blocked physical edges: <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">right</span></code>, <code class="docutils literal notranslate"><span class="pre">top</span></code>, and <code class="docutils literal notranslate"><span class="pre">bottom</span></code>. The default is
+<code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code>. For example, leave the right edge available so other floating windows can return
+even when this is the only remaining docked leaf:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>pinned<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>pinnedside<span class="w"> </span><span class="k">{</span><span class="nv">left</span><span class="w"> </span>top<span class="w"> </span>bottom<span class="k">}</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">dock</span><span class="w"> </span><span class="nv">$floatingToken</span><span class="w"> </span><span class="o">-</span>right<span class="w"> </span><span class="nv">$editor</span>
+</pre></div>
+</div>
+<p>Both sides of a shared slot are checked against each neighbor’s own physical edge: inserting after a leaf
+checks its <code class="docutils literal notranslate"><span class="pre">right</span></code> edge in a horizontal parent and its <code class="docutils literal notranslate"><span class="pre">bottom</span></code> edge in a vertical parent. The opposite
+neighbor’s <code class="docutils literal notranslate"><span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">top</span></code> edge is checked too. Before/after are destination commands, not valid pinnedside
+values. Nested boundaries use the same physical-edge rule.</p>
+<p>An empty list allows incoming placement on every edge while keeping the pinned leaf’s movement and undocking
+restrictions. Setting <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> alone does not enable pinning; it can be configured in advance, and it is
+preserved when pinning is switched off and on. Queries return a unique list in left/right/top/bottom order.
+The setting belongs to leaf/floating content, follows retained splits and docking, and cannot be set on a split.
+Invalid lists reject the whole update without changing settings or cancelling active gestures.</p>
+<p>Default docking still tries its remembered destination (or the existing fallback); it does not search for
+an unblocked edge. If that destination is blocked, use an explicit open edge such as <code class="docutils literal notranslate"><span class="pre">dock</span> <span class="pre">-right</span></code>, or drag
+to that edge. Buttons and native close requests use the same default-destination validation as before.</p>
+<p>Pinned is stored explicitly. Setting <code class="docutils literal notranslate"><span class="pre">-nomove</span> <span class="pre">true</span> <span class="pre">-noundock</span> <span class="pre">true</span></code> separately does not pin destinations.
+<code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">false</span></code> clears pinning and both movement flags without changing other restrictions. Clearing either
+movement flag individually also clears pinning, leaving the other flag unchanged. Set <code class="docutils literal notranslate"><span class="pre">-pinned</span></code> in a separate
+call from <code class="docutils literal notranslate"><span class="pre">-nomove</span></code> or <code class="docutils literal notranslate"><span class="pre">-noundock</span></code>; mixing them in one update remains an error. Existing no-op moves are
+allowed.</p>
+<p>Pinning does not block explicit creation through <code class="docutils literal notranslate"><span class="pre">split</span></code> or <code class="docutils literal notranslate"><span class="pre">insert</span></code>, deletion, sash resizing, or ordinary
+geometry changes. Use <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code>, <code class="docutils literal notranslate"><span class="pre">-noresize</span></code>, and subtree limits for those separate restrictions. The flag
+follows retained content through splitting and docking just like the other leaf flags. A floating pinned
+frame may be docked at an allowed destination; once docked, its adjacent boundaries are protected.</p>
 </section>
 <section id="destruction-and-collapse">
 <span id="r-splitlayout-destruction-and-collapse"></span><span id="r-3a3asplitlayoutqzdestruction20and20collapse"></span><h3>Destruction and collapse<a class="headerlink" href="#destruction-and-collapse" title="Link to this heading">¶</a></h3>
@@ -295,10 +330,11 @@ but setting those limits requires a docked node. Removing content discards its f
 <p>Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
 the tree. Errors have <code class="docutils literal notranslate"><span class="pre">-errorcode</span> <span class="pre">{SPLITLAYOUT</span> <span class="pre">CONSTRAINT</span> <span class="pre">option</span> <span class="pre">id}</span></code> and identify the restriction that blocked
 the action.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
-no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons are disabled
-when their current action is illegal; blocked native close requests leave the window open without a background
-error. Flags are explicit settings, not a cached summary of every action that might be prohibited by
-descendants or ancestor bounds.</p>
+no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons retain their
+action icons, including custom images, and become inactive when their current action is illegal.  The same
+image is assigned explicitly to normal and disabled states; ttk still controls button styling.  Blocked native
+close requests leave the window open without a background error. Flags are explicit settings, not a cached
+summary of every action that might be prohibited by descendants or ancestor bounds.</p>
 </section>
 </section>
 <section id="moving-panes">
@@ -808,7 +844,7 @@ explicit per-instance overrides. No option instances are created.</p>
 <span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutStructureColor<span class="w"> </span>gray55<span class="w"> </span>userDefault
 <span class="nv">option</span><span class="w"> </span>add<span class="w"> </span><span class="o">*</span>splitlayoutStructureActiveColor<span class="w"> </span>orange<span class="w"> </span>userDefault
 
-<span class="nv">splitlayout</span><span class="o">::</span>splitlayout<span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true<span class="w">  </span><span class="o">-</span>dockopts<span class="w"> </span><span class="k">{</span><span class="nv">-threshold</span><span class="w"> </span><span class="mi">8</span><span class="k">}</span><span class="w"> </span><span class="o">-</span>structureopts<span class="w"> </span><span class="k">{</span><span class="nv">-padding</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
+<span class="nv">splitlayout</span><span class="o">::</span>splitlayout<span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>dockopts<span class="w"> </span><span class="k">{</span><span class="nv">-threshold</span><span class="w"> </span><span class="mi">8</span><span class="k">}</span><span class="w"> </span><span class="o">-</span>structureopts<span class="w"> </span><span class="k">{</span><span class="nv">-padding</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
 <span class="nv">pack</span><span class="w"> </span>.layout<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
 
 <span class="c"># Partial updates keep all unspecified settings.</span>
@@ -1303,7 +1339,7 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 <section id="constraints">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstraints"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">constraints</span></code><a class="headerlink" href="#constraints" title="Link to this heading">¶</a></h4>
 <p>Queries or atomically updates restrictions for one node or floating content.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ constraints</strong> <em>id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?</em></pre>
+<pre class="literal-block"><strong>SPLITLAYOUTOBJ constraints</strong> <em>id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-pinnedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">id</span></code><span class="colon">:</span></dt>
@@ -1316,9 +1352,11 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 <p class="rubric">Description</p>
 <p>Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and
 pinned are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
-settings, not restrictions inherited by an operation from protected descendants. Pinned is a shorthand.</p>
+settings, not restrictions inherited by an operation from protected descendants. Pinned also protects
+adjacent move/dock destinations on pinnedside edges, in addition to setting the two movement flags.
+Pinnedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection.</p>
 <p class="rubric">Return value</p>
-<p>One queried value, or the complete explicit settings dictionary including computed -pinned.</p>
+<p>One queried value, or the complete explicit settings dictionary.</p>
 </section>
 <section id="container">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"></span><span id="index-13"></span><span id="index-12"></span><h4><code class="docutils literal notranslate"><span class="pre">container</span></code><a class="headerlink" href="#container" title="Link to this heading">¶</a></h4>

@@ -3352,7 +3352,7 @@ namespace eval ::sltest {
     }
 }
 
-test splitlayout-constraints-29.1 {defaults atomic settings pinned shorthand and node-type validation} -setup {
+test splitlayout-constraints-29.1 {defaults atomic settings pinned flags and node-type validation} -setup {
     set m [::sltest::setup]
     set r [$m root]
 } -body {
@@ -3376,7 +3376,7 @@ foreach direction {first second} {
     test splitlayout-constraints-29.2-$direction {leaf protection follows retained content while subtree limits stay on the split} -setup {
         set m [::sltest::setup]
         set r [$m root]
-        $m constraints $r -nomove true -noundock true -nodestroy true -noresize true -maxleaves 2 -maxdepth 1
+        $m constraints $r -pinned true -nodestroy true -noresize true -maxleaves 2 -maxdepth 1
     } -body {
         lassign [$m split $r -keep $direction] a b
         set keep [expr {$direction eq {first} ? $a : $b}]
@@ -3722,6 +3722,419 @@ test splitlayout-constraints-29.25 {limits on moved subtree and destination ance
     $m move $a -before $c
     list $rejected [$m constraints $a -maxdepth] [llength [$m leaves]]
 } -cleanup {::sltest::cleanup} -result {1 0 3}
+
+
+test splitlayout-pinned-30.1 {pinning is explicit and relaxing either movement flag releases boundary protection} -setup {
+    set m [::sltest::setup]
+    set a [$m root]
+} -body {
+    $m constraints $a -nomove true -noundock true
+    set result [list [$m constraints $a -pinned]]
+    $m constraints $a -pinned true
+    lappend result [$m constraints $a -pinned]
+    $m constraints $a -nomove false
+    lappend result [$m constraints $a -pinned] [$m constraints $a -noundock]
+    $m constraints $a -pinned true
+    $m constraints $a -noundock false
+    lappend result [$m constraints $a -pinned] [$m constraints $a -nomove]
+    $m constraints $a -pinned false
+    lappend result [$m constraints $a -nomove] [$m constraints $a -noundock]
+    set result
+} -cleanup {::sltest::cleanup} -result {0 1 0 1 0 1 0 0}
+
+foreach side {left right top bottom before after} {
+    test splitlayout-pinned-30.2-$side {move and dock reject pinned destination boundaries atomically} -setup {
+        set m [::sltest::setup]
+        lassign [$m split [$m root]] a b
+        set c [$m insert $b]
+        set d [$m insert $c]
+        set extra [$m insert $d]
+        set token [$m undock $extra]
+        $m constraints $b -pinned true
+        update
+    } -body {
+        list [::sltest::blocked $m [list $m move $d -$side $b] -pinned]\
+                [::sltest::blocked $m [list $m dock $token -$side $b] -pinned]
+    } -cleanup {::sltest::cleanup} -result {1 1}
+}
+
+test splitlayout-pinned-30.3 {both names of a shared slot are protected but unrelated slots and no-ops remain legal} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    set c [$m insert $b]
+    set d [$m insert $c]
+    $m constraints $b -pinned true
+} -body {
+    set result [list [::sltest::blocked $m [list $m move $d -after $a] -pinned]\
+            [::sltest::blocked $m [list $m move $d -before $c] -pinned]]
+    lappend result [expr {[$m move $a -before $b] eq $a}]
+    $m move $d -before $a
+    lappend result [expr {[$m children $r] eq [list $d $a $b $c]}] [$m constraints $r -pinned]
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 0}
+
+test splitlayout-pinned-30.4 {nested edge checks inspect exposed leaves rather than imposing pinning on ancestors} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a nested
+    lassign [$m split $nested -orient horizontal] b c
+    set d [$m insert $a -side before]
+    $m constraints $b -pinned true
+} -body {
+    set result [list [::sltest::blocked $m [list $m move $d -before $nested] -pinned]\
+            [::sltest::blocked $m [list $m move $d -top $nested] -pinned]]
+    $m move $d -right $nested
+    lappend result [expr {[$m children $r] eq [list $a $nested $d]}] [$m constraints $nested -pinned]
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 0}
+
+test splitlayout-pinned-30.5 {explicit creation remains possible and retained content carries pinning} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    $m constraints $r -pinned true
+} -body {
+    lassign [$m split $r -keep second] a b
+    set c [$m insert $b]
+    list [$m constraints $r -pinned] [$m constraints $b -pinned] [$m constraints $a -pinned]\
+            [$m constraints $c -pinned] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {0 1 0 0 1}
+
+foreach zone {left right top bottom sash-left sash-right outer} {
+    test splitlayout-pinned-30.6-$zone {pinned destinations suppress gesture previews and release leaves the tree unchanged} -setup {
+        lassign [::sltest::docksetup] m r a b
+        set c [$m insert $b]
+        set d [$m insert $c]
+        $m proportions $r {1 1 1 1}
+        $m configure -dockopts {-outerwidth 0}
+        $m constraints $b -pinned true
+        ::sltest::settle $m
+    } -body {
+        set pane [$m widget $b]
+        lassign [::sltest::point $pane] x y
+        switch $zone {
+            left {set x [expr {[winfo rootx $pane]+2}]}
+            right {set x [expr {[winfo rootx $pane]+[winfo width $pane]-3}]}
+            top {set y [expr {[winfo rooty $pane]+2}]}
+            bottom {set y [expr {[winfo rooty $pane]+[winfo height $pane]-3}]}
+            sash-left - sash-right {
+                set pw [$m panedwindow $r]
+                set sash [expr {$zone eq {sash-left} ? 0 : 1}]
+                set x [expr {[winfo rootx $pw]+[$pw sashpos $sash]+1}]
+            }
+            outer {
+                $m constraints $a -pinned true
+                $m configure -dockopts {-outerwidth 12}
+                set x [expr {[winfo rootx $m]+1}]
+            }
+        }
+        set before [$m tree]
+        set dest [list $x $y]
+        set g [::sltest::dockstart $m $d $dest]
+        set target [dict get [::sltest::dockstate $m] target]
+        set overlays [dict get [::sltest::dockstate $m] overlays]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        list $target $overlays [expr {[$m tree] eq $before}] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {{} {} 1 {}}
+}
+
+test splitlayout-pinned-30.7 {floating gesture default button and native close use the same pinned destination rule} -setup {
+    lassign [::sltest::docksetup] m r a b
+    set c [$m insert $b]
+    set token [$m undock $c -geometry 250x200+900+100]
+    $m constraints $b -pinned true
+    ::sltest::settle $m
+} -body {
+    set frame [$m frame $token]
+    set g [::sltest::floatgrip $m $token]
+    set before [$m tree]
+    set disabled [$g.toggle instate disabled]
+    $g.toggle invoke
+    uplevel #0 [wm protocol $frame WM_DELETE_WINDOW]
+    set dest [::sltest::point [$m widget $b]]
+    ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
+    ::sltest::dockevent $g <B1-Motion> $dest
+    set target [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    set retained [expr {[$m floating] eq [list $token] && [$m tree] eq $before}]
+    set back [$m dock $token -left $a]
+    list $disabled $target $retained [expr {[$m frame $back] eq $frame}]
+} -cleanup {::sltest::cleanup} -result {1 {} 1 1}
+
+foreach custom {0 1} {
+    test splitlayout-buttons-30.8-$custom {disabled actions retain the same explicit normal and disabled images} -setup {
+        lassign [::sltest::docksetup] m r a b
+        set photos {}
+        if {$custom} {
+            set images {}
+            foreach action {dock undock delete} {
+                set photo [image create photo -width 12 -height 12]
+                $photo put red -to 2 2 10 10
+                lappend photos $photo
+                dict set images $action $photo
+            }
+            $m configure -buttonimages $images
+        }
+        set g [::sltest::grip $m $a]
+        set initial [list [$g.toggle cget -image] [$g.delete cget -image]]
+    } -body {
+        $m constraints $a -noundock true -nodestroy true
+        update
+        set result [list [$g.toggle instate disabled] [$g.delete instate disabled]\
+                [expr {$initial eq [list [$g.toggle cget -image] [$g.delete cget -image]]}]]
+        foreach name {toggle delete} {
+            set spec [$g.$name cget -image]
+            lappend result [expr {$spec eq [list [lindex $spec 0] disabled [lindex $spec 0]]}]
+            $g.$name invoke
+        }
+        $m constraints $a -noundock false -nodestroy false
+        update
+        lappend result [$g.toggle instate !disabled] [$g.delete instate !disabled]\
+                [expr {$initial eq [list [$g.toggle cget -image] [$g.delete cget -image]]}]
+        set result
+    } -cleanup {
+        ::sltest::cleanup
+        foreach photo $photos {image delete $photo}
+    } -result {1 1 1 1 1 1 1 1}
+}
+
+test splitlayout-pinned-30.9 {separate movement flags allow adjacent moves and floating pins follow docking} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    set c [$m insert $b]
+    $m constraints $b -nomove true -noundock true
+} -body {
+    $m move $c -top $b
+    set retained [lindex [$m children $b] 1]
+    set result [list [$m constraints $retained -nomove] [$m constraints $retained -noundock]\
+            [$m constraints $retained -pinned]]
+    set token [$m undock $a]
+    $m constraints $token -pinned true
+    set frame [$m frame $token]
+    set back [$m dock $token -left [$m root]]
+    lappend result [$m constraints $back -pinned] [expr {[$m frame $back] eq $frame}]\
+            [::sltest::blocked $m [list $m move $c -top $back] -pinned]
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 0 1 1 1}
+
+foreach custom {0 1} {
+    test splitlayout-buttons-30.10-$custom {blocked floating dock and delete retain their action images} -setup {
+        lassign [::sltest::docksetup] m r a b
+        set photo {}
+        if {$custom} {
+            set photo [image create photo -width 12 -height 12]
+            $photo put blue -to 2 2 10 10
+            $m configure -buttonimages [list dock $photo delete $photo]
+        }
+        set token [$m undock $a]
+        set g [::sltest::floatgrip $m $token]
+        set initial [list [$g.toggle cget -image] [$g.delete cget -image]]
+    } -body {
+        $m constraints [$m root] -maxleaves 1
+        $m constraints $token -nodestroy true
+        update
+        $g.toggle invoke
+        $g.delete invoke
+        list [$g.toggle instate disabled] [$g.delete instate disabled]\
+                [expr {$initial eq [list [$g.toggle cget -image] [$g.delete cget -image]]}]\
+                [expr {[$m floating] eq [list $token]}]
+    } -cleanup {
+        ::sltest::cleanup
+        if {$photo ne {}} {image delete $photo}
+    } -result {1 1 1 1}
+}
+
+
+test splitlayout-pinnedside-31.1 {defaults normalization and pin toggling preserve configured edges} -setup {
+    set m [::sltest::setup]
+    set a [$m root]
+} -body {
+    set result [list [$m constraints $a -pinnedside]]
+    $m constraints $a -pinnedside {bottom left left top}
+    lappend result [$m constraints $a -pinnedside] [$m constraints $a -pinned]
+    $m constraints $a -pinned true
+    $m constraints $a -pinned false
+    $m constraints $a -pinned true
+    lappend result [$m constraints $a -pinnedside] [$m constraints $a -nomove] [$m constraints $a -noundock]
+    set result
+} -cleanup {::sltest::cleanup} -result {{left right top bottom} {left top bottom} 0 {left top bottom} 1 1}
+
+foreach blockedSide {left right top bottom} {
+    foreach side {left right top bottom} {
+        test splitlayout-pinnedside-31.2-$blockedSide-$side {move and dock check only the selected physical edges} -setup {
+            set m [::sltest::setup]
+            lassign [$m split [$m root]] a b
+            set c [$m insert $b]
+            set d [$m insert $c]
+            set token [$m undock $d]
+            set frame [$m frame $token]
+            $m constraints $a -pinned true -pinnedside [list $blockedSide]
+            update
+        } -body {
+            if {$blockedSide eq $side} {
+                list [::sltest::blocked $m [list $m move $c -$side $a] -pinned]\
+                        [::sltest::blocked $m [list $m dock $token -$side $a] -pinned]
+            } else {
+                set moved [$m move $c -$side $a]
+                set back [$m dock $token -$side $a]
+                list [expr {$moved eq $c}] [expr {[$m frame $back] eq $frame && [::sltest::check $m]}]
+            }
+        } -cleanup {::sltest::cleanup} -result {1 1}
+    }
+}
+
+foreach orient {horizontal vertical} {
+    foreach neighbor {first second} {
+        test splitlayout-pinnedside-31.3-$orient-$neighbor {shared slots inspect each neighbor's own edge in both orientations} -setup {
+            set m [::sltest::setup]
+            set r [$m root]
+            lassign [$m split $r -orient $orient] a b
+            set c [$m insert $b]
+            set guarded [expr {$neighbor eq {first} ? $a : $b}]
+            if {$orient eq {horizontal}} {
+                set edge [expr {$neighbor eq {first} ? {right} : {left}}]
+                set other top
+            } else {
+                set edge [expr {$neighbor eq {first} ? {bottom} : {top}}]
+                set other left
+            }
+            $m constraints $guarded -pinned true -pinnedside [list $edge]
+            update
+        } -body {
+            set result [list [::sltest::blocked $m [list $m move $c -after $a] -pinned]\
+                    [::sltest::blocked $m [list $m move $c -before $b] -pinned]]
+            $m constraints $guarded -pinnedside [list $other]
+            $m move $c -after $a
+            lappend result [expr {[$m children $r] eq [list $a $c $b]}]
+            set result
+        } -cleanup {::sltest::cleanup} -result {1 1 1}
+    }
+}
+
+test splitlayout-pinnedside-31.4 {sole pinned leaf allows a remembered right-side return through the dock button} -setup {
+    lassign [::sltest::docksetup] m r a b
+    $m constraints $a -pinned true -pinnedside {left top bottom}
+    set token [$m undock $b -geometry 250x200+900+100]
+    set frame [$m frame $token]
+    ::sltest::settle $m
+} -body {
+    set sole [expr {[$m root] eq $a}]
+    set left [::sltest::blocked $m [list $m dock $token -left $a] -pinned]
+    set g [::sltest::floatgrip $m $token]
+    set enabled [$g.toggle instate !disabled]
+    $g.toggle invoke
+    update
+    set restored [lindex [$m leaves] 1]
+    list $sole $left $enabled [$m floating] [expr {[$m frame $restored] eq $frame}]\
+            [$m constraints [lindex [$m leaves] 0] -pinnedside]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {} 1 {left top bottom}}
+
+test splitlayout-pinnedside-31.5 {empty edge list keeps source restrictions but permits incoming placement} -setup {
+    set m [::sltest::setup]
+    lassign [$m split [$m root]] a b
+    set c [$m insert $b]
+    $m constraints $a -pinned true -pinnedside {}
+} -body {
+    set result [list [::sltest::blocked $m [list $m move $a -after $b] -nomove]\
+            [::sltest::blocked $m [list $m undock $a] -noundock]]
+    $m move $c -top $a
+    lappend result [$m constraints [lindex [$m children $a] 1] -pinnedside] [::sltest::check $m]
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 {} 1}
+
+test splitlayout-pinnedside-31.6 {invalid side updates are atomic and preserve active gestures} -setup {
+    lassign [::sltest::docksetup] m r a b
+    set g [::sltest::dockstart $m $a [::sltest::point [$m widget $b]]]
+} -body {
+    set before [::sltest::policySnapshot $m]
+    set result {}
+    foreach sides [list {left north} {before} [format %c 123]] {
+        lappend result [catch {$m constraints $b -pinned true -pinnedside $sides}]\
+                [expr {$before eq [::sltest::policySnapshot $m]}]
+    }
+    lappend result [catch {$m constraints $r -pinnedside {left}}]\
+            [expr {$before eq [::sltest::policySnapshot $m]}]
+    $m constraints $b -pinnedside {left}
+    lappend result [expr {[::sltest::dockstate $m] eq {} && [grab current $m] eq {}}]
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1}
+
+test splitlayout-pinnedside-31.7 {gesture preview and commit agree on blocked top and open right edges} -setup {
+    lassign [::sltest::docksetup] m r a b
+    set c [$m insert $b]
+    $m configure -dockopts {-outerwidth 0}
+    $m proportions $r {1 1 1}
+    $m constraints $a -pinned true -pinnedside {left top bottom}
+    ::sltest::settle $m
+} -body {
+    set pane [$m widget $a]
+    lassign [::sltest::point $pane] x y
+    set top [list $x [expr {[winfo rooty $pane]+2}]]
+    set g [::sltest::dockstart $m $c $top]
+    set blocked [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> $top
+    set right [list [expr {[winfo rootx $pane]+[winfo width $pane]-3}] $y]
+    set g [::sltest::dockstart $m $c $right]
+    set target [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> $right
+    update
+    list $blocked [dict get $target side] [expr {[$m children $r] eq [list $a $c $b]}] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {{} right 1 {}}
+
+test splitlayout-pinnedside-31.8 {floating grip can dock at the open edge of the sole pinned leaf} -setup {
+    lassign [::sltest::docksetup] m r a b
+    $m constraints $a -pinned true -pinnedside {left top bottom}
+    set token [$m undock $b -geometry 250x200+900+100]
+    set frame [$m frame $token]
+    ::sltest::settle $m
+} -body {
+    set pane [$m widget $a]
+    set dest [list [expr {[winfo rootx $pane]+[winfo width $pane]-3}]\
+            [expr {[winfo rooty $pane]+[winfo height $pane]/2}]]
+    set g [::sltest::floatgrip $m $token]
+    ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
+    ::sltest::dockevent $g <B1-Motion> $dest
+    set target [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    list [dict get $target side] [$m floating]\
+            [expr {[$m frame [lindex [$m leaves] 1]] eq $frame}] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {right {} 1 {}}
+
+test splitlayout-pinnedside-31.9 {nested boundaries use physical sides rather than the target split orientation} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a nested
+    lassign [$m split $nested -orient vertical] b c
+    set d [$m insert $a -side before]
+    $m constraints $b -pinned true -pinnedside {left}
+} -body {
+    set blocked [::sltest::blocked $m [list $m move $d -before $nested] -pinned]
+    $m move $d -top $nested
+    list $blocked [expr {[$m parent $d] eq [$m parent $nested]}]\
+            [$m constraints $b -pinnedside] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 left 1}
+
+test splitlayout-pinnedside-31.10 {edge settings follow content through retained split swap and docking} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    $m constraints $r -pinnedside {bottom left}
+} -body {
+    lassign [$m split $r -keep second] a b
+    set result [list [$m constraints $r -pinnedside] [$m constraints $a -pinnedside]\
+            [$m constraints $b -pinnedside]]
+    $m swap $a $b
+    lappend result [$m constraints $a -pinnedside]
+    set token [$m undock $a]
+    lappend result [$m constraints $token -pinnedside]
+    $m constraints $token -pinned true
+    set back [$m dock $token -right $b]
+    lappend result [$m constraints $back -pinnedside] [$m constraints $back -pinned]
+    set result
+} -cleanup {::sltest::cleanup} -result {{left right top bottom} {left right top bottom} {left bottom} {left bottom} {left bottom} {left bottom} 1}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

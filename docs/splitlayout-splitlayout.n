@@ -15,7 +15,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ clear\fP
 .br
-\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-pinnedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
@@ -212,20 +212,25 @@ $manager constraints $output -noresize true
 .PP
 .RS 4n
 .nf
-┌────────────┬─────────┬──────────────────────────┬────────────────────────────────────────────────────────────────────┐
-│ Option     │ Default │ Applies to               │ Meaning                                                            │
-├────────────┼─────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────┤
-│ -nomove    │ false   │ Leaf / floating content  │ Reject direct move and either operand of swap\&.                     │
-│ -noundock  │ false   │ Leaf / floating content  │ Reject undocking this content\&.                                     │
-│ -nodestroy │ false   │ Any node / floating      │ Reject deletion of protected content or an explicitly protected    │
-│            │         │ content                  │ split\&.                                                             │
-│ -noresize  │ false   │ Any node / floating      │ Lock sash-driven allocation changes; this is not a fixed pixel     │
-│            │         │ content                  │ size\&.                                                              │
-│ -pinned    │ false   │ Leaf / floating content  │ Shorthand for -nomove plus -noundock; query is their logical AND\&.  │
-│ -minleaves │ 1       │ Docked node              │ Minimum descendant leaf count while this subtree is retained\&.      │
-│ -maxleaves │ -1      │ Docked node              │ Maximum descendant leaf count; -1 means unlimited\&.                 │
-│ -maxdepth  │ -1      │ Docked node              │ Maximum depth below the node; -1 means unlimited\&.                  │
-└────────────┴─────────┴──────────────────────────┴────────────────────────────────────────────────────────────────────┘
+┌─────────────┬─────────────────────────┬──────────────────────────┬───────────────────────────────────────────────────┐
+│ Option      │ Default                 │ Applies to               │ Meaning                                           │
+├─────────────┼─────────────────────────┼──────────────────────────┼───────────────────────────────────────────────────┤
+│ -nomove     │ false                   │ Leaf / floating content  │ Reject direct move and either operand of swap\&.    │
+│ -noundock   │ false                   │ Leaf / floating content  │ Reject undocking this content\&.                    │
+│ -nodestroy  │ false                   │ Any node / floating      │ Reject deletion of protected content or an        │
+│             │                         │ content                  │ explicitly protected split\&.                       │
+│ -noresize   │ false                   │ Any node / floating      │ Lock sash-driven allocation changes; this is not  │
+│             │                         │ content                  │ a fixed pixel size\&.                               │
+│ -pinned     │ false                   │ Leaf / floating content  │ Set movement flags and block adjacent move/dock   │
+│             │                         │                          │ destinations\&.                                     │
+│ -pinnedside │ {left right top bottom} │ Leaf / floating content  │ Edges blocking incoming move/dock placement while │
+│             │                         │                          │ pinned\&.                                           │
+│ -minleaves  │ 1                       │ Docked node              │ Minimum descendant leaf count while this subtree  │
+│             │                         │                          │ is retained\&.                                      │
+│ -maxleaves  │ -1                      │ Docked node              │ Maximum descendant leaf count; -1 means           │
+│             │                         │                          │ unlimited\&.                                        │
+│ -maxdepth   │ -1                      │ Docked node              │ Maximum depth below the node; -1 means unlimited\&. │
+└─────────────┴─────────────────────────┴──────────────────────────┴───────────────────────────────────────────────────┘
 .fi
 .RE
 .SS "MOVEMENT AND PINNED CONTENT"
@@ -241,10 +246,49 @@ on screen\&. -noundock is the separate restriction on leaving the docked tree\&.
 floating content with dock, or moving and swapping it while docked\&. The current public move, swap, and
 undock commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes\&.
 .PP
--pinned true sets both movement flags; -pinned false clears both, without changing other restrictions\&. It
-is not stored independently\&. Set it in a separate call from -nomove or -noundock; mixing them in one update
-is rejected rather than depending on argument order\&. A pinned leaf can still be deleted unless -nodestroy is
-also enabled\&.
+-pinned true sets both movement flags and protects adjacent placement boundaries\&. move and dock,
+including gestures, reject placing content against the edges selected by -pinnedside\&. Shared slots check both
+neighbors: naming the unpinned neighbor with -before or -after cannot bypass the restriction\&. Sash and
+outer-rim drop zones use the same validation\&. For a nested neighbor, only leaves touching the insertion
+boundary matter; a pinned leaf elsewhere in that subtree does not block it\&. Pinned flags are not imposed on
+ancestors\&. The same checks apply to remembered docking positions and floating-window docking gestures\&.
+.PP
+-pinnedside is a list of blocked physical edges: left, right, top, and bottom\&. The default is
+{left right top bottom}\&. For example, leave the right edge available so other floating windows can return
+even when this is the only remaining docked leaf:
+.PP
+.RS 4n
+.nf
+$manager constraints $editor -pinned true -pinnedside {left top bottom}
+$manager dock $floatingToken -right $editor
+.fi
+.RE
+.PP
+Both sides of a shared slot are checked against each neighbor's own physical edge: inserting after a leaf
+checks its right edge in a horizontal parent and its bottom edge in a vertical parent\&. The opposite
+neighbor's left or top edge is checked too\&. Before/after are destination commands, not valid pinnedside
+values\&. Nested boundaries use the same physical-edge rule\&.
+.PP
+An empty list allows incoming placement on every edge while keeping the pinned leaf's movement and undocking
+restrictions\&. Setting -pinnedside alone does not enable pinning; it can be configured in advance, and it is
+preserved when pinning is switched off and on\&. Queries return a unique list in left/right/top/bottom order\&.
+The setting belongs to leaf/floating content, follows retained splits and docking, and cannot be set on a split\&.
+Invalid lists reject the whole update without changing settings or cancelling active gestures\&.
+.PP
+Default docking still tries its remembered destination (or the existing fallback); it does not search for
+an unblocked edge\&. If that destination is blocked, use an explicit open edge such as dock -right, or drag
+to that edge\&. Buttons and native close requests use the same default-destination validation as before\&.
+.PP
+Pinned is stored explicitly\&. Setting -nomove true -noundock true separately does not pin destinations\&.
+-pinned false clears pinning and both movement flags without changing other restrictions\&. Clearing either
+movement flag individually also clears pinning, leaving the other flag unchanged\&. Set -pinned in a separate
+call from -nomove or -noundock; mixing them in one update remains an error\&. Existing no-op moves are
+allowed\&.
+.PP
+Pinning does not block explicit creation through split or insert, deletion, sash resizing, or ordinary
+geometry changes\&. Use -nodestroy, -noresize, and subtree limits for those separate restrictions\&. The flag
+follows retained content through splitting and docking just like the other leaf flags\&. A floating pinned
+frame may be docked at an allowed destination; once docked, its adjacent boundaries are protected\&.
 .SS "DESTRUCTION AND COLLAPSE"
 .PP
 -nodestroy on leaf content rejects remove, clear, and retain when they would delete that content, even
@@ -316,10 +360,11 @@ but setting those limits requires a docked node\&. Removing content discards its
 Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
 the tree\&. Errors have -errorcode {SPLITLAYOUT CONSTRAINT option id} and identify the restriction that blocked
 the action\&.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
-no-ops\&. Drop previews suppress invalid destinations and release does nothing there\&. Header buttons are disabled
-when their current action is illegal; blocked native close requests leave the window open without a background
-error\&. Flags are explicit settings, not a cached summary of every action that might be prohibited by
-descendants or ancestor bounds\&.
+no-ops\&. Drop previews suppress invalid destinations and release does nothing there\&. Header buttons retain their
+action icons, including custom images, and become inactive when their current action is illegal\&.  The same
+image is assigned explicitly to normal and disabled states; ttk still controls button styling\&.  Blocked native
+close requests leave the window open without a background error\&. Flags are explicit settings, not a cached
+summary of every action that might be prohibited by descendants or ancestor bounds\&.
 .SH "MOVING PANES"
 .PP
 move relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
@@ -785,7 +830,7 @@ option add *splitlayoutDockEdgeWidth 32 userDefault
 option add *splitlayoutStructureColor gray55 userDefault
 option add *splitlayoutStructureActiveColor orange userDefault
 
-splitlayout::splitlayout \&.layout -draghandles true -showstructure true  -dockopts {-threshold 8} -structureopts {-padding 3}
+splitlayout::splitlayout \&.layout -draghandles true -showstructure true -dockopts {-threshold 8} -structureopts {-padding 3}
 pack \&.layout -fill both -expand 1
 
 # Partial updates keep all unspecified settings\&.
@@ -1320,7 +1365,7 @@ The new root leaf identifier\&.
 .PP
 Queries or atomically updates restrictions for one node or floating content\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-pinnedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
 .RE
 .PP
@@ -1338,11 +1383,13 @@ No arguments, one option name, or option/value pairs\&.
 .PP
 Leaf flags follow content; split flags and subtree limits belong to node identity\&. Movement flags and
 pinned are leaf/floating-only\&. Floating content has no assignable subtree limits\&. Queries show explicit
-settings, not restrictions inherited by an operation from protected descendants\&. Pinned is a shorthand\&.
+settings, not restrictions inherited by an operation from protected descendants\&. Pinned also protects
+adjacent move/dock destinations on pinnedside edges, in addition to setting the two movement flags\&.
+Pinnedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection\&.
 .PP
 \fBReturn value\fR
 .PP
-One queried value, or the complete explicit settings dictionary including computed -pinned\&.
+One queried value, or the complete explicit settings dictionary\&.
 .PP
 .RS -4n
 \fBcontainer\fR (::splitlayout::splitlayout)

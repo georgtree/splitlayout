@@ -138,16 +138,17 @@ namespace eval ::splitlayout {
         $manager constraints $output -noresize true
         ```
 
-        | Option       | Default | Applies to                  | Meaning                                                                |
-        |--------------|---------|-----------------------------|------------------------------------------------------------------------|
-        | `-nomove`    | false   | Leaf / floating content     | Reject direct `move` and either operand of `swap`.                     |
-        | `-noundock`  | false   | Leaf / floating content     | Reject undocking this content.                                         |
-        | `-nodestroy` | false   | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
-        | `-noresize`  | false   | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
-        | `-pinned`    | false   | Leaf / floating content     | Shorthand for `-nomove` plus `-noundock`; query is their logical AND.  |
-        | `-minleaves` | 1       | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
-        | `-maxleaves` | -1      | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
-        | `-maxdepth`  | -1      | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
+        | Option        | Default                   | Applies to                  | Meaning                                                                |
+        | ------------- | ------------------------- | --------------------------- | ---------------------------------------------------------------------- |
+        | `-nomove`     | false                     | Leaf / floating content     | Reject direct `move` and either operand of `swap`.                     |
+        | `-noundock`   | false                     | Leaf / floating content     | Reject undocking this content.                                         |
+        | `-nodestroy`  | false                     | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
+        | `-noresize`   | false                     | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
+        | `-pinned`     | false                     | Leaf / floating content     | Set movement flags and block adjacent move/dock destinations.          |
+        | `-pinnedside` | `{left right top bottom}` | Leaf / floating content     | Edges blocking incoming move/dock placement while pinned.              |
+        | `-minleaves`  | 1                         | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
+        | `-maxleaves`  | -1                        | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
+        | `-maxdepth`   | -1                        | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
 
         ### Movement and pinned content
         `-nomove` checks only the directly moved leaf. It is not imposed on ancestors. In a swap, both existing flags
@@ -161,10 +162,47 @@ namespace eval ::splitlayout {
         floating content with `dock`, or moving and swapping it while docked. The current public `move`, `swap`, and
         `undock` commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes.
 
-        `-pinned true` sets both movement flags; `-pinned false` clears both, without changing other restrictions. It
-        is not stored independently. Set it in a separate call from `-nomove` or `-noundock`; mixing them in one update
-        is rejected rather than depending on argument order. A pinned leaf can still be deleted unless `-nodestroy` is
-        also enabled.
+        `-pinned true` sets both movement flags and protects adjacent placement boundaries. `move` and `dock`,
+        including gestures, reject placing content against the edges selected by `-pinnedside`. Shared slots check both
+        neighbors: naming the unpinned neighbor with `-before` or `-after` cannot bypass the restriction. Sash and
+        outer-rim drop zones use the same validation. For a nested neighbor, only leaves touching the insertion
+        boundary matter; a pinned leaf elsewhere in that subtree does not block it. Pinned flags are not imposed on
+        ancestors. The same checks apply to remembered docking positions and floating-window docking gestures.
+
+        `-pinnedside` is a list of blocked physical edges: `left`, `right`, `top`, and `bottom`. The default is
+        `{left right top bottom}`. For example, leave the right edge available so other floating windows can return
+        even when this is the only remaining docked leaf:
+
+        ```tcl
+        $manager constraints $editor -pinned true -pinnedside {left top bottom}
+        $manager dock $floatingToken -right $editor
+        ```
+
+        Both sides of a shared slot are checked against each neighbor's own physical edge: inserting after a leaf
+        checks its `right` edge in a horizontal parent and its `bottom` edge in a vertical parent. The opposite
+        neighbor's `left` or `top` edge is checked too. Before/after are destination commands, not valid pinnedside
+        values. Nested boundaries use the same physical-edge rule.
+
+        An empty list allows incoming placement on every edge while keeping the pinned leaf's movement and undocking
+        restrictions. Setting `-pinnedside` alone does not enable pinning; it can be configured in advance, and it is
+        preserved when pinning is switched off and on. Queries return a unique list in left/right/top/bottom order.
+        The setting belongs to leaf/floating content, follows retained splits and docking, and cannot be set on a split.
+        Invalid lists reject the whole update without changing settings or cancelling active gestures.
+
+        Default docking still tries its remembered destination (or the existing fallback); it does not search for
+        an unblocked edge. If that destination is blocked, use an explicit open edge such as `dock -right`, or drag
+        to that edge. Buttons and native close requests use the same default-destination validation as before.
+
+        Pinned is stored explicitly. Setting `-nomove true -noundock true` separately does not pin destinations.
+        `-pinned false` clears pinning and both movement flags without changing other restrictions. Clearing either
+        movement flag individually also clears pinning, leaving the other flag unchanged. Set `-pinned` in a separate
+        call from `-nomove` or `-noundock`; mixing them in one update remains an error. Existing no-op moves are
+        allowed.
+
+        Pinning does not block explicit creation through `split` or `insert`, deletion, sash resizing, or ordinary
+        geometry changes. Use `-nodestroy`, `-noresize`, and subtree limits for those separate restrictions. The flag
+        follows retained content through splitting and docking just like the other leaf flags. A floating pinned
+        frame may be docked at an allowed destination; once docked, its adjacent boundaries are protected.
 
         ### Destruction and collapse
         `-nodestroy` on leaf content rejects `remove`, `clear`, and `retain` when they would delete that content, even
@@ -236,10 +274,11 @@ namespace eval ::splitlayout {
         Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
         the tree. Errors have `-errorcode {SPLITLAYOUT CONSTRAINT option id}` and identify the restriction that blocked
         the action.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
-        no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons are disabled
-        when their current action is illegal; blocked native close requests leave the window open without a background
-        error. Flags are explicit settings, not a cached summary of every action that might be prohibited by
-        descendants or ancestor bounds.
+        no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons retain their
+        action icons, including custom images, and become inactive when their current action is illegal.  The same
+        image is assigned explicitly to normal and disabled states; ttk still controls button styling.  Blocked native
+        close requests leave the window open without a background error. Flags are explicit settings, not a cached
+        summary of every action that might be prohibited by descendants or ancestor bounds.
 
         ## Moving panes
         `move` relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
@@ -638,8 +677,8 @@ namespace eval ::splitlayout {
         option add *splitlayoutStructureColor gray55 userDefault
         option add *splitlayoutStructureActiveColor orange userDefault
 
-        splitlayout::splitlayout .layout -draghandles true -showstructure true \
-            -dockopts {-threshold 8} -structureopts {-padding 3}
+        splitlayout::splitlayout .layout -draghandles true -showstructure true\
+                -dockopts {-threshold 8} -structureopts {-padding 3}
         pack .layout -fill both -expand 1
 
         # Partial updates keep all unspecified settings.
@@ -1530,7 +1569,8 @@ oo::configurable create ::splitlayout::splitlayout {
     method ConstraintDefaults {} {
         # Returns the explicit-setting defaults for a node or content frame.
         # Returns: A dictionary; maximum -1 means unlimited.
-        return {-nomove 0 -noundock 0 -nodestroy 0 -noresize 0 -minleaves 1 -maxleaves -1 -maxdepth -1}
+        return {-nomove 0 -noundock 0 -nodestroy 0 -noresize 0 -minleaves 1 -maxleaves -1 -maxdepth -1
+                -pinned 0 -pinnedside {left right top bottom}}
     }
     method constraints {id args} {
         # Queries or atomically updates restrictions for one node or floating content.
@@ -1539,10 +1579,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and
         # pinned are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
-        # settings, not restrictions inherited by an operation from protected descendants. Pinned is a shorthand.
-        # Returns: One queried value, or the complete explicit settings dictionary including computed -pinned.
+        # settings, not restrictions inherited by an operation from protected descendants. Pinned also protects
+        # adjacent move/dock destinations on pinnedside edges, in addition to setting the two movement flags.
+        # Pinnedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection.
+        # Returns: One queried value, or the complete explicit settings dictionary.
         # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean?
-        #  ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?
+        #  ?-noresize boolean? ?-pinned boolean? ?-pinnedside sides? ?-minleaves count? ?-maxleaves count?
+        #  ?-maxdepth depth?
         set floating [dict exists $Floating $id]
         set leaf [expr {$floating || ([my type $id] eq {leaf})}]
         set current [my ConstraintDefaults]
@@ -1555,7 +1598,6 @@ oo::configurable create ::splitlayout::splitlayout {
                 set current [dict merge $current [dict get $ContentRules $frame]]
             }
         }
-        dict set current -pinned [expr {[dict get $current -nomove] && [dict get $current -noundock]}]
         if {![llength $args]} {
             return $current
         }
@@ -1572,6 +1614,7 @@ oo::configurable create ::splitlayout::splitlayout {
             {-nodestroy= -type boolean}
             {-noresize= -type boolean}
             {-pinned= -type boolean}
+            -pinnedside=
             -minleaves=
             -maxleaves=
             -maxdepth=
@@ -1582,14 +1625,13 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             dict set opts nomove [dict get $opts pinned]
             dict set opts noundock [dict get $opts pinned]
-            dict unset opts pinned
         }
         set nodes $NodeRules
         set contents $ContentRules
         dict for {key value} $opts {
             set option -$key
-            if {$key in {nomove noundock nodestroy noresize}} {
-                if {!$leaf && $key in {nomove noundock}} {
+            if {$key in {nomove noundock nodestroy noresize pinned}} {
+                if {!$leaf && $key in {nomove noundock pinned}} {
                     return -code error "$option applies only to leaf or floating content"
                 }
                 set value [expr {!!$value}]
@@ -1598,6 +1640,22 @@ oo::configurable create ::splitlayout::splitlayout {
                 } else {
                     dict set nodes $id $option $value
                 }
+            } elseif {$key eq {pinnedside}} {
+                if {!$leaf} {
+                    return -code error {-pinnedside applies only to leaf or floating content}
+                }
+                foreach side $value {
+                    if {$side ni {left right top bottom}} {
+                        return -code error "unknown pinned side '$side': expected left, right, top, or bottom"
+                    }
+                }
+                set sides {}
+                foreach side {left right top bottom} {
+                    if {$side in $value} {
+                        lappend sides $side
+                    }
+                }
+                dict set contents $frame -pinnedside $sides
             } else {
                 if {$floating} {
                     return -code error {subtree limits require a docked node}
@@ -1607,6 +1665,13 @@ oo::configurable create ::splitlayout::splitlayout {
                     return -code error "$option requires an integer from $lower to 2147483647"
                 }
                 dict set nodes $id $option [expr {$value+0}]
+            }
+        }
+        # Relaxing either movement flag also releases the pinned boundary restriction.
+        if {$leaf && [dict exists $contents $frame]} {
+            set flags [dict merge [my ConstraintDefaults] [dict get $contents $frame]]
+            if {![dict get $flags -nomove] || ![dict get $flags -noundock]} {
+                dict set contents $frame -pinned 0
             }
         }
         my ValidateLimits $Nodes $nodes {}
@@ -1777,6 +1842,86 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set model $source parent $parent
         }
     }
+    method BoundaryPinned {model id orient end} {
+        # Finds pinned content that blocks one boundary of a proposed subtree.
+        #  model - Proposed node dictionary, with the moving source detached.
+        #  id - Subtree to inspect.
+        #  orient - Axis perpendicular to the boundary: horizontal or vertical.
+        #  end - first for left/top, last for right/bottom.
+        #
+        # Parallel splits expose only their outer child; perpendicular splits expose every child.
+        # Each leaf checks its own physical edge against pinnedside, independently of which neighbor was named.
+        # This checks adjacency, not inherited movement restrictions on the enclosing split.
+        # Returns: The first pinned leaf identifier found, or empty.
+        if {[dict get $model $id type] eq {leaf}} {
+            set frame [dict get $model $id widget]
+            if {[dict exists $ContentRules $frame -pinned] && [dict get $ContentRules $frame -pinned]} {
+                set settings [dict merge [my ConstraintDefaults] [dict get $ContentRules $frame]]
+                if {$orient eq {horizontal}} {
+                    set side [expr {$end eq {first} ? {left} : {right}}]
+                } else {
+                    set side [expr {$end eq {first} ? {top} : {bottom}}]
+                }
+                if {$side in [dict get $settings -pinnedside]} {
+                    return $id
+                }
+            }
+            return
+        }
+        set children [dict get $model $id children]
+        if {[dict get $model $id orient] eq $orient} {
+            set index [expr {$end eq {first} ? 0 : [llength $children]-1}]
+            set children [lrange $children $index $index]
+        }
+        foreach child $children {
+            set pinned [my BoundaryPinned $model $child $orient $end]
+            if {$pinned ne {}} {
+                return $pinned
+            }
+        }
+        return
+    }
+    method ValidatePlacement {model target side} {
+        # Rejects move/dock destinations whose insertion boundary touches pinned content.
+        #  model - Proposed tree before insertion, with any moving source detached.
+        #  target - Target leaf or split.
+        #  side - left, right, top, bottom, before, or after.
+        #
+        # A shared insertion slot checks both neighboring subtrees, regardless of which one is named.
+        # Wrapping a subtree checks only its exposed destination edge; unrelated edges remain usable.
+        # Returns: Nothing, or a structured -pinned constraint error identifying the blocking leaf.
+        set parent [dict get $model $target parent]
+        set before [expr {$side in {left top before}}]
+        if {$side in {before after}} {
+            set orient [dict get $model $parent orient]
+            set wrap 0
+        } else {
+            set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
+            set wrap [expr {($parent eq {}) || ([dict get $model $parent orient] ne $orient)}]
+        }
+        if {$wrap} {
+            set boundaries [list $target [expr {$before ? {first} : {last}}]]
+        } else {
+            set children [dict get $model $parent children]
+            set at [lsearch -exact $children $target]
+            if {!$before} {
+                incr at
+            }
+            set boundaries {}
+            if {$at > 0} {
+                lappend boundaries [lindex $children [expr {$at-1}]] last
+            }
+            if {$at < [llength $children]} {
+                lappend boundaries [lindex $children $at] first
+            }
+        }
+        foreach {id end} $boundaries {
+            set pinned [my BoundaryPinned $model $id $orient $end]
+            if {$pinned ne {}} {
+                my ConstraintError $pinned -pinned {placement beside pinned content is disabled}
+            }
+        }
+    }
     method ValidateOperation {operation args} {
         # Preflights a canonical operation using an isolated logical model.
         #  operation - split, insert, move, swap, remove, retain, clear, undock, or dock.
@@ -1818,6 +1963,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 set children [dict get $model $parent children]
                 set at [lsearch -exact $children $source]
                 dict set model $parent children [lreplace $children $at $at]
+                my ValidatePlacement $model $target $side
                 my ModelAttach model root $source $target $side
                 my ModelCollapse model root replacements $parent
             }
@@ -1880,6 +2026,7 @@ oo::configurable create ::splitlayout::splitlayout {
                     my ModelDrop model $root
                     set root $source
                 } else {
+                    my ValidatePlacement $model $target $side
                     my ModelAttach model root $source $target $side
                 }
             }
@@ -3737,7 +3884,8 @@ oo::configurable create ::splitlayout::splitlayout {
                 -takefocus 0 -cursor fleur
         set action [expr {$floating ? {dock} : {undock}}]
         foreach name {toggle delete} kind [list $action delete] tip [list [string totitle $action] {Delete content}] {
-            ttk::button $grip.$name -image [list [my ButtonImage $kind]] -width 0 -padding 1 -takefocus 1\
+            set image [my ButtonImage $kind]
+            ttk::button $grip.$name -image [list $image disabled $image] -width 0 -padding 1 -takefocus 1\
                     -command [namespace code [list my GripAction $id $kind]]
             place $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}] -y 0 -width 22 -relheight 1
         }
@@ -4064,8 +4212,10 @@ oo::configurable create ::splitlayout::splitlayout {
         foreach name {toggle delete} kind [list $action delete] {
             $grip.$name state [expr {[my ActionAllowed $id $kind] ? {!disabled} : {disabled}}]
             set image [my ButtonImage $kind]
-            if {[lindex [$grip.$name cget -image] 0] ne $image} {
-                $grip.$name configure -image [list $image]
+            # Use the action image in both states; disabling must not substitute a different symbol.
+            set images [list $image disabled $image]
+            if {[$grip.$name cget -image] ne $images} {
+                $grip.$name configure -image $images
             }
             dict set widths $name [expr {max(22,[image width $image]+6,[winfo reqwidth $grip.$name])}]
         }
