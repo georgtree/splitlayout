@@ -165,9 +165,17 @@ namespace eval ::splitlayout {
         `-pinned true` sets both movement flags and protects adjacent placement boundaries. `move` and `dock`,
         including gestures, reject placing content against the edges selected by `-pinnedside`. Shared slots check both
         neighbors: naming the unpinned neighbor with `-before` or `-after` cannot bypass the restriction. Sash and
-        outer-rim drop zones use the same validation. For a nested neighbor, only leaves touching the insertion
-        boundary matter; a pinned leaf elsewhere in that subtree does not block it. Pinned flags are not imposed on
-        ancestors. The same checks apply to remembered docking positions and floating-window docking gestures.
+        outer-rim drop zones use the same validation. Internal ancestor sashes check only their direct leaf
+        neighbors: pinning the bottom leaf of a vertical middle split does not block the outer vertical sashes beside
+        that split. Its own selected edges and adjacent sibling slots remain protected, and a directly neighboring
+        pinned leaf can still block an internal slot.
+
+        There is one exception: an insertion boundary coinciding with an outer root edge also checks descendants
+        touching that edge. For example, a nested bottom leaf blocking `bottom` blocks placement below the whole
+        root, or below its containing split when that split reaches the root's bottom edge. Its left/right settings
+        do not block internal ancestor sashes. Descendants that do not touch the selected root edge do not restrict
+        it. The rule uses the proposed tree after removing a moving source, works before mapping, and applies to
+        commands, gestures, outer-rim drops, and remembered docking alike. It never changes stored flags or side lists.
 
         `-pinnedside` is a list of blocked physical edges: `left`, `right`, `top`, and `bottom`. The default is
         `{left right top bottom}`. For example, leave the right edge available so other floating windows can return
@@ -181,7 +189,7 @@ namespace eval ::splitlayout {
         Both sides of a shared slot are checked against each neighbor's own physical edge: inserting after a leaf
         checks its `right` edge in a horizontal parent and its `bottom` edge in a vertical parent. The opposite
         neighbor's `left` or `top` edge is checked too. Before/after are destination commands, not valid pinnedside
-        values. Nested boundaries use the same physical-edge rule.
+        values. Split neighbors are searched for pinned descendants only at coincident outer root edges.
 
         An empty list allows incoming placement on every edge while keeping the pinned leaf's movement and undocking
         restrictions. Setting `-pinnedside` alone does not enable pinning; it can be configured in advance, and it is
@@ -410,10 +418,11 @@ namespace eval ::splitlayout {
         position. Escape cancels and restores the starting position. Moving native window decorations only moves the
         window; it does not initiate docking.
 
-        Each grip has two monochrome bitmap buttons, with tooltips:
+        Each grip has three monochrome bitmap buttons, with tooltips:
 
         | Button | Docked leaf                  | Floating content                                  |
-        |--------|------------------------------|---------------------------------------------------|
+        | ------ | ---------------------------- | ------------------------------------------------- |
+        | Pin    | Toggle pinning               | Toggle pinning                                    |
         | Arrow  | Undock                       | Dock at the default destination defined by `dock` |
         | Cross  | Delete content with `remove` | Delete content with `remove`                      |
 
@@ -427,6 +436,52 @@ namespace eval ::splitlayout {
         alignment is controlled independently by `-titlealign`. Changing alignment cancels an active drag without
         moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
         follows the theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
+
+        ### Pin button
+        The pin button uses the `pin` image while unpinned and the `unpin` image while pinned, with a dynamic
+        tooltip describing the action and current constraints. It remains available when movement, undocking, or
+        deletion is blocked, so the user can release a pin.
+        Programmatic constraint changes update its image and tooltip. Like the other buttons it supports keyboard
+        activation, never starts a drag, and disappears when `-draghandles` is false.
+
+        The pin tooltip reports layout movement and undocking as locked/unlocked from the explicit `-nomove`
+        and `-noundock` flags, and lists the docking sides blocked by pinning. It shows `none` when pinning is off
+        or its side list is empty, even if an inactive side list is still stored. For example:
+
+        ```text
+        Unpin pane
+        Layout movement: locked
+        Undocking: locked
+        Docking sides blocked by pinning: left, top and bottom
+        ```
+
+        These are current local restrictions, not predictions of the next click or a summary of every ancestor
+        limit. An unlocked movement flag does not override other constraints. Direct constraint updates and button
+        clicks refresh the tooltip in docked and floating headers. `-tooltips false` and missing Tklib disable it
+        exactly like the other header tooltips; no custom fallback is created.
+
+        `-pinbuttonmode all|outer` is a manager-wide property, accepted at construction and by `configure`, defaulting
+        to `all`. It controls only a button click that changes unpinned content to pinned content:
+
+        | Mode    | Sides assigned to `-pinnedside` when pinning   |
+        | ------- | ---------------------------------------------- |
+        | `all`   | `{left right top bottom}`                      |
+        | `outer` | Edges on the immediate parent split's boundary |
+
+        For a horizontal split, every child touches top and bottom; the first child also touches left and the last
+        also touches right. For a vertical split, every child touches left and right; the first also touches top and
+        the last also touches bottom. Nested leaves use their own immediate parent split, even where that split's
+        boundary is internal to the manager. Root leaves and floating content have no parent split and use all sides.
+
+        ```tcl
+        $manager configure -draghandles true -pinbuttonmode outer
+        ```
+
+        Clicking to pin sets `-pinned true` and the computed `-pinnedside` together, replacing any previously stored
+        side selection. Clicking again uses `-pinned false`, clearing both movement flags while retaining the side
+        list. Sides are captured at click time: later insertion, collapse, docking, or mode changes do not recompute
+        them. To recalculate, unpin and pin again. Changing the mode does not change direct `constraints` semantics,
+        existing flags, or an active drag. The mode belongs to each manager independently, including nested managers.
 
         ### Leaf outlines
         Enable `-leafborder true` to surround each leaf's header and content with one independent outline.
@@ -479,7 +534,7 @@ namespace eval ::splitlayout {
         use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
         header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.
 
-        `-buttonimages` is a dictionary with `dock`, `undock`, and `delete` keys. Values are existing Tk image names,
+        `-buttonimages` is a dictionary with `dock`, `undock`, `delete`, `pin`, and `unpin` keys. Values are existing Tk image names,
         not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:
         ```tcl
         set undockImage [image create photo -file undock.png]
@@ -491,7 +546,8 @@ namespace eval ::splitlayout {
         Overrides apply globally to existing and future docked and floating headers. Partial dictionaries preserve
         other entries; an empty value restores that action's built-in bitmap. An empty dictionary changes nothing.
         Invalid keys or missing image names reject the whole update. The toggle uses `undock` while docked and `dock`
-        while floating. Button widths and header height accommodate the images at their native pixel size; images
+        while floating. The pin button uses `pin` or `unpin` according to the current constraint state. Button widths
+        and header height accommodate the images at their native pixel size; images
         are not scaled or recolored. Supply appropriately sized icons and retain them while used. The manager never
         deletes supplied images. To delete one, clear/replace its override first. If an image is deleted externally,
         a subsequent refresh falls back to the built-in bitmap. After changing an image's dimensions in place, reapply
@@ -621,14 +677,15 @@ namespace eval ::splitlayout {
         ## Options
 
         | Option               | Default         | Meaning                                                                    |
-        |----------------------|-----------------|----------------------------------------------------------------------------|
+        | -------------------- | --------------- | -------------------------------------------------------------------------- |
         | `-width`             | `800`           | Nonnegative requested hull width in pixels.                                |
         | `-height`            | `600`           | Nonnegative requested hull height in pixels.                               |
         | `-opaqueresize`      | `true`          | Resize pane content continuously while dragging a sash.                    |
         | `-sashpreview`       | `window`        | Deferred preview mode: `window`, `inline`, or `none`.                      |
+        | `-pinbuttonmode`     | `all`           | Pin-button side policy: all edges or immediate parent split boundaries.    |
         | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
         | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
-        | `-buttonimages`      | Empty values    | Optional dock, undock, and delete Tk image overrides.                      |
+        | `-buttonimages`      | Empty values    | Optional dock, undock, delete, pin, and unpin Tk image overrides.          |
         | `-headerrelief`      | `flat`          | Rectangular header relief.                                                 |
         | `-leafborder`        | `false`         | Outline each leaf, including floating windows.                             |
         | `-leafborderwidth`   | `1`             | Nonnegative leaf outline thickness in pixels.                              |
@@ -884,7 +941,7 @@ namespace eval ::splitlayout {
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders Settings Floating VacantRoot Icons ButtonSide HeaderRelief HeaderBorder Tooltips TooltipReady\
+            Borders Settings Floating VacantRoot Icons ButtonSide PinButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady\
             Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules\
             ContentRules LivePress
     classmethod _ruffClassHook {} {
@@ -926,13 +983,18 @@ oo::configurable create ::splitlayout::splitlayout {
                     titlealign. Changing the value cancels an active content drag. Button appearance remains
                     controlled by ttk.
                 }
+                -pinbuttonmode {
+                    Pin-button policy: all or outer; default all. All blocks all four edges. Outer computes edges
+                    on the immediate parent split boundary when clicked. Root leaves and floating content use all
+                    four edges. Changing the mode does not rewrite existing constraints or affect direct commands.
+                }
                 -titlealign {
                     Header title alignment: left, center, or right; default center. Independent of buttonside.
                     Applies to docked and floating headers. Titles are truncated within the space clear of buttons.
                 }
                 -buttonimages {
-                    Dictionary mapping dock, undock, and delete to existing Tk image names. All default to empty,
-                    selecting built-in bitmaps. Updates merge atomically; an empty value restores one default.
+                    Dictionary mapping dock, undock, delete, pin, and unpin to existing Tk image names. Empty values
+                    select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one default.
                     Supplied images are application-owned. Buttons and header height accommodate image dimensions.
                     Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.
                 }
@@ -1074,6 +1136,14 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
+    property pinbuttonmode -get {
+        return $PinButtonMode
+    } -set {
+        if {$value ni {all outer}} {
+            return -code error {expected pinbuttonmode all or outer}
+        }
+        set PinButtonMode $value
+    }
     property titlealign -get {
         return $TitleAlign
     } -set {
@@ -1092,7 +1162,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error {buttonimages must be a dictionary}
         }
         dict for {action image} $value {
-            if {$action ni {dock undock delete}} {
+            if {$action ni {dock undock delete pin unpin}} {
                 return -code error "unknown button image action '$action'"
             }
             if {($image ne {}) && [catch {image type $image}]} {
@@ -1348,9 +1418,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -opaqueresize boolean - Enable live sash resizing; default true.
         #  -sashpreview mode - Deferred preview mode: window, inline, or none; default window.
         #  -draghandles boolean - Enable rectangular docking headers on all leaves; default false.
+        #  -pinbuttonmode mode - Pin-button side policy all or outer; default all.
         #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
         #  -titlealign alignment - Header title alignment: left, center, or right; default center.
-        #  -buttonimages dictionary - Optional dock, undock, and delete Tk image overrides; default built-in bitmaps.
+        #  -buttonimages dictionary - Optional dock, undock, delete, pin, and unpin images; default built-in bitmaps.
         #  -headerrelief relief - Header border: flat, raised, sunken, ridge, groove, or solid; default flat.
         #  -leafborder boolean - Enable independent leaf outlines; default false.
         #  -leafborderwidth pixels - Nonnegative leaf outline thickness; default 1.
@@ -1373,10 +1444,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
         #  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary?
         #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
-        #  ?-titlealign alignment? ?-buttonimages dictionary?
+        #  ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?
         set HeaderRefresh {}
         set Icons {}
-        set ButtonImages [dict create dock {} undock {} delete {}]
+        set ButtonImages [dict create dock {} undock {} delete {} pin {} unpin {}]
         set LivePress {}
         set NodeRules {}
         set ContentRules {}
@@ -1410,6 +1481,7 @@ oo::configurable create ::splitlayout::splitlayout {
             {-showstructure= -default false -type boolean}
             {-draghandles= -default false -type boolean}
             {-buttonside= -default right -enum {left right}}
+            {-pinbuttonmode= -default all -enum {all outer}}
             {-titlealign= -default center -enum {left center right}}
             {-buttonimages= -default {}}
             {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid}}
@@ -1423,7 +1495,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 -leafrelief [dict get $options leafrelief]
         my configure -showstructure [dict get $options showstructure]
         my configure -draghandles [dict get $options draghandles]
-        my configure -buttonside [dict get $options buttonside]
+        my configure -buttonside [dict get $options buttonside] -pinbuttonmode [dict get $options pinbuttonmode]
         my configure -titlealign [dict get $options titlealign] -buttonimages [dict get $options buttonimages]
         my configure -headerrelief [dict get $options headerrelief]\
                 -headerborderwidth [dict get $options headerborderwidth] -tooltips [dict get $options tooltips]
@@ -1842,43 +1914,59 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set model $source parent $parent
         }
     }
-    method BoundaryPinned {model id orient end} {
-        # Finds pinned content that blocks one boundary of a proposed subtree.
-        #  model - Proposed node dictionary, with the moving source detached.
-        #  id - Subtree to inspect.
-        #  orient - Axis perpendicular to the boundary: horizontal or vertical.
+    method IsRootBoundary {model id orient end} {
+        # Tests whether a subtree edge coincides with the outer root boundary in the proposed layout.
+        #  model - Proposed nodes after detaching a moving source.
+        #  id - Subtree whose edge is being considered.
+        #  orient - Axis perpendicular to the edge: horizontal or vertical.
         #  end - first for left/top, last for right/bottom.
         #
-        # Parallel splits expose only their outer child; perpendicular splits expose every child.
-        # Each leaf checks its own physical edge against pinnedside, independently of which neighbor was named.
-        # This checks adjacency, not inherited movement restrictions on the enclosing split.
-        # Returns: The first pinned leaf identifier found, or empty.
-        if {[dict get $model $id type] eq {leaf}} {
-            set frame [dict get $model $id widget]
-            if {[dict exists $ContentRules $frame -pinned] && [dict get $ContentRules $frame -pinned]} {
-                set settings [dict merge [my ConstraintDefaults] [dict get $ContentRules $frame]]
-                if {$orient eq {horizontal}} {
-                    set side [expr {$end eq {first} ? {left} : {right}}]
-                } else {
-                    set side [expr {$end eq {first} ? {top} : {bottom}}]
-                }
-                if {$side in [dict get $settings -pinnedside]} {
-                    return $id
-                }
+        # Parallel ancestors must expose this child at the selected end. Perpendicular ancestors expose every
+        # child on that edge. This uses topology rather than mapped pixel coordinates.
+        # Returns: Boolean. Internal ancestor sashes are never root boundaries.
+        while {[set parent [dict get $model $id parent]] ne {}} {
+            if {[dict get $model $parent orient] eq $orient} {
+                set children [dict get $model $parent children]
+                set index [expr {$end eq {first} ? 0 : [llength $children]-1}]
+                if {[lindex $children $index] ne $id} {return 0}
+            }
+            set id $parent
+        }
+        return 1
+    }
+    method BoundaryPinned {model id orient end {descend 0}} {
+        # Finds a blocked leaf edge, optionally propagating descendant pins at a root outer boundary.
+        #  model - Proposed node dictionary, with the moving source detached.
+        #  id - Direct neighbor or subtree at the insertion boundary.
+        #  orient - Axis perpendicular to the boundary: horizontal or vertical.
+        #  end - first for left/top, last for right/bottom.
+        #  descend - Whether this boundary coincides with an outer root edge; default false.
+        #
+        # Internal split neighbors do not inherit descendant pins. At root edges, parallel splits expose only
+        # their end child and perpendicular splits expose all children. Only the selected physical side is checked.
+        # Returns: The blocking leaf identifier, or empty.
+        if {[dict get $model $id type] ne {leaf}} {
+            if {!$descend} {return}
+            set children [dict get $model $id children]
+            if {[dict get $model $id orient] eq $orient} {
+                set index [expr {$end eq {first} ? 0 : [llength $children]-1}]
+                set children [lrange $children $index $index]
+            }
+            foreach child $children {
+                set pinned [my BoundaryPinned $model $child $orient $end 1]
+                if {$pinned ne {}} {return $pinned}
             }
             return
         }
-        set children [dict get $model $id children]
-        if {[dict get $model $id orient] eq $orient} {
-            set index [expr {$end eq {first} ? 0 : [llength $children]-1}]
-            set children [lrange $children $index $index]
+        set frame [dict get $model $id widget]
+        if {![dict exists $ContentRules $frame -pinned] || ![dict get $ContentRules $frame -pinned]} {return}
+        set settings [dict merge [my ConstraintDefaults] [dict get $ContentRules $frame]]
+        if {$orient eq {horizontal}} {
+            set side [expr {$end eq {first} ? {left} : {right}}]
+        } else {
+            set side [expr {$end eq {first} ? {top} : {bottom}}]
         }
-        foreach child $children {
-            set pinned [my BoundaryPinned $model $child $orient $end]
-            if {$pinned ne {}} {
-                return $pinned
-            }
-        }
+        if {$side in [dict get $settings -pinnedside]} {return $id}
         return
     }
     method ValidatePlacement {model target side} {
@@ -1887,8 +1975,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #  target - Target leaf or split.
         #  side - left, right, top, bottom, before, or after.
         #
-        # A shared insertion slot checks both neighboring subtrees, regardless of which one is named.
-        # Wrapping a subtree checks only its exposed destination edge; unrelated edges remain usable.
+        # A shared insertion slot checks its two direct neighbors, regardless of which one is named.
+        # Descendant pins propagate only where this boundary coincides with an outer root edge.
         # Returns: Nothing, or a structured -pinned constraint error identifying the blocking leaf.
         set parent [dict get $model $target parent]
         set before [expr {$side in {left top before}}]
@@ -1916,7 +2004,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         foreach {id end} $boundaries {
-            set pinned [my BoundaryPinned $model $id $orient $end]
+            set pinned [my BoundaryPinned $model $id $orient $end [my IsRootBoundary $model $id $orient $end]]
             if {$pinned ne {}} {
                 my ConstraintError $pinned -pinned {placement beside pinned content is disabled}
             }
@@ -2099,8 +2187,9 @@ oo::configurable create ::splitlayout::splitlayout {
     method ActionAllowed {id action} {
         # Tests a header or native-close action against the same command preflight.
         #  id - Leaf or floating token.
-        #  action - dock, undock, or delete.
+        #  action - dock, undock, delete, pin, or unpin.
         # Returns: Boolean. Unexpected implementation errors remain errors.
+        if {$action in {pin unpin}} {return 1}
         set op [expr {$action eq {delete} ? {remove} : $action}]
         set args [list $id]
         if {$op eq {dock}} {
@@ -2243,7 +2332,8 @@ oo::configurable create ::splitlayout::splitlayout {
             } elseif {[dict exists $Panels $id]} {
                 set grip [dict get $Panels $id grip]
             }
-            foreach kind [list $action delete] name {toggle delete} {
+            set pinAction [expr {[my constraints $id -pinned] ? {unpin} : {pin}}]
+            foreach kind [list $pinAction $action delete] name {pin toggle delete} {
                 set width [expr {max(22,[image width [my ButtonImage $kind]]+6)}]
                 if {($grip ne {}) && [winfo exists $grip.$name]} {
                     set width [expr {max($width,[winfo reqwidth $grip.$name])}]
@@ -3831,7 +3921,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method GripIcon {kind} {
         # Creates or reuses a small monochrome bitmap for a header button.
-        #  kind - One of dock, undock, or delete.
+        #  kind - One of dock, undock, delete, pin, or unpin.
         #
         # Returns: An image name. Images belong to the manager and follow ttk foreground colors.
         if {[dict exists $Icons $kind]} {
@@ -3843,6 +3933,12 @@ oo::configurable create ::splitlayout::splitlayout {
             for {set x 0} {$x < 12} {incr x} {
                 if {$kind eq {delete}} {
                     set on [expr {$x >= 2 && $x <= 9 && ($x == $y || $x == 11-$y)}]
+                } elseif {$kind in {pin unpin}} {
+                    set xx [expr {$kind eq {pin} ? $x : $y}]
+                    set yy [expr {$kind eq {pin} ? $y : 11-$x}]
+                    set on [expr {($yy == 2 && $xx >= 3 && $xx <= 8) ||
+                            ($yy >= 3 && $yy <= 5 && ($xx == 4 || $xx == 7)) ||
+                            ($yy == 6 && $xx >= 2 && $xx <= 9) || ($xx == 5 && $yy >= 7 && $yy <= 10)}]
                 } else {
                     set xx [expr {$kind eq {dock} ? 11-$x : $x}]
                     set yy [expr {$kind eq {dock} ? 11-$y : $y}]
@@ -3862,7 +3958,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method ButtonImage {action} {
         # Resolves an action's application-supplied image or the built-in monochrome bitmap.
-        #  action - dock, undock, or delete.
+        #  action - dock, undock, delete, pin, or unpin.
         #
         # Supplied images remain application-owned and are never recolored or deleted. If one has been deleted
         # externally, the next redraw falls back to the built-in image rather than raising a background error.
@@ -3872,7 +3968,7 @@ oo::configurable create ::splitlayout::splitlayout {
         return [my GripIcon $action]
     }
     method MakeGrip {grip id floating} {
-        # Creates a rectangular drag header and two independent action buttons.
+        # Creates a rectangular drag header and three independent action buttons.
         #  grip - New canvas pathname.
         #  id - Leaf identifier or floating token.
         #  floating - Whether the strip belongs to a floating window.
@@ -3883,11 +3979,11 @@ oo::configurable create ::splitlayout::splitlayout {
         canvas $grip -width 84 -height $height -borderwidth $HeaderBorder -relief $HeaderRelief -highlightthickness 0\
                 -takefocus 0 -cursor fleur
         set action [expr {$floating ? {dock} : {undock}}]
-        foreach name {toggle delete} kind [list $action delete] tip [list [string totitle $action] {Delete content}] {
+        set pinAction [expr {[my constraints $id -pinned] ? {unpin} : {pin}}]
+        foreach name {pin toggle delete} kind [list $pinAction $action delete] {
             set image [my ButtonImage $kind]
             ttk::button $grip.$name -image [list $image disabled $image] -width 0 -padding 1 -takefocus 1\
                     -command [namespace code [list my GripAction $id $kind]]
-            place $grip.$name -relx 1 -x [expr {$name eq {delete} ? -22 : -44}] -y 0 -width 22 -relheight 1
         }
         dict set Headers $grip $id
         my SyncHeaderTips
@@ -3897,17 +3993,43 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $grip <B1-Motion> [namespace code {my DockMotion %X %Y}]
         bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
         bind $grip <Escape> [namespace code {my DockEscape}]
-        foreach event {<FocusOut> <Unmap>} {
-            bind $grip $event [namespace code {my CancelDock}]
-        }
+        bind $grip <FocusOut> [namespace code [list my DockFocusOut $grip]]
+        bind $grip <Unmap> [namespace code {my CancelDock}]
         bind $grip <Destroy> [namespace code [list my HeaderDestroyed $grip]]
         my DrawGrip $grip
         return $grip
     }
+    method PinButtonSides {id} {
+        # Computes the edges blocked by a pin-button click without changing existing constraints.
+        #  id - Docked leaf or floating token.
+        #
+        # Outer uses the immediate parent split, not the root or a pixel hit test. The two perpendicular edges
+        # always touch that split boundary; the first/last child also touches the corresponding end edge.
+        # Root leaves and floating content have no parent split and therefore use all four edges.
+        # Returns: A canonical left/right/top/bottom list, captured only when the button pins content.
+        if {$PinButtonMode eq {all} || [dict exists $Floating $id] || [my parent $id] eq {}} {
+            return {left right top bottom}
+        }
+        set parent [my parent $id]
+        set children [my children $parent]
+        set first [expr {[lindex $children 0] eq $id}]
+        set last [expr {[lindex $children end] eq $id}]
+        set sides {}
+        if {[dict get $Nodes $parent orient] eq {horizontal}} {
+            if {$first} {lappend sides left}
+            if {$last} {lappend sides right}
+            lappend sides top bottom
+        } else {
+            lappend sides left right
+            if {$first} {lappend sides top}
+            if {$last} {lappend sides bottom}
+        }
+        return $sides
+    }
     method GripAction {id action} {
         # Executes an explicit header action independently of the native close policy.
         #  id - Docked leaf or floating token.
-        #  action - dock, undock, or delete.
+        #  action - dock, undock, delete, pin, or unpin.
         #
         # Returns: Nothing. Delete requests removal regardless of onclose, but still honors node constraints.
         if {![my ActionAllowed $id $action]} {
@@ -3915,6 +4037,13 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my CancelDrag
         switch $action {
+            pin - unpin {
+                if {[my constraints $id -pinned]} {
+                    my constraints $id -pinned false
+                } else {
+                    my constraints $id -pinned true -pinnedside [my PinButtonSides $id]
+                }
+            }
             dock {
                 my dock $id
             }
@@ -3985,11 +4114,11 @@ oo::configurable create ::splitlayout::splitlayout {
             set font TkDefaultFont
         }
         set height [expr {max(20,round(14*[tk scaling]),[font metrics $font -linespace]+6)}]
-        foreach action {dock undock delete} {
+        foreach action {dock undock delete pin unpin} {
             set height [expr {max($height,[image height [my ButtonImage $action]]+6)}]
         }
         dict for {grip id} $Headers {
-            foreach name {toggle delete} {
+            foreach name {pin toggle delete} {
                 if {[winfo exists $grip.$name]} {
                     set height [expr {max($height,[winfo reqheight $grip.$name])}]
                 }
@@ -4002,6 +4131,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # No nested event loop is used. The idle pass lets headers shrink after large icons are replaced.
         # Returns: Nothing.
+        my SyncHeaderTips
         dict for {grip id} $Headers {
             if {[winfo exists $grip]} {
                 my DrawGrip $grip
@@ -4035,9 +4165,31 @@ oo::configurable create ::splitlayout::splitlayout {
         if {!$TooltipReady} {
             return
         }
-        foreach path [list $grip $grip.toggle $grip.delete] {
+        foreach path [list $grip $grip.pin $grip.toggle $grip.delete] {
             ::tooltip::tooltip clear [regsub -all {[][?*\\]} $path {\\&}]
         }
+    }
+    method PinTooltip {id} {
+        # Describes the pin-button action and the content's current local movement restrictions.
+        #  id - Docked leaf or floating token.
+        #
+        # Stored pinnedside values are inactive when pinned is false. Other constraints can independently reject
+        # an operation, so unlocked describes the explicit movement flag rather than promising an allowed action.
+        # Layout movement does not mean moving a floating window on the desktop.
+        # Returns: A multiline tooltip; available only through the optional Tklib tooltip integration.
+        set settings [my constraints $id]
+        set pinned [dict get $settings -pinned]
+        set action [expr {$pinned ? {Unpin pane} : {Pin pane}}]
+        set movement [expr {[dict get $settings -nomove] ? {locked} : {unlocked}}]
+        set undocking [expr {[dict get $settings -noundock] ? {locked} : {unlocked}}]
+        set sides [expr {$pinned ? [dict get $settings -pinnedside] : {}}]
+        switch [llength $sides] {
+            0 {set sides none}
+            1 {set sides [lindex $sides 0]}
+            default {set sides "[join [lrange $sides 0 end-1] {, }] and [lindex $sides end]"}
+        }
+        return [join [list $action "Layout movement: $movement" "Undocking: $undocking" \
+                "Docking sides blocked by pinning: $sides"] \n]
     }
     method SyncHeaderTips {} {
         # Applies the per-manager tooltip preference to headers and buttons using the optional Tklib package.
@@ -4058,6 +4210,7 @@ oo::configurable create ::splitlayout::splitlayout {
                                 {Drag to move this window or dock it in the layout} :
                                 {Drag to rearrange this pane or move it outside the layout to undock}}]
                 ::tooltip::tooltip $grip $hint
+                ::tooltip::tooltip $grip.pin [my PinTooltip $id]
                 ::tooltip::tooltip $grip.toggle $action
                 ::tooltip::tooltip $grip.delete {Delete content}
             }
@@ -4209,7 +4362,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set id [dict get $Headers $grip]
         set action [expr {[dict exists $Floating $id] ? {dock} : {undock}}]
         set widths {}
-        foreach name {toggle delete} kind [list $action delete] {
+        set pinAction [expr {[my constraints $id -pinned] ? {unpin} : {pin}}]
+        foreach name {pin toggle delete} kind [list $pinAction $action delete] {
             $grip.$name state [expr {[my ActionAllowed $id $kind] ? {!disabled} : {disabled}}]
             set image [my ButtonImage $kind]
             # Use the action image in both states; disabling must not substitute a different symbol.
@@ -4234,18 +4388,19 @@ oo::configurable create ::splitlayout::splitlayout {
         dict for {name image} $Icons {
             $image configure -foreground $fg
         }
-        set toggleWidth [dict get $widths toggle]
-        set deleteWidth [dict get $widths delete]
-        set buttonsWidth [expr {$toggleWidth+$deleteWidth}]
-        foreach name {toggle delete} {
+        set buttonsWidth 0
+        dict for {name width} $widths {incr buttonsWidth $width}
+        set offset 0
+        foreach name {pin toggle delete} {
+            set width [dict get $widths $name]
             place configure $grip.$name -bordermode ignore -rely 0 -y $edge -relheight 1\
-                    -height [expr {-$edge-$bottom}] -width [dict get $widths $name]
+                    -height [expr {-$edge-$bottom}] -width $width
             if {$ButtonSide eq {right}} {
-                place configure $grip.$name -relx 1 -x [expr {-$edge-($name eq {delete} ? $deleteWidth :\
-                                                                                      $buttonsWidth)}]
+                place configure $grip.$name -relx 1 -x [expr {-$edge-$buttonsWidth+$offset}]
             } else {
-                place configure $grip.$name -relx 0 -x [expr {$edge+($name eq {delete} ? $toggleWidth : 0)}]
+                place configure $grip.$name -relx 0 -x [expr {$edge+$offset}]
             }
+            incr offset $width
         }
         if {![dict exists $Floating $id] && (![dict exists $Nodes $id] || ([my type $id] ne {leaf}))} {
             return
@@ -4296,6 +4451,17 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         $grip create text $x [expr {($edge+[winfo height $grip]-$bottom)/2.0}] -text $text -font $font -fill $fg\
                 -anchor $anchor -tags heading
+    }
+    method DockFocusOut {grip} {
+        # Cancels only a drag whose own header has actually lost focus.
+        #  grip - Header receiving the FocusOut notification.
+        #
+        # Starting a drag on another header queues FocusOut for the previous header (including focus within its
+        # buttons). That notification must not cancel the new gesture. Ignore stale events if focus has returned.
+        # Returns: Nothing. Genuine focus loss from the active drag header still releases its grab and preview.
+        if {$Dock ne {} && [dict get $Dock grip] eq $grip && [focus -displayof $grip] ne $grip} {
+            my CancelDock
+        }
     }
     method DockPress {id x y} {
         # Arms a leaf drag and captures pointer events with a local grab.

@@ -232,9 +232,16 @@ floating content with <code class="docutils literal notranslate"><span class="pr
 <p><code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> sets both movement flags and protects adjacent placement boundaries. <code class="docutils literal notranslate"><span class="pre">move</span></code> and <code class="docutils literal notranslate"><span class="pre">dock</span></code>,
 including gestures, reject placing content against the edges selected by <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code>. Shared slots check both
 neighbors: naming the unpinned neighbor with <code class="docutils literal notranslate"><span class="pre">-before</span></code> or <code class="docutils literal notranslate"><span class="pre">-after</span></code> cannot bypass the restriction. Sash and
-outer-rim drop zones use the same validation. For a nested neighbor, only leaves touching the insertion
-boundary matter; a pinned leaf elsewhere in that subtree does not block it. Pinned flags are not imposed on
-ancestors. The same checks apply to remembered docking positions and floating-window docking gestures.</p>
+outer-rim drop zones use the same validation. Internal ancestor sashes check only their direct leaf
+neighbors: pinning the bottom leaf of a vertical middle split does not block the outer vertical sashes beside
+that split. Its own selected edges and adjacent sibling slots remain protected, and a directly neighboring
+pinned leaf can still block an internal slot.</p>
+<p>There is one exception: an insertion boundary coinciding with an outer root edge also checks descendants
+touching that edge. For example, a nested bottom leaf blocking <code class="docutils literal notranslate"><span class="pre">bottom</span></code> blocks placement below the whole
+root, or below its containing split when that split reaches the root’s bottom edge. Its left/right settings
+do not block internal ancestor sashes. Descendants that do not touch the selected root edge do not restrict
+it. The rule uses the proposed tree after removing a moving source, works before mapping, and applies to
+commands, gestures, outer-rim drops, and remembered docking alike. It never changes stored flags or side lists.</p>
 <p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> is a list of blocked physical edges: <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">right</span></code>, <code class="docutils literal notranslate"><span class="pre">top</span></code>, and <code class="docutils literal notranslate"><span class="pre">bottom</span></code>. The default is
 <code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code>. For example, leave the right edge available so other floating windows can return
 even when this is the only remaining docked leaf:</p>
@@ -245,7 +252,7 @@ even when this is the only remaining docked leaf:</p>
 <p>Both sides of a shared slot are checked against each neighbor’s own physical edge: inserting after a leaf
 checks its <code class="docutils literal notranslate"><span class="pre">right</span></code> edge in a horizontal parent and its <code class="docutils literal notranslate"><span class="pre">bottom</span></code> edge in a vertical parent. The opposite
 neighbor’s <code class="docutils literal notranslate"><span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">top</span></code> edge is checked too. Before/after are destination commands, not valid pinnedside
-values. Nested boundaries use the same physical-edge rule.</p>
+values. Split neighbors are searched for pinned descendants only at coincident outer root edges.</p>
 <p>An empty list allows incoming placement on every edge while keeping the pinned leaf’s movement and undocking
 restrictions. Setting <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> alone does not enable pinning; it can be configured in advance, and it is
 preserved when pinning is switched off and on. Queries return a unique list in left/right/top/bottom order.
@@ -505,7 +512,7 @@ there. A floating drop in a leaf’s center docks to its right (it does not swap
 untouched sole-root placeholder is filled instead. Release elsewhere keeps the window floating at its new
 position. Escape cancels and restores the starting position. Moving native window decorations only moves the
 window; it does not initiate docking.</p>
-<p>Each grip has two monochrome bitmap buttons, with tooltips:</p>
+<p>Each grip has three monochrome bitmap buttons, with tooltips:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 33.3%" />
@@ -519,11 +526,15 @@ window; it does not initiate docking.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Arrow</p></td>
+<tr class="row-even"><td><p>Pin</p></td>
+<td><p>Toggle pinning</p></td>
+<td><p>Toggle pinning</p></td>
+</tr>
+<tr class="row-odd"><td><p>Arrow</p></td>
 <td><p>Undock</p></td>
 <td><p>Dock at the default destination defined by <code class="docutils literal notranslate"><span class="pre">dock</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Cross</p></td>
+<tr class="row-even"><td><p>Cross</p></td>
 <td><p>Delete content with <code class="docutils literal notranslate"><span class="pre">remove</span></code></p></td>
 <td><p>Delete content with <code class="docutils literal notranslate"><span class="pre">remove</span></code></p></td>
 </tr>
@@ -539,6 +550,60 @@ construction or with <code class="docutils literal notranslate"><span class="pre
 alignment is controlled independently by <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>. Changing alignment cancels an active drag without
 moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
 follows the theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> and its option-database resources.</p>
+<section id="pin-button">
+<span id="r-splitlayout-pin-button"></span><span id="r-3a3asplitlayoutqzpin20button"></span><h3>Pin button<a class="headerlink" href="#pin-button" title="Link to this heading">¶</a></h3>
+<p>The pin button uses the <code class="docutils literal notranslate"><span class="pre">pin</span></code> image while unpinned and the <code class="docutils literal notranslate"><span class="pre">unpin</span></code> image while pinned, with a dynamic
+tooltip describing the action and current constraints. It remains available when movement, undocking, or
+deletion is blocked, so the user can release a pin.
+Programmatic constraint changes update its image and tooltip. Like the other buttons it supports keyboard
+activation, never starts a drag, and disappears when <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> is false.</p>
+<p>The pin tooltip reports layout movement and undocking as locked/unlocked from the explicit <code class="docutils literal notranslate"><span class="pre">-nomove</span></code>
+and <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> flags, and lists the docking sides blocked by pinning. It shows <code class="docutils literal notranslate"><span class="pre">none</span></code> when pinning is off
+or its side list is empty, even if an inactive side list is still stored. For example:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Unpin pane
+Layout movement: locked
+Undocking: locked
+Docking sides blocked by pinning: left, top and bottom
+</pre></div>
+</div>
+<p>These are current local restrictions, not predictions of the next click or a summary of every ancestor
+limit. An unlocked movement flag does not override other constraints. Direct constraint updates and button
+clicks refresh the tooltip in docked and floating headers. <code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">false</span></code> and missing Tklib disable it
+exactly like the other header tooltips; no custom fallback is created.</p>
+<p><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span> <span class="pre">all|outer</span></code> is a manager-wide property, accepted at construction and by <code class="docutils literal notranslate"><span class="pre">configure</span></code>, defaulting
+to <code class="docutils literal notranslate"><span class="pre">all</span></code>. It controls only a button click that changes unpinned content to pinned content:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Sides assigned to <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> when pinning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">outer</span></code></p></td>
+<td><p>Edges on the immediate parent split’s boundary</p></td>
+</tr>
+</tbody>
+</table>
+<p>For a horizontal split, every child touches top and bottom; the first child also touches left and the last
+also touches right. For a vertical split, every child touches left and right; the first also touches top and
+the last also touches bottom. Nested leaves use their own immediate parent split, even where that split’s
+boundary is internal to the manager. Root leaves and floating content have no parent split and use all sides.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>pinbuttonmode<span class="w"> </span>outer
+</pre></div>
+</div>
+<p>Clicking to pin sets <code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> and the computed <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> together, replacing any previously stored
+side selection. Clicking again uses <code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">false</span></code>, clearing both movement flags while retaining the side
+list. Sides are captured at click time: later insertion, collapse, docking, or mode changes do not recompute
+them. To recalculate, unpin and pin again. Changing the mode does not change direct <code class="docutils literal notranslate"><span class="pre">constraints</span></code> semantics,
+existing flags, or an active drag. The mode belongs to each manager independently, including nested managers.</p>
+</section>
 <section id="leaf-outlines">
 <span id="r-splitlayout-leaf-outlines"></span><span id="r-3a3asplitlayoutqzleaf20outlines"></span><h3>Leaf outlines<a class="headerlink" href="#leaf-outlines" title="Link to this heading">¶</a></h3>
 <p>Enable <code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">true</span></code> to surround each leaf’s header and content with one independent outline.</p>
@@ -587,7 +652,7 @@ Centering reserves equal space at both ends for either button alignment, keeping
 <p><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">left|center|right</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">center</span></code> and is independent of <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>. Left and right titles
 use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
 header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code> is a dictionary with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, <code class="docutils literal notranslate"><span class="pre">undock</span></code>, and <code class="docutils literal notranslate"><span class="pre">delete</span></code> keys. Values are existing Tk image names,
+<p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code> is a dictionary with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, <code class="docutils literal notranslate"><span class="pre">undock</span></code>, <code class="docutils literal notranslate"><span class="pre">delete</span></code>, <code class="docutils literal notranslate"><span class="pre">pin</span></code>, and <code class="docutils literal notranslate"><span class="pre">unpin</span></code> keys. Values are existing Tk image names,
 not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>undockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>undock.png<span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>dockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>dock.svg<span class="w"> </span><span class="o">-</span>format<span class="w"> </span>svg<span class="k">]</span>
@@ -598,7 +663,8 @@ not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk phot
 <p>Overrides apply globally to existing and future docked and floating headers. Partial dictionaries preserve
 other entries; an empty value restores that action’s built-in bitmap. An empty dictionary changes nothing.
 Invalid keys or missing image names reject the whole update. The toggle uses <code class="docutils literal notranslate"><span class="pre">undock</span></code> while docked and <code class="docutils literal notranslate"><span class="pre">dock</span></code>
-while floating. Button widths and header height accommodate the images at their native pixel size; images
+while floating. The pin button uses <code class="docutils literal notranslate"><span class="pre">pin</span></code> or <code class="docutils literal notranslate"><span class="pre">unpin</span></code> according to the current constraint state. Button widths
+and header height accommodate the images at their native pixel size; images
 are not scaled or recolored. Supply appropriately sized icons and retain them while used. The manager never
 deletes supplied images. To delete one, clear/replace its override first. If an image is deleted externally,
 a subsequent refresh falls back to the built-in bitmap. After changing an image’s dimensions in place, reapply
@@ -761,51 +827,55 @@ widgets.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
 <td><p>Deferred preview mode: <code class="docutils literal notranslate"><span class="pre">window</span></code>, <code class="docutils literal notranslate"><span class="pre">inline</span></code>, or <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
+<td><p>Pin-button side policy: all edges or immediate parent split boundaries.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">right</span></code></p></td>
 <td><p>Place header buttons on the left or right; title alignment is independent.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">center</span></code></p></td>
 <td><p>Align the optional header title left, center, or right.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
 <td><p>Empty values</p></td>
-<td><p>Optional dock, undock, and delete Tk image overrides.</p></td>
+<td><p>Optional dock, undock, delete, pin, and unpin Tk image overrides.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 <td><p>Rectangular header relief.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Outline each leaf, including floating windows.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Nonnegative leaf outline thickness in pixels.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">solid</span></code></p></td>
 <td><p>Leaf outline relief, independent of the header.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
 <td><p>option database</p></td>
 <td><p>Leaf border base color (<code class="docutils literal notranslate"><span class="pre">-color</span></code>).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Nonnegative header border thickness in pixels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>Use Tklib tooltips when available.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Show docking grips on all current and future leaves.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Outline and inset all current and future splits.</p></td>
 </tr>
@@ -1154,7 +1224,7 @@ database; see the namespace resource reference.</p>
 <dd class="field-odd"><p>Readable, writable. Hull border width, delegated to the ttk frame.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Dictionary mapping dock, undock, and delete to existing Tk image names. All default to empty, selecting built-in bitmaps. Updates merge atomically; an empty value restores one default. Supplied images are application-owned. Buttons and header height accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.</p>
+<dd class="field-even"><p>Readable, writable. Dictionary mapping dock, undock, delete, pin, and unpin to existing Tk image names. Empty values select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one default. Supplied images are application-owned. Buttons and header height accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Readable, writable. Side of the grip strip containing the action buttons: left or right; default right. Applies immediately to docked and floating headers. Title alignment is controlled independently by titlealign. Changing the value cancels an active content drag. Button appearance remains controlled by ttk.</p>
@@ -1198,46 +1268,49 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Pin-button policy: all or outer; default all. All blocks all four edges. Outer computes edges on the immediate parent split boundary when clicked. Root leaves and floating content use all four edges. Changing the mode does not rewrite existing constraints or affect direct commands.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline preview modes. Defaults come from the Tk option database. Partial updates retain other keys.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline preview modes. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding. Defaults come from the Tk option database. Partial updates retain other keys.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Header title alignment: left, center, or right; default center. Independent of buttonside. Applies to docked and floating headers. Titles are truncated within the space clear of buttons.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true. Missing packages are silently tolerated. This property expresses the preference, not package availability. Only this manager’s registrations are changed; Tklib’s global settings remain application-controlled.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Header title alignment: left, center, or right; default center. Independent of buttonside. Applies to docked and floating headers. Titles are truncated within the space clear of buttons.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true. Missing packages are silently tolerated. This property expresses the preference, not package availability. Only this manager’s registrations are changed; Tklib’s global settings remain application-controlled.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
 </dd>
 </dl>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h4>
 <p>Creates a split layout with one empty root leaf.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em>
-<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?</em>
+<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Optional dock, undock, and delete Tk image overrides; default built-in bitmaps.</p>
+<dd class="field-odd"><p>Optional dock, undock, delete, pin, and unpin images; default built-in bitmaps.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">side</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Align header buttons left or right in docked and floating content; default right.</p>
@@ -1272,29 +1345,32 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Enable live sash resizing; default true.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Deferred preview mode: window, inline, or none; default window.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Pin-button side policy all or outer; default all.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Deferred sash preview color and width; option-database defaults.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Deferred preview mode: window, inline, or none; default window.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-showstructure</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Outline and inset all split regions; default false.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Deferred sash preview color and width; option-database defaults.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-showstructure</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Outline and inset all split regions; default false.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">alignment</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Header title alignment: left, center, or right; default center.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Show Tklib tooltips when the optional package is available; default true.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">alignment</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Header title alignment: left, center, or right; default center.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Nonnegative requested hull width in pixels; default 800.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Show Tklib tooltips when the optional package is available; default true.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>New, non-root Tk widget pathname.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Nonnegative requested hull width in pixels; default 800.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>New, non-root Tk widget pathname.</p>
 </dd>
 </dl>
 <p class="rubric">Description</p>
@@ -1906,6 +1982,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 </li>
 <li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
 <li><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
+<li><a class="reference internal" href="#pin-button">Pin button</a></li>
 <li><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
 <li><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
 <li><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>

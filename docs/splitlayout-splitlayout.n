@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -249,9 +249,17 @@ undock commands accept leaves, not complete split subtrees; movement flags canno
 -pinned true sets both movement flags and protects adjacent placement boundaries\&. move and dock,
 including gestures, reject placing content against the edges selected by -pinnedside\&. Shared slots check both
 neighbors: naming the unpinned neighbor with -before or -after cannot bypass the restriction\&. Sash and
-outer-rim drop zones use the same validation\&. For a nested neighbor, only leaves touching the insertion
-boundary matter; a pinned leaf elsewhere in that subtree does not block it\&. Pinned flags are not imposed on
-ancestors\&. The same checks apply to remembered docking positions and floating-window docking gestures\&.
+outer-rim drop zones use the same validation\&. Internal ancestor sashes check only their direct leaf
+neighbors: pinning the bottom leaf of a vertical middle split does not block the outer vertical sashes beside
+that split\&. Its own selected edges and adjacent sibling slots remain protected, and a directly neighboring
+pinned leaf can still block an internal slot\&.
+.PP
+There is one exception: an insertion boundary coinciding with an outer root edge also checks descendants
+touching that edge\&. For example, a nested bottom leaf blocking bottom blocks placement below the whole
+root, or below its containing split when that split reaches the root's bottom edge\&. Its left/right settings
+do not block internal ancestor sashes\&. Descendants that do not touch the selected root edge do not restrict
+it\&. The rule uses the proposed tree after removing a moving source, works before mapping, and applies to
+commands, gestures, outer-rim drops, and remembered docking alike\&. It never changes stored flags or side lists\&.
 .PP
 -pinnedside is a list of blocked physical edges: left, right, top, and bottom\&. The default is
 {left right top bottom}\&. For example, leave the right edge available so other floating windows can return
@@ -267,7 +275,7 @@ $manager dock $floatingToken -right $editor
 Both sides of a shared slot are checked against each neighbor's own physical edge: inserting after a leaf
 checks its right edge in a horizontal parent and its bottom edge in a vertical parent\&. The opposite
 neighbor's left or top edge is checked too\&. Before/after are destination commands, not valid pinnedside
-values\&. Nested boundaries use the same physical-edge rule\&.
+values\&. Split neighbors are searched for pinned descendants only at coincident outer root edges\&.
 .PP
 An empty list allows incoming placement on every edge while keeping the pinned leaf's movement and undocking
 restrictions\&. Setting -pinnedside alone does not enable pinning; it can be configured in advance, and it is
@@ -521,13 +529,14 @@ untouched sole-root placeholder is filled instead\&. Release elsewhere keeps the
 position\&. Escape cancels and restores the starting position\&. Moving native window decorations only moves the
 window; it does not initiate docking\&.
 .PP
-Each grip has two monochrome bitmap buttons, with tooltips:
+Each grip has three monochrome bitmap buttons, with tooltips:
 .PP
 .RS 4n
 .nf
 ┌────────┬────────────────────────────┬─────────────────────────────────────────────────┐
 │ Button │ Docked leaf                │ Floating content                                │
 ├────────┼────────────────────────────┼─────────────────────────────────────────────────┤
+│ Pin    │ Toggle pinning             │ Toggle pinning                                  │
 │ Arrow  │ Undock                     │ Dock at the default destination defined by dock │
 │ Cross  │ Delete content with remove │ Delete content with remove                      │
 └────────┴────────────────────────────┴─────────────────────────────────────────────────┘
@@ -544,6 +553,62 @@ construction or with configure to align buttons globally\&. Both docked and floa
 alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
 moving content\&. It is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground
 follows the theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+.SS "PIN BUTTON"
+.PP
+The pin button uses the pin image while unpinned and the unpin image while pinned, with a dynamic
+tooltip describing the action and current constraints\&. It remains available when movement, undocking, or
+deletion is blocked, so the user can release a pin\&.
+Programmatic constraint changes update its image and tooltip\&. Like the other buttons it supports keyboard
+activation, never starts a drag, and disappears when -draghandles is false\&.
+.PP
+The pin tooltip reports layout movement and undocking as locked/unlocked from the explicit -nomove
+and -noundock flags, and lists the docking sides blocked by pinning\&. It shows none when pinning is off
+or its side list is empty, even if an inactive side list is still stored\&. For example:
+.PP
+.RS 4n
+.nf
+Unpin pane
+Layout movement: locked
+Undocking: locked
+Docking sides blocked by pinning: left, top and bottom
+.fi
+.RE
+.PP
+These are current local restrictions, not predictions of the next click or a summary of every ancestor
+limit\&. An unlocked movement flag does not override other constraints\&. Direct constraint updates and button
+clicks refresh the tooltip in docked and floating headers\&. -tooltips false and missing Tklib disable it
+exactly like the other header tooltips; no custom fallback is created\&.
+.PP
+-pinbuttonmode all|outer is a manager-wide property, accepted at construction and by configure, defaulting
+to all\&. It controls only a button click that changes unpinned content to pinned content:
+.PP
+.RS 4n
+.nf
+┌───────┬────────────────────────────────────────────────┐
+│ Mode  │ Sides assigned to -pinnedside when pinning     │
+├───────┼────────────────────────────────────────────────┤
+│ all   │ {left right top bottom}                        │
+│ outer │ Edges on the immediate parent split's boundary │
+└───────┴────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+For a horizontal split, every child touches top and bottom; the first child also touches left and the last
+also touches right\&. For a vertical split, every child touches left and right; the first also touches top and
+the last also touches bottom\&. Nested leaves use their own immediate parent split, even where that split's
+boundary is internal to the manager\&. Root leaves and floating content have no parent split and use all sides\&.
+.PP
+.RS 4n
+.nf
+$manager configure -draghandles true -pinbuttonmode outer
+.fi
+.RE
+.PP
+Clicking to pin sets -pinned true and the computed -pinnedside together, replacing any previously stored
+side selection\&. Clicking again uses -pinned false, clearing both movement flags while retaining the side
+list\&. Sides are captured at click time: later insertion, collapse, docking, or mode changes do not recompute
+them\&. To recalculate, unpin and pin again\&. Changing the mode does not change direct constraints semantics,
+existing flags, or an active drag\&. The mode belongs to each manager independently, including nested managers\&.
 .SS "LEAF OUTLINES"
 .PP
 Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
@@ -601,7 +666,7 @@ Centering reserves equal space at both ends for either button alignment, keeping
 use the respective edge of the free header area, with padding\&. Centered titles remain centered in the whole
 header\&. All alignments shorten long text to avoid the buttons; the stored title remains unchanged\&.
 .PP
--buttonimages is a dictionary with dock, undock, and delete keys\&. Values are existing Tk image names,
+-buttonimages is a dictionary with dock, undock, delete, pin, and unpin keys\&. Values are existing Tk image names,
 not filenames or raw SVG data\&. PNG and SVG files/data can be loaded into Tk photo images first:
 .PP
 .RS 4n
@@ -616,7 +681,8 @@ $manager configure -buttonimages {delete {}} ;# Use the built-in delete bitmap\&
 Overrides apply globally to existing and future docked and floating headers\&. Partial dictionaries preserve
 other entries; an empty value restores that action's built-in bitmap\&. An empty dictionary changes nothing\&.
 Invalid keys or missing image names reject the whole update\&. The toggle uses undock while docked and dock
-while floating\&. Button widths and header height accommodate the images at their native pixel size; images
+while floating\&. The pin button uses pin or unpin according to the current constraint state\&. Button widths
+and header height accommodate the images at their native pixel size; images
 are not scaled or recolored\&. Supply appropriately sized icons and retain them while used\&. The manager never
 deletes supplied images\&. To delete one, clear/replace its override first\&. If an image is deleted externally,
 a subsequent refresh falls back to the built-in bitmap\&. After changing an image's dimensions in place, reapply
@@ -773,9 +839,10 @@ widgets\&.
 │ -height            │ 600             │ Nonnegative requested hull height in pixels\&.                               │
 │ -opaqueresize      │ true            │ Resize pane content continuously while dragging a sash\&.                    │
 │ -sashpreview       │ window          │ Deferred preview mode: window, inline, or none\&.                            │
+│ -pinbuttonmode     │ all             │ Pin-button side policy: all edges or immediate parent split boundaries\&.    │
 │ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
 │ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
-│ -buttonimages      │ Empty values    │ Optional dock, undock, and delete Tk image overrides\&.                      │
+│ -buttonimages      │ Empty values    │ Optional dock, undock, delete, pin, and unpin Tk image overrides\&.          │
 │ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
 │ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
 │ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
@@ -1142,7 +1209,7 @@ Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widge
 Readable, writable\&. Hull border width, delegated to the ttk frame\&.
 .TP
 -buttonimages
-Readable, writable\&. Dictionary mapping dock, undock, and delete to existing Tk image names\&. All default to empty, selecting built-in bitmaps\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
+Readable, writable\&. Dictionary mapping dock, undock, delete, pin, and unpin to existing Tk image names\&. Empty values select built-in bitmaps and are the default\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
 .TP
 -buttonside
 Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. Title alignment is controlled independently by titlealign\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
@@ -1186,6 +1253,9 @@ Readable, writable\&. Boolean enabling live sash resizing; default true\&. Value
 -padding
 Readable, writable\&. Internal hull padding, delegated to the ttk frame\&.
 .TP
+-pinbuttonmode
+Readable, writable\&. Pin-button policy: all or outer; default all\&. All blocks all four edges\&. Outer computes edges on the immediate parent split boundary when clicked\&. Root leaves and floating content use all four edges\&. Changing the mode does not rewrite existing constraints or affect direct commands\&.
+.TP
 -relief
 Readable, writable\&. Hull relief, delegated to the ttk frame\&.
 .TP
@@ -1223,9 +1293,9 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one empty root leaf\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary?\fP
+\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?\fP
 .br
 .RE
 .PP
@@ -1233,7 +1303,7 @@ Creates a split layout with one empty root leaf\&.
 .RS 4n
 .TP
 -buttonimages dictionary
-Optional dock, undock, and delete Tk image overrides; default built-in bitmaps\&.
+Optional dock, undock, delete, pin, and unpin images; default built-in bitmaps\&.
 .TP
 -buttonside side
 Align header buttons left or right in docked and floating content; default right\&.
@@ -1267,6 +1337,9 @@ Leaf border relief; default solid\&.
 .TP
 -opaqueresize boolean
 Enable live sash resizing; default true\&.
+.TP
+-pinbuttonmode mode
+Pin-button side policy all or outer; default all\&.
 .TP
 -sashpreview mode
 Deferred preview mode: window, inline, or none; default window\&.
