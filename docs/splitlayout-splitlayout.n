@@ -458,6 +458,35 @@ fallback\&.  Set -tooltips false to remove this manager's tooltip registrations\
 application tooltips globally or change their delay, font, colors, or fading\&. Setting it to true retries
 loading the optional package\&.  The value returned by configure -tooltips is the requested preference, even
 when the package is unavailable\&.
+.SH "NESTED MANAGERS"
+.PP
+A leaf can contain another splitlayout instance as ordinary application content:
+.PP
+.RS 4n
+.nf
+set content [$outer frame $hostLeaf]
+set inner [splitlayout $content\&.inner -draghandles true -opaqueresize false]
+pack $inner -fill both -expand 1
+lassign [$inner split [$inner root]] first second
+.fi
+.RE
+.PP
+Each instance owns its tree, gesture state, previews, and floating tokens\&. Starting a drag on an inner header
+rearranges only the inner layout\&. Starting on the containing outer header moves the complete inner manager
+with its content frame\&. An outer drop over the inner layout targets the containing outer leaf\&. An inner drop
+outside the inner hull undocks that inner leaf, even if the pointer is still inside the outer manager\&.
+Individual leaves cannot be transferred between managers; docking accepts only the originating manager's
+floating tokens\&. An active grab prevents another manager from starting a competing content drag\&.
+.PP
+Undocking or redocking a containing leaf updates the actual owner toplevel of all nested managers, including
+hidden instances\&. Stale gestures are cancelled, owner event bindings move to the new toplevel, and subsequent
+deferred sash previews use that window as their transient owner\&. Independently floating descendants keep
+their own toplevel ownership\&. Mapping and gesture entry also refresh ownership after external Tk promotion\&.
+Removing the containing content destroys its nested managers and their owned floating windows\&.
+.PP
+Minimum sizes are independent between instances\&. The outer manager does not infer constraints from embedded
+application widgets\&. To constrain the host leaf, set its content minimum from the inner root's requiredsize,
+adding any hull padding or other surrounding widgets, and refresh it when the inner requirements change\&.
 .SH "SWAPPING AND REMOVING CONTENT"
 .PP
 The following operations continue the example above:

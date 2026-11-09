@@ -10,8 +10,8 @@
     <link rel="stylesheet" type="text/css" href="_static/classic.css?v=f11ead97" />
     
     <script src="_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -375,9 +375,9 @@ is restored when the border is disabled or the window is docked.</p>
 dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
 thickness are global properties; they do not override ttk button styles:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headerrelief<span class="w"> </span>ridge<span class="w"> </span><span class="o">-</span>headerborderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>left
-<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">&quot;Waveforms&quot;</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">"Waveforms"</span>
 <span class="k">set</span><span class="w"> </span>heading<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
-<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="k">;</span><span class="c"># Remove the heading.</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">title</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="k">;</span><span class="c"># Remove the heading.</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code> accepts <code class="docutils literal notranslate"><span class="pre">flat</span></code> (default), <code class="docutils literal notranslate"><span class="pre">raised</span></code>, <code class="docutils literal notranslate"><span class="pre">sunken</span></code>, <code class="docutils literal notranslate"><span class="pre">ridge</span></code>, <code class="docutils literal notranslate"><span class="pre">groove</span></code>, and <code class="docutils literal notranslate"><span class="pre">solid</span></code>.
@@ -422,6 +422,30 @@ application tooltips globally or change their delay, font, colors, or fading. Se
 loading the optional package.  The value returned by <code class="docutils literal notranslate"><span class="pre">configure</span> <span class="pre">-tooltips</span></code> is the requested preference, even
 when the package is unavailable.</p>
 </section>
+</section>
+<section id="nested-managers">
+<span id="r-splitlayout-nested-managers"></span><span id="r-3a3asplitlayoutqznested20managers"></span><h2>Nested managers<a class="headerlink" href="#nested-managers" title="Link to this heading">¶</a></h2>
+<p>A leaf can contain another splitlayout instance as ordinary application content:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>content<span class="w"> </span><span class="k">[</span><span class="nv">$outer</span><span class="w"> </span><span class="nv">frame</span><span class="w"> </span><span class="nv">$hostLeaf</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>inner<span class="w"> </span><span class="k">[</span><span class="nv">splitlayout</span><span class="w"> </span><span class="nv">$content.inner</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="k">]</span>
+<span class="nv">pack</span><span class="w"> </span><span class="nv">$inner</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$inner</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="k">[</span><span class="nv">$inner</span><span class="w"> </span><span class="nv">root</span><span class="k">]]</span><span class="w"> </span>first<span class="w"> </span>second
+</pre></div>
+</div>
+<p>Each instance owns its tree, gesture state, previews, and floating tokens. Starting a drag on an inner header
+rearranges only the inner layout. Starting on the containing outer header moves the complete inner manager
+with its content frame. An outer drop over the inner layout targets the containing outer leaf. An inner drop
+outside the inner hull undocks that inner leaf, even if the pointer is still inside the outer manager.
+Individual leaves cannot be transferred between managers; docking accepts only the originating manager’s
+floating tokens. An active grab prevents another manager from starting a competing content drag.</p>
+<p>Undocking or redocking a containing leaf updates the actual owner toplevel of all nested managers, including
+hidden instances. Stale gestures are cancelled, owner event bindings move to the new toplevel, and subsequent
+deferred sash previews use that window as their transient owner. Independently floating descendants keep
+their own toplevel ownership. Mapping and gesture entry also refresh ownership after external Tk promotion.
+Removing the containing content destroys its nested managers and their owned floating windows.</p>
+<p>Minimum sizes are independent between instances. The outer manager does not infer constraints from embedded
+application widgets. To constrain the host leaf, set its content minimum from the inner root’s requiredsize,
+adding any hull padding or other surrounding widgets, and refresh it when the inner requirements change.</p>
 </section>
 <section id="swapping-and-removing-content">
 <span id="r-splitlayout-swapping-and-removing-content"></span><span id="r-3a3asplitlayoutqzswapping20and20removing20content"></span><h2>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading">¶</a></h2>
@@ -760,10 +784,10 @@ and collapses a parent with only one remaining child. The application widgets, p
 state are retained. <code class="docutils literal notranslate"><span class="pre">dock</span></code> returns that owned content to a new leaf. Arbitrary windows and other managers’
 floating content are not accepted. For mouse-driven docking and undocking, see Dragging panes.</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>content<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">frame</span><span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
-<span class="k">set</span><span class="w"> </span>floating<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">undock</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span><span class="s2">&quot;Waveform&quot;</span><span class="w"> </span><span class="o">-</span>geometry<span class="w"> </span><span class="mi">600</span>x400<span class="o">+</span><span class="mi">100</span><span class="o">+</span><span class="mi">100</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>floating<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">undock</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span><span class="s2">"Waveform"</span><span class="w"> </span><span class="o">-</span>geometry<span class="w"> </span><span class="mi">600</span>x400<span class="o">+</span><span class="mi">100</span><span class="o">+</span><span class="mi">100</span><span class="k">]</span>
 
 <span class="c"># The content frame is now itself the native toplevel.</span>
-<span class="nv">wm</span><span class="w"> </span>title<span class="w"> </span><span class="nv">$content</span><span class="w"> </span><span class="s2">&quot;Floating waveform&quot;</span>
+<span class="nv">wm</span><span class="w"> </span>title<span class="w"> </span><span class="nv">$content</span><span class="w"> </span><span class="s2">"Floating waveform"</span>
 <span class="k">set</span><span class="w"> </span>info<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">floating</span><span class="w"> </span><span class="nv">$floating</span><span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>allFloating<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">floating</span><span class="k">]</span>
 
@@ -1663,6 +1687,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 <li><a class="reference internal" href="#optional-tooltips">Optional tooltips</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#nested-managers">Nested managers</a></li>
 <li><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
 <li><a class="reference internal" href="#visual-structure">Visual structure</a></li>
 <li><a class="reference internal" href="#resizing">Resizing</a></li>
@@ -1752,7 +1777,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
     </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright George Yashin.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.2.0.
     </div>
   </body>
 </html>

@@ -2205,8 +2205,8 @@ test splitlayout-return-20.2 {implicit docking restores middle position in a sur
     set token [$m undock $b]
     set restored [$m dock $token]
     update
-    list [expr {[$m children $root] eq [list $a $restored $c]}] [expr {[$m frame $restored] eq $frame}] \
-        [[$m panedwindow $root] cget -orient] [::sltest::check $m]
+    list [expr {[$m children $root] eq [list $a $restored $c]}] [expr {[$m frame $restored] eq $frame}]\
+            [[$m panedwindow $root] cget -orient] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 1 vertical 1}
 
 test splitlayout-return-20.3 {removed nearest anchor falls back to another surviving sibling} -setup {
@@ -2220,11 +2220,12 @@ test splitlayout-return-20.3 {removed nearest anchor falls back to another survi
     set restored [$m dock $token]
     update
     set children [$m children [$m root]]
-    list [expr {[$m frame [lindex $children 0]] eq $fa}] [expr {[lindex $children 1] eq $restored}] \
-        [[$m panedwindow [$m root]] cget -orient] [::sltest::check $m]
+    list [expr {[$m frame [lindex $children 0]] eq $fa}] [expr {[lindex $children 1] eq $restored}]\
+            [[$m panedwindow [$m root]] cget -orient] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 1 vertical 1}
 
-test splitlayout-return-20.4 {deleted anchors use root fallback; explicit destination overrides saved orientation} -setup {
+test splitlayout-return-20.4 {deleted anchors use root fallback; explicit destination overrides saved orientation}\
+        -setup {
     set m [::sltest::setup]
     lassign [$m split [$m root] -orient vertical] a b
 } -body {
@@ -2236,8 +2237,8 @@ test splitlayout-return-20.4 {deleted anchors use root fallback; explicit destin
     set rootFrame [$m frame [$m root]]
     set restored [$m dock $token]
     update
-    list $explicit [expr {[$m frame [lindex [$m children [$m root]] 0]] eq $rootFrame}] \
-        [expr {[lindex [$m children [$m root]] 1] eq $restored}] [::sltest::check $m]
+    list $explicit [expr {[$m frame [lindex [$m children [$m root]] 0]] eq $rootFrame}]\
+            [expr {[lindex [$m children [$m root]] 1] eq $restored}] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {horizontal 1 1 1}
 
 test splitlayout-return-20.5 {anchor converted to a split retains its subtree on restoration} -setup {
@@ -2248,12 +2249,13 @@ test splitlayout-return-20.5 {anchor converted to a split retains its subtree on
     lassign [$m split $b -orient horizontal] ba bb
     set restored [$m dock $token]
     update
-    list [expr {[$m children [$m root]] eq [list $restored $b]}] \
-        [expr {[$m children $b] eq [list $ba $bb]}] [[$m panedwindow [$m root]] cget -orient] [::sltest::check $m]
+    list [expr {[$m children [$m root]] eq [list $restored $b]}]\
+            [expr {[$m children $b] eq [list $ba $bb]}] [[$m panedwindow [$m root]] cget -orient] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 1 vertical 1}
 
 foreach side {left right} {
-    test splitlayout-header-20.6-$side {docked and floating strips share alignment and stay centered during growth and shrink} -setup {
+    test splitlayout-header-20.6-$side\
+            {docked and floating strips share alignment and stay centered during growth and shrink} -setup {
         set m [::sltest::setup]
         $m configure -draghandles true -buttonside $side
         set leaf [$m root]
@@ -2275,9 +2277,11 @@ foreach side {left right} {
             wm geometry $frame ${width}x300
             ::sltest::settle $frame
             set expected [expr {$side eq {left} ? 1 : [winfo width $grip]-45}]
-            if {[winfo width $grip] != $width || abs([winfo x $grip.toggle]-$expected) > 1 ||
-                abs([lindex [$grip coords heading] 0]-$width/2.0) > 1 ||
-                [winfo y $grip] != 0 || [winfo rooty $frame.entry] < [winfo rooty $grip]+[winfo height $grip]} {set correct 0}
+            if {[winfo width $grip] != $width || abs([winfo x $grip.toggle]-$expected) > 1 ||\
+                        abs([lindex [$grip coords heading] 0]-$width/2.0) > 1 ||\
+                        [winfo y $grip] != 0 || [winfo rooty $frame.entry] < [winfo rooty $grip]+[winfo height $grip]} {
+                set correct 0
+            }
         }
         $m configure -buttonside [expr {$side eq {left} ? {right} : {left}}]
         update
@@ -2325,11 +2329,12 @@ test splitlayout-heading-21.1 {titles follow content through swap split move and
     set leaf [$m dock $token]
     update
     set grip [::sltest::grip $m $leaf]
-    list $swapped $splitTitles $floatingTitle $nativeTitle [$m title $leaf] \
-        [expr {[$m frame $leaf] eq $fa && [$grip itemcget heading -text] ne {}}] [::sltest::check $m]
+    list $swapped $splitTitles $floatingTitle $nativeTitle [$m title $leaf]\
+            [expr {[$m frame $leaf] eq $fa && [$grip itemcget heading -text] ne {}}] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {{Beta Alpha} {Alpha {}} Alpha {Native title} {Edited while floating} 1 1}
 
-test splitlayout-heading-21.2 {long titles are visually truncated and clearing or removing content releases metadata} -setup {
+test splitlayout-heading-21.2 {long titles are visually truncated and clearing or removing content releases metadata}\
+        -setup {
     set m [::sltest::setup]
     $m configure -draghandles true
     set leaf [$m root]
@@ -2354,7 +2359,8 @@ test splitlayout-heading-21.2 {long titles are visually truncated and clearing o
 } -cleanup {::sltest::cleanup} -result {1 1 1 {}}
 
 foreach relief {flat raised sunken ridge groove solid} {
-    test splitlayout-heading-21.3-$relief {header relief and thickness update floating geometry without overlap} -setup {
+    test splitlayout-heading-21.3-$relief {header relief and thickness update floating geometry without overlap}\
+            -setup {
         lassign [::sltest::docksetup] m root a b
         set frame [$m frame $a]
         $m title $a Title
@@ -2365,9 +2371,10 @@ foreach relief {flat raised sunken ridge groove solid} {
         ::sltest::settle $frame
         set grip [::sltest::floatgrip $m $token]
         set docked [::sltest::grip $m $b]
-        list [expr {[$grip cget -relief] eq $relief && [$docked cget -relief] eq $relief}] \
-            [$grip cget -borderwidth] [expr {[winfo rooty $frame.text] >= [winfo rooty $grip]+[winfo height $grip]}] \
-            [expr {[$grip find withtag indicator] eq {}}]
+        list [expr {[$grip cget -relief] eq $relief && [$docked cget -relief] eq $relief}]\
+                [$grip cget -borderwidth] [expr {[winfo rooty $frame.text] >=\
+                                                         [winfo rooty $grip]+[winfo height $grip]}]\
+                [expr {[$grip find withtag indicator] eq {}}]
     } -cleanup {::sltest::cleanup} -result {1 3 1 1}
 }
 
@@ -2376,16 +2383,17 @@ test splitlayout-heading-21.4 {header options validate and title setter accepts 
     set leaf [$m root]
 } -body {
     set defaults [list [$m configure -headerrelief] [$m configure -headerborderwidth] [$m configure -tooltips]]
-    set errors [list [catch {$m configure -headerrelief invalid}] [catch {$m configure -headerborderwidth -1}] \
-        [catch {$m configure -headerborderwidth 1.5}] [catch {$m configure -tooltips maybe}] \
-        [catch {$m title missing x}] [catch {$m title $leaf a b}]]
+    set errors [list [catch {$m configure -headerrelief invalid}] [catch {$m configure -headerborderwidth -1}]\
+                        [catch {$m configure -headerborderwidth 1.5}] [catch {$m configure -tooltips maybe}]\
+                        [catch {$m title missing x}] [catch {$m title $leaf a b}]]
     $m title $leaf {line one
 line two}
     set preserved [expr {[$m title $leaf] eq "line one\nline two"}]
     list $defaults $errors $preserved [$m title $leaf {}]
 } -cleanup {::sltest::cleanup} -result {{flat 1 1} {1 1 1 1 1 1} 1 {}}
 
-test splitlayout-heading-21.5 {title area participates in dragging and changing header geometry cancels gestures} -setup {
+test splitlayout-heading-21.5 {title area participates in dragging and changing header geometry cancels gestures}\
+        -setup {
     lassign [::sltest::docksetup] m root a b
     $m title $a Alpha
     $m title $b Beta
@@ -2435,8 +2443,8 @@ test splitlayout-tooltip-21.7 {unavailable tooltip package is optional and has n
         wm withdraw .
         set m [splitlayout::splitlayout .m -draghandles true -tooltips true]
         set ns [info object namespace $m]
-        set result [list [$m configure -tooltips] [set ${ns}::TooltipReady] \
-            [llength [info commands ::tooltip::tooltip]] [llength [info commands .m.tip*]]]
+        set result [list [$m configure -tooltips] [set ${ns}::TooltipReady]\
+                            [llength [info commands ::tooltip::tooltip]] [llength [info commands .m.tip*]]]
         $m title [$m root] StillWorking
         lappend result [$m title [$m root]]
         $m destroy
@@ -2457,7 +2465,8 @@ test splitlayout-heading-21.8 {a titled root placeholder is retained when floati
 } -cleanup {::sltest::cleanup} -result {2 {Replacement Original} 1}
 
 foreach side {left right} {
-    test splitlayout-header-buttons-22.1-$side {buttons remain inside all four header borders when docked and floating} -setup {
+    test splitlayout-header-buttons-22.1-$side {buttons remain inside all four header borders when docked and floating}\
+            -setup {
         lassign [::sltest::docksetup] m root a b
         $m configure -buttonside $side -headerrelief ridge -headerborderwidth 4
         set token [$m undock $a -geometry 320x240+60+60]
@@ -2468,9 +2477,11 @@ foreach side {left right} {
         foreach grip [list [::sltest::grip $m $b] [::sltest::floatgrip $m $token]] {
             foreach name {toggle delete} {
                 set button $grip.$name
-                if {[winfo x $button] < 4 || [winfo y $button] < 4 ||
-                    [winfo x $button]+[winfo width $button] > [winfo width $grip]-4 ||
-                    [winfo y $button]+[winfo height $button] > [winfo height $grip]-4} {set inside 0}
+                if {[winfo x $button] < 4 || [winfo y $button] < 4 ||\
+                            [winfo x $button]+[winfo width $button] > [winfo width $grip]-4 ||\
+                            [winfo y $button]+[winfo height $button] > [winfo height $grip]-4} {
+                    set inside 0
+                }
             }
         }
         set inside
@@ -2479,7 +2490,8 @@ foreach side {left right} {
 
 foreach side {left right} {
     foreach align {left center right} {
-        test splitlayout-titlealign-23.1-$side-$align {title alignment stays clear of buttons in docked and floating headers} -setup {
+        test splitlayout-titlealign-23.1-$side-$align\
+                {title alignment stays clear of buttons in docked and floating headers} -setup {
             lassign [::sltest::docksetup] m root a b
             $m configure -buttonside $side -titlealign $align
             $m title $a {Floating title}
@@ -2494,11 +2506,14 @@ foreach side {left right} {
                 set occupied [expr {[winfo width $grip.toggle]+[winfo width $grip.delete]}]
                 set left [expr {$border+4+($side eq {left} ? $occupied : 0)}]
                 set right [expr {[winfo width $grip]-$border-4-($side eq {right} ? $occupied : 0)}]
-                set expected [dict get [dict create left $left center [expr {[winfo width $grip]/2.0}] right $right] $align]
+                set expected [dict get [dict create left $left center [expr {[winfo width $grip]/2.0}] right $right]\
+                                      $align]
                 set anchor [dict get {left w center center right e} $align]
                 lassign [$grip bbox heading] x1 y1 x2 y2
-                if {[$grip itemcget heading -anchor] ne $anchor ||
-                    abs([lindex [$grip coords heading] 0]-$expected) > 1 || $x1 < $left-2 || $x2 > $right+2} {set ok 0}
+                if {[$grip itemcget heading -anchor] ne $anchor ||\
+                            abs([lindex [$grip coords heading] 0]-$expected) > 1 || $x1 < $left-2 || $x2 > $right+2} {
+                    set ok 0
+                }
             }
             set ok
         } -cleanup {::sltest::cleanup} -result 1
@@ -2534,8 +2549,9 @@ test splitlayout-buttonimages-23.3 {PNG and SVG photo overrides size buttons and
     $m configure -buttonimages [dict create undock $png dock $svg delete $cross]
     ::sltest::settle $m
     set grip [::sltest::grip $m $a]
-    set docked [expr {[lindex [$grip.toggle cget -image] 0] eq $png && [lindex [$grip.delete cget -image] 0] eq $cross &&
-        [winfo width $grip.toggle] >= [image width $png]+4}]
+    set docked [expr {([lindex [$grip.toggle cget -image] 0] eq $png) &&\
+                              ([lindex [$grip.delete cget -image] 0] eq $cross) &&\
+                              ([winfo width $grip.toggle] >= [image width $png]+4)}]
     set token [$m undock $a -geometry 400x300+60+60]
     ::sltest::settle [$m frame $token]
     set grip [::sltest::floatgrip $m $token]
@@ -2556,8 +2572,9 @@ test splitlayout-buttonimages-23.4 {image overrides merge atomically and empty v
 } -body {
     $m configure -buttonimages [dict create undock $photo]
     set before [$m configure -buttonimages]
-    set invalid [list [catch {$m configure -buttonimages [dict create delete $photo dock missingImage]}] \
-        [catch {$m configure -buttonimages [dict create other $photo]}] [catch {$m configure -buttonimages {dock}}]]
+    set invalid [list [catch {$m configure -buttonimages [dict create delete $photo dock missingImage]}]\
+                         [catch {$m configure -buttonimages [dict create other $photo]}]\
+                         [catch {$m configure -buttonimages {dock}}]]
     set atomic [expr {[$m configure -buttonimages] eq $before}]
     $m configure -buttonimages {}
     set unchanged [expr {[$m configure -buttonimages] eq $before}]
@@ -2565,12 +2582,12 @@ test splitlayout-buttonimages-23.4 {image overrides merge atomically and empty v
     set merged [expr {[dict get [$m configure -buttonimages] undock] eq $photo}]
     $m configure -buttonimages {undock {}}
     set grip [::sltest::grip $m $a]
-    list $invalid $atomic $unchanged $merged \
-        [expr {[image type [lindex [$grip.toggle cget -image] 0]] eq {bitmap}}] \
-        [expr {[lindex [$grip.delete cget -image] 0] eq $photo}]
+    list $invalid $atomic $unchanged $merged [expr {[image type [lindex [$grip.toggle cget -image] 0]] eq {bitmap}}]\
+            [expr {[lindex [$grip.delete cget -image] 0] eq $photo}]
 } -cleanup {::sltest::cleanup; image delete $photo} -result {{1 1 1} 1 1 1 1 1}
 
-test splitlayout-buttonimages-23.5 {constructor overrides apply to future headers and reset after external image deletion} -setup {
+test splitlayout-buttonimages-23.5\
+        {constructor overrides apply to future headers and reset after external image deletion} -setup {
     set m [::sltest::setup]
     $m destroy
     set photo [image create photo -width 30 -height 30]
@@ -2735,7 +2752,8 @@ test splitlayout-leafborder-25.1 {border-only wrappers preserve gridded content 
     list $defaults $bounds $invalid [expr {[$m widget $id] eq $f}] [$f.e get] [winfo manager $f.e]
 } -cleanup {::sltest::cleanup} -result {{0 1 solid} 1 {1 1 1 1} 1 preserved grid}
 
-test splitlayout-leafborder-25.2 {docked and floating headers share border insets and content stays below header} -setup {
+test splitlayout-leafborder-25.2 {docked and floating headers share border insets and content stays below header}\
+        -setup {
     lassign [::sltest::docksetup] m root a b
     $m configure -leafborder true -leafborderwidth 3 -leafrelief groove -leafopts {-color orange}
     set f [$m frame $a]
@@ -2835,7 +2853,8 @@ test splitlayout-sharedborder-26.1 {one-pixel shared outline has no nested heade
     list $shared $full [$g cget -borderwidth] [winfo ismapped $g.separator]
 } -cleanup {::sltest::cleanup} -result {{0 1 1 1 1} {1 0 1} 0 0}
 
-test splitlayout-sharedborder-26.2 {floating separators expose only native bottom relief and reserve content space} -setup {
+test splitlayout-sharedborder-26.2 {floating separators expose only native bottom relief and reserve content space}\
+        -setup {
     lassign [::sltest::docksetup] m root a b
     $m configure -leafborder true -leafborderwidth 2 -headerborderwidth 3
     set f [$m frame $a]
@@ -2947,7 +2966,7 @@ test splitlayout-minsize-27.3 {proportions respect multi-pane minima and redistr
     $m proportions $root {1 8 1}
     update
 } -body {
-    list [expr {[winfo width [$m frame $a]] >= 300}] [expr {[winfo width [$m frame $b]] >= 100}] \
+    list [expr {[winfo width [$m frame $a]] >= 300}] [expr {[winfo width [$m frame $b]] >= 100}]\
             [expr {[winfo width [$m frame $c]] >= 150}]
 } -cleanup {::sltest::cleanup} -result {1 1 1}
 
@@ -2970,15 +2989,16 @@ foreach opaque {true false} {
         set drag [set ${ns}::Drag]
         set x [expr {[dict get $drag start]-700}]
         set y [expr {[winfo rooty $pw]+[winfo height $pw]/2}]
-        event generate $pw <ButtonRelease-1> -rootx $x -rooty $y \
-                -x [expr {$x-[winfo rootx $pw]}] -y [expr {$y-[winfo rooty $pw]}]
+        event generate $pw <ButtonRelease-1> -rootx $x -rooty $y -x [expr {$x-[winfo rootx $pw]}]\
+                -y [expr {$y-[winfo rooty $pw]}]
         update
-        list $live [expr {[winfo width [$m frame $a]] >= 250}] \
-                [expr {[winfo width [$m frame $b]] >= 300}] [set ${ns}::Drag]
+        list $live [expr {[winfo width [$m frame $a]] >= 250}] [expr {[winfo width [$m frame $b]] >= 300}]\
+                [set ${ns}::Drag]
     } -cleanup {::sltest::cleanup} -result {1 1 1 {}}
 }
 
-test splitlayout-minsize-27.5 {undersized owner compresses minima proportionally and restores constraints on growth} -setup {
+test splitlayout-minsize-27.5 {undersized owner compresses minima proportionally and restores constraints on growth}\
+        -setup {
     set m [::sltest::setup]
     set root [$m root]
     lassign [$m split $root -orient horizontal] a b
@@ -3098,8 +3118,8 @@ foreach opaque {true false} {
         foreach amount {-900 900} {
             ::sltest::gesture $pw 0 $amount 1
             update
-            lappend result [expr {[winfo height [$m frame $a]] >= 180 &&
-                    [winfo height [$m frame $c]] >= 220 && [winfo height [$m frame $d]] >= 200}]
+            lappend result [expr {([winfo height [$m frame $a]] >= 180) && ([winfo height [$m frame $c]] >= 220) &&\
+                                          ([winfo height [$m frame $d]] >= 200)}]
         }
         set result
     } -cleanup {::sltest::cleanup} -result {1 1}
@@ -3139,13 +3159,180 @@ test splitlayout-minsize-27.12 {requiredsize works before mapping and never cons
     pack $m -fill both -expand 1
     wm deiconify .sltest
     update
-    list [expr {$before eq [$m requiredsize $root]}] \
-            [expr {[lindex $before 0] > 450 && [lindex $before 1] == 120}] \
+    list [expr {$before eq [$m requiredsize $root]}] [expr {([lindex $before 0] > 450) && ([lindex $before 1] == 120)}]\
             [expr {![dict exists $::sltest::minimumRequests .sltest]}]
 } -cleanup {
     ::sltest::unwatchMinima
     ::sltest::cleanup
 } -result {1 1 1}
+
+namespace eval ::sltest {
+    proc nestedsetup {} {
+        set outer [setup]
+        $outer configure -draghandles true
+        lassign [$outer split [$outer root]] host other
+        set inner [splitlayout [$outer frame $host].inner -draghandles true -opaqueresize false]
+        pack $inner -fill both -expand 1
+        lassign [$inner split [$inner root]] a b
+        fill $inner $a A
+        fill $inner $b B
+        settle $outer
+        settle $inner
+        return [list $outer $host $other $inner $a $b]
+    }
+    proc owner {m} {return [set [info object namespace $m]::Owner]}
+    proc ownerTag {m} {return [set [info object namespace $m]::Tag]Owner}
+}
+
+test splitlayout-nested-28.1 {inner drag swaps only inner content and excludes a competing outer grab} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set fa [$inner frame $a]
+    set fb [$inner frame $b]
+    set hostFrame [$outer frame $host]
+} -body {
+    set dest [::sltest::point [$inner widget $b]]
+    set g [::sltest::dockstart $inner $a $dest]
+    set outerGrip [::sltest::grip $outer $host]
+    ::sltest::dockevent $outerGrip <ButtonPress-1> [::sltest::point $outerGrip]
+    set isolated [expr {[::sltest::dockstate $outer] eq {} && [grab current $inner] eq $g}]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    list $isolated [expr {[$inner frame $a] eq $fb && [$inner frame $b] eq $fa}]\
+            [expr {[$outer frame $host] eq $hostFrame}] [grab current $outer]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {}}
+
+test splitlayout-nested-28.2 {outer drag over an inner leaf moves the complete outer content} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set hostFrame [$outer frame $host]
+    set innerFrames [list [$inner frame $a] [$inner frame $b]]
+} -body {
+    set dest [::sltest::point $inner]
+    set g [::sltest::dockstart $outer $other $dest]
+    set target [dict get [::sltest::dockstate $outer] target]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    list [dict get $target op] [expr {[dict get $target target] eq $host}]\
+            [expr {[$outer frame $other] eq $hostFrame}]\
+            [expr {([$inner leaves] eq [list $a $b]) && ([list [$inner frame $a] [$inner frame $b]] eq $innerFrames)}]
+} -cleanup {::sltest::cleanup} -result {swap 1 1 1}
+
+test splitlayout-nested-28.3\
+        {outer docking round trips synchronously rebind hidden inner owners without duplicate tags} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set tag [::sltest::ownerTag $inner]
+    set outerTag [::sltest::ownerTag $outer]
+    set frame [$outer frame $host]
+    pack forget $inner
+    update
+} -body {
+    set checks {}
+    for {set i 0} {$i < 3} {incr i} {
+        set token [$outer undock $host -geometry 500x400+850+100]
+        lappend checks [expr {([::sltest::owner $inner] eq $frame) &&\
+                                      ([llength [lsearch -all -exact [bindtags $frame] $tag]] == 1) &&\
+                                      ($tag ni [bindtags .sltest]) && $outerTag in [bindtags .sltest]}]
+        set host [$outer dock $token]
+        lappend checks [expr {([::sltest::owner $inner] eq {.sltest}) &&\
+                                      ([llength [lsearch -all -exact [bindtags .sltest] $tag]] == 1) &&\
+                                      $tag ni [bindtags $frame]}]
+    }
+    expr {0 ni $checks}
+} -cleanup {::sltest::cleanup} -result 1
+
+foreach action {move unmap} {
+    test splitlayout-nested-28.4-$action {inner deferred preview follows the floating host and cancels with its owner}\
+            -setup {
+        lassign [::sltest::nestedsetup] outer host other inner a b
+        set token [$outer undock $host -geometry 500x400+850+100]
+        set frame [$outer frame $token]
+        ::sltest::settle $frame
+        ::sltest::settle $inner
+        set pw [$inner panedwindow [$inner root]]
+    } -body {
+        set old [$pw sashpos 0]
+        ::sltest::gesture $pw 0 30
+        update
+        set ns [info object namespace $inner]
+        set proxy [dict get [set ${ns}::Drag] proxy]
+        set owner [expr {[wm transient $proxy] eq $frame}]
+        if {$action eq {move}} {
+            wm geometry $frame +900+140
+        } else {
+            wm withdraw $frame
+        }
+        ::sltest::await {[set ${ns}::Drag] eq {}} {nested preview cancellation}
+        list $owner [winfo exists $proxy] [expr {[$pw sashpos 0] == $old}]
+    } -cleanup {::sltest::cleanup} -result {1 0 1}
+}
+
+test splitlayout-nested-28.5 {redocking an ancestor cancels an armed inner content drag and releases its grab} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set token [$outer undock $host -geometry 500x400+850+100]
+    ::sltest::settle [$outer frame $token]
+    ::sltest::settle $inner
+} -body {
+    set g [::sltest::dockstart $inner $a [::sltest::point [$inner widget $b]]]
+    set grabbed [expr {[grab current $inner] eq $g}]
+    $outer dock $token
+    list $grabbed [::sltest::dockstate $inner] [grab current $outer] [::sltest::owner $inner]\
+            [llength [info commands $inner.drop*]]
+} -cleanup {::sltest::cleanup} -result {1 {} {} .sltest 0}
+
+test splitlayout-nested-28.6 {deep nesting rebinds managers but preserves independently floating descendants} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set deep [splitlayout [$inner frame $a].deep -draghandles true]
+    pack $deep -fill both -expand 1
+    set floating [$inner undock $a -geometry 250x200+900+500]
+    set floatingFrame [$inner frame $floating]
+    update
+} -body {
+    set token [$outer undock $host -geometry 500x400+850+100]
+    set newOwner [$outer frame $token]
+    set independent [expr {[::sltest::owner $inner] eq $newOwner && [::sltest::owner $deep] eq $floatingFrame}]
+    set a [$inner dock $floating]
+    set docked [expr {[::sltest::owner $deep] eq $newOwner}]
+    $outer dock $token
+    list $independent $docked [::sltest::owner $inner] [::sltest::owner $deep]
+} -cleanup {::sltest::cleanup} -result {1 1 .sltest .sltest}
+
+test splitlayout-nested-28.7 {destroying the nested host removes owner tags and all nested floating content} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set nestedFloat [$inner undock $a]
+    set nestedFrame [$inner frame $nestedFloat]
+    set token [$outer undock $host]
+    set tag [::sltest::ownerTag $inner]
+    set outerTag [::sltest::ownerTag $outer]
+} -body {
+    $outer remove $token
+    update
+    list [winfo exists $inner] [winfo exists $nestedFrame] [expr {$tag ni [bindtags .sltest]}]\
+            [bind $tag] [expr {$outerTag in [bindtags .sltest]}]
+} -cleanup {::sltest::cleanup} -result {0 0 1 {} 1}
+
+test splitlayout-nested-28.8 {leaving the inner manager undocks into its own floating collection} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set original [$inner frame $a]
+} -body {
+    set dest [::sltest::point [$outer widget $other]]
+    set g [::sltest::dockstart $inner $a $dest]
+    set op [dict get [dict get [::sltest::dockstate $inner] target] op]
+    ::sltest::dockevent $g <ButtonRelease-1> $dest
+    update
+    set token [lindex [$inner floating] 0]
+    list $op [$outer floating] [expr {[$inner frame $token] eq $original}] [llength [$outer leaves]]\
+            [llength [$inner leaves]]
+} -cleanup {::sltest::cleanup} -result {undock {} 1 2 1}
+
+test splitlayout-nested-28.9 {failed ancestor promotion keeps nested owners and their event tags intact} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set tag [::sltest::ownerTag $inner]
+    set frame [$outer frame $host]
+} -body {
+    set failed [catch {$outer undock $host -geometry invalid}]
+    update
+    list $failed [::sltest::owner $inner] [expr {$tag in [bindtags .sltest]}] [expr {$tag ni [bindtags $frame]}]\
+            [$outer floating]
+} -cleanup {::sltest::cleanup} -result {1 .sltest 1 1 {}}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

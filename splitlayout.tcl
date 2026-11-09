@@ -353,6 +353,34 @@ namespace eval ::splitlayout {
         loading the optional package.  The value returned by `configure -tooltips` is the requested preference, even
         when the package is unavailable.
 
+        ## Nested managers
+
+        A leaf can contain another splitlayout instance as ordinary application content:
+
+        ```tcl
+        set content [$outer frame $hostLeaf]
+        set inner [splitlayout $content.inner -draghandles true -opaqueresize false]
+        pack $inner -fill both -expand 1
+        lassign [$inner split [$inner root]] first second
+        ```
+
+        Each instance owns its tree, gesture state, previews, and floating tokens. Starting a drag on an inner header
+        rearranges only the inner layout. Starting on the containing outer header moves the complete inner manager
+        with its content frame. An outer drop over the inner layout targets the containing outer leaf. An inner drop
+        outside the inner hull undocks that inner leaf, even if the pointer is still inside the outer manager.
+        Individual leaves cannot be transferred between managers; docking accepts only the originating manager's
+        floating tokens. An active grab prevents another manager from starting a competing content drag.
+
+        Undocking or redocking a containing leaf updates the actual owner toplevel of all nested managers, including
+        hidden instances. Stale gestures are cancelled, owner event bindings move to the new toplevel, and subsequent
+        deferred sash previews use that window as their transient owner. Independently floating descendants keep
+        their own toplevel ownership. Mapping and gesture entry also refresh ownership after external Tk promotion.
+        Removing the containing content destroys its nested managers and their owned floating windows.
+
+        Minimum sizes are independent between instances. The outer manager does not infer constraints from embedded
+        application widgets. To constrain the host leaf, set its content minimum from the inner root's requiredsize,
+        adding any hull padding or other surrounding widgets, and refresh it when the inner requirements change.
+
         ## Swapping and removing content
         The following operations continue the example above:
         ```tcl
@@ -1262,15 +1290,16 @@ oo::configurable create ::splitlayout::splitlayout {
         pack propagate $W 0
         set Tag [info object namespace [self]]::bindings
         bind ${Tag}Floating <Destroy> [namespace code {my FloatingDestroyed %W}]
-        bind $Tag <Unmap> [namespace code {my CancelDock}]
+        bind $Tag <Map> [namespace code {my SyncOwner}]
+        bind $Tag <Unmap> [namespace code {my CancelDrag; my SyncOwner}]
         bind $Tag <Configure> [namespace code {my DockGeometry}]
         bind $Tag <Destroy> [namespace code {my HullDestroyed %W}]
         bindtags $W [linsert [bindtags $W] 0 $Tag]
-        set Owner [winfo toplevel $W]
+        set Owner {}
         set ownerTag ${Tag}Owner
         bind $ownerTag <Configure> [namespace code {my OwnerChanged %W}]
         bind $ownerTag <Unmap> [namespace code {my OwnerUnmapped %W}]
-        bindtags $Owner [linsert [bindtags $Owner] 0 $ownerTag]
+        my SyncOwner
         set Root [my NewLeaf {}]
         my Rebuild
         rename [self] ::$W
@@ -1839,6 +1868,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my RefreshMinimums
         wm deiconify $frame
         raise $frame
+        my RefreshNestedOwners $frame
         return $token
     }
     method dock {args} {
@@ -1972,6 +2002,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Nodes $parent children [linsert $children $at $source]
         }
         my Rebuild
+        my RefreshNestedOwners $frame
         return $source
     }
     method FloatingClose {id} {
@@ -3512,6 +3543,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Existing grabs are not replaced. Focus is temporarily assigned to the grip for Escape handling.
         # Returns: Tcl break completion for an accepted press; nothing otherwise.
+        my SyncOwner
         if {!$Handles || (![dict exists $Panels $id] && ![dict exists $Floating $id grip]) ||\
                     ([grab current $W] ne {})} {
             return
@@ -3566,6 +3598,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Cancels docking if the hull moves, resizes, or becomes hidden.
         #
         # Returns: Nothing.
+        my SyncOwner
         if {($Dock ne {}) && (![winfo ismapped $W] || ([my DockBounds $W] ne [dict get $Dock geometry]))} {
             my CancelDock
         }
@@ -3944,6 +3977,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # configured preview surface without resizing content.
         #
         # Returns: Nothing for a pass-through event; Tcl break completion for an accepted gesture.
+        my SyncOwner
         if {$Opaque && ![dict size $Minimums]} {
             return
         }
@@ -4169,6 +4203,44 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
+    method SyncOwner {} {
+        # Tracks the actual containing toplevel after ancestor docking or promotion.
+        #
+        # Cancels gestures whose coordinates or preview owner may be stale, removes only this instance's tag from
+        # the previous owner, and installs it once on the new owner. Safe before mapping and during teardown.
+        # Returns: Nothing.
+        if {$Closing || ![info exists W] || ![winfo exists $W]} {return}
+        set current [winfo toplevel $W]
+        if {$Owner eq $current} {return}
+        my CancelDrag
+        set ownerTag ${Tag}Owner
+        if {$Owner ne {} && [winfo exists $Owner]} {
+            bindtags $Owner [lsearch -all -inline -not -exact [bindtags $Owner] $ownerTag]
+        }
+        set Owner $current
+        set tags [lsearch -all -inline -not -exact [bindtags $Owner] $ownerTag]
+        bindtags $Owner [linsert $tags 0 $ownerTag]
+    }
+    method RefreshNestedOwners {frame} {
+        # Updates nested splitlayout instances after an ancestor's successful docking transition.
+        #  frame - Retained content frame whose containing toplevel has changed.
+        #
+        # Visits actual descendants, including hidden managers. Independent floating descendants resolve their own
+        # unchanged toplevel. Only splitlayout objects receive the private synchronization call; application widgets
+        # are neither configured nor sent synthetic events.
+        # Returns: Nothing.
+        set pending [list $frame]
+        while {[llength $pending]} {
+            set path [lindex $pending end]
+            set pending [lrange $pending 0 end-1]
+            if {![winfo exists $path]} {continue}
+            lappend pending {*}[winfo children $path]
+            if {[info object isa object ::$path] &&
+                    [info object isa typeof ::$path ::splitlayout::splitlayout]} {
+                namespace eval [info object namespace ::$path] {my SyncOwner}
+            }
+        }
+    }
     method OwnerChanged {path} {
         # Cancels deferred dragging when the owner moves the split.
         #  path - Widget pathname reported by the owner Configure event.
@@ -4177,6 +4249,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # position. A change invalidates the drag.
         #
         # Returns: Nothing.
+        my SyncOwner
         if {$path eq $Owner} {
             my DockGeometry
         }
@@ -4195,6 +4268,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Events whose pathname does not match the owner toplevel are ignored.
         #
         # Returns: Nothing.
+        my SyncOwner
         if {$path eq $Owner} {
             my CancelDrag
         }
