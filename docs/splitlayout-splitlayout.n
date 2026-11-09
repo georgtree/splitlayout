@@ -15,6 +15,8 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ clear\fP
 .br
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+.br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
 \fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target?\fP
@@ -192,6 +194,132 @@ limits can change when a window is first mapped\&.  requiredsize reports the man
 not the native effective window minimum\&.  Constraints cover manager operations and gestures; direct
 modifications through the exposed native panedwindow command bypass the manager until its next geometry
 application\&.
+.SH "PER-NODE CONSTRAINTS"
+.PP
+Use constraints id to query explicit settings, constraints id option to query one value, and constraints
+id option value \&.\&.\&. to change several settings atomically\&. A floating token is accepted for content
+flags\&. Constraints are independent between manager instances, including nested managers\&.
+.PP
+.RS 4n
+.nf
+lassign [$manager split [$manager root]] editor output
+$manager constraints $editor -pinned true -nodestroy true
+$manager constraints [$manager root] -minleaves 2 -maxleaves 6 -maxdepth 3
+puts [$manager constraints $editor -nomove]
+$manager constraints $output -noresize true
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+┌────────────┬─────────┬──────────────────────────┬────────────────────────────────────────────────────────────────────┐
+│ Option     │ Default │ Applies to               │ Meaning                                                            │
+├────────────┼─────────┼──────────────────────────┼────────────────────────────────────────────────────────────────────┤
+│ -nomove    │ false   │ Leaf / floating content  │ Reject direct move and either operand of swap\&.                     │
+│ -noundock  │ false   │ Leaf / floating content  │ Reject undocking this content\&.                                     │
+│ -nodestroy │ false   │ Any node / floating      │ Reject deletion of protected content or an explicitly protected    │
+│            │         │ content                  │ split\&.                                                             │
+│ -noresize  │ false   │ Any node / floating      │ Lock sash-driven allocation changes; this is not a fixed pixel     │
+│            │         │ content                  │ size\&.                                                              │
+│ -pinned    │ false   │ Leaf / floating content  │ Shorthand for -nomove plus -noundock; query is their logical AND\&.  │
+│ -minleaves │ 1       │ Docked node              │ Minimum descendant leaf count while this subtree is retained\&.      │
+│ -maxleaves │ -1      │ Docked node              │ Maximum descendant leaf count; -1 means unlimited\&.                 │
+│ -maxdepth  │ -1      │ Docked node              │ Maximum depth below the node; -1 means unlimited\&.                  │
+└────────────┴─────────┴──────────────────────────┴────────────────────────────────────────────────────────────────────┘
+.fi
+.RE
+.SS "MOVEMENT AND PINNED CONTENT"
+.PP
+-nomove checks only the directly moved leaf\&. It is not imposed on ancestors\&. In a swap, both existing flags
+are checked because both contents would move; no flag is added to the destination\&. Moving another leaf beside
+protected content is allowed, including converting its current leaf position into a split\&. Moving or wrapping
+an ancestor, changing neighboring panes, and normal geometry changes can change a protected leaf's screen
+position\&.
+.PP
+-nomove alone does not prevent undocking, docking, deletion, splitting, resizing, or moving a floating window
+on screen\&. -noundock is the separate restriction on leaving the docked tree\&. It does not prohibit returning
+floating content with dock, or moving and swapping it while docked\&. The current public move, swap, and
+undock commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes\&.
+.PP
+-pinned true sets both movement flags; -pinned false clears both, without changing other restrictions\&. It
+is not stored independently\&. Set it in a separate call from -nomove or -noundock; mixing them in one update
+is rejected rather than depending on argument order\&. A pinned leaf can still be deleted unless -nodestroy is
+also enabled\&.
+.SS "DESTRUCTION AND COLLAPSE"
+.PP
+-nodestroy on leaf content rejects remove, clear, and retain when they would delete that content, even
+through an ancestor\&. It does not prevent undocking or splitting with retained content, because the frame
+survives\&. Removing an unprotected sibling is allowed, including automatic collapse of an unprotected parent
+that preserves protected content\&. A split explicitly marked -nodestroy cannot itself be deleted or collapsed;
+otherwise its unprotected descendants may still be edited or removed while the split survives\&.
+.PP
+Ancestor flags are not rewritten\&. An ancestor can report -nodestroy false while a descendant makes its
+removal illegal\&. Validation considers everything the whole operation would delete before changing any widgets
+or records\&.  Delete buttons obey these restrictions\&. Native close with -onclose destroy leaves protected
+content open; -onclose dock attempts normal docking and likewise leaves the window open if the destination
+violates constraints\&.
+.PP
+These are manager policies, not an access-control boundary\&. $manager destroy, direct Tcl destroy,
+destruction of an actual Tk ancestor, and application shutdown remain possible\&. Removing an outer manager's
+content also destroys nested managers inside it; their independent policies cannot veto their actual Tk
+ancestor's destruction\&. Raw Tk commands obtained through frame, widget, or panedwindow can bypass manager
+policies\&.
+.SS "RESIZE LOCKS"
+.PP
+-noresize rejects sash gestures that would change the allocation of a protected node, including ancestor
+sashes\&.  An explicitly locked split can still adjust its own internal sashes if its children are not
+locked\&. With resize locks present, a sash cannot push neighboring sashes to resize a more distant protected
+pane\&. Changing constraints cancels active manager gestures and prevents further movement from an already active
+native live sash gesture\&.
+.PP
+Changed ratio and proportions settings are conservatively rejected if the configured split contains a
+locked descendant: minimum-size fitting can redistribute space beyond the requested panes\&. Reapplying the
+identical stored proportions is allowed\&. A lock on the split itself does not prohibit its internal proportion
+changes\&. Unrelated subtrees remain resizable\&.
+.PP
+This does not freeze an absolute size or enforce wm resizable: resizing the application or a floating window,
+changing minimum sizes or decoration, and structural operations such as split, insert, move, swap, and dock may
+resize the content\&. A floating content flag takes effect on its sash allocation after docking\&. Use minsize for
+minimum dimensions; the manager must still compress allocations when its parent supplies insufficient space\&.
+.SS "LEAF COUNTS AND DEPTH"
+.PP
+A leaf counts as one and has depth zero\&. A split containing only leaves has depth one; nesting adds one per
+edge\&.  Thus -maxdepth 0 prevents splitting that node or converting it into a split by moving or docking
+another leaf at its edge\&. Counts include all docked descendant leaves, not only immediate children\&. Floating
+content is excluded\&.  Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1\&. The
+layout always has at least one root leaf, including its empty placeholder\&. All numeric constraint values are
+limited to 2147483647\&.
+.PP
+The complete final layout is checked after planned insertion, source removal, and automatic collapse\&. Moving
+within one bounded subtree does not temporarily violate its count\&. Moving between subtrees must satisfy source
+and destination limits and all affected ancestors\&. Undocking can violate a minimum; docking, splitting, and
+insertion can violate a maximum or depth limit\&. Reordering flat siblings does not increase depth\&.
+.PP
+Automatic collapse cannot evade the old parent's minimum: its surviving replacement subtree is checked against
+that parent's limits before collapse is allowed\&. Limits belong to structural node identity and are discarded
+when that node expires; they are not transferred to a promoted child\&. Explicit deletion of an entire
+constrained subtree (including clear) removes its limits rather than requiring it to remain present\&. Add
+-nodestroy to protect the node's existence\&. Surviving ancestors' limits are always checked\&.
+.PP
+New limits must already be satisfied by the current subtree, and minimum must not exceed a finite
+maximum\&. Invalid updates leave all settings and active gestures unchanged; no panes are silently removed or
+rearranged to fit\&.
+.SS "OWNERSHIP, COMMANDS, AND GESTURE FEEDBACK"
+.PP
+Leaf flags belong to the content frame and follow allowed swaps, moves, and docking transitions\&. When a leaf is
+split, they follow the child selected by -keep; the new empty child has default flags\&. Split flags and
+subtree limits belong to node identity\&. Limits assigned to a leaf stay on that identifier when it becomes a
+split\&. Leaf IDs expire on undocking, so their structural limits are discarded; the floating content retains its
+flags and redocking creates a new node with default limits\&. Floating queries show default subtree-limit values,
+but setting those limits requires a docked node\&. Removing content discards its flags\&.
+.PP
+Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
+the tree\&. Errors have -errorcode {SPLITLAYOUT CONSTRAINT option id} and identify the restriction that blocked
+the action\&.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
+no-ops\&. Drop previews suppress invalid destinations and release does nothing there\&. Header buttons are disabled
+when their current action is illegal; blocked native close requests leave the window open without a background
+error\&. Flags are explicit settings, not a cached summary of every action that might be prohibited by
+descendants or ancestor bounds\&.
 .SH "MOVING PANES"
 .PP
 move relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
@@ -361,16 +489,16 @@ Each grip has two monochrome bitmap buttons, with tooltips:
 .fi
 .RE
 .PP
-The cross \fBalways destroys content\fP\&. It never consults -onclose; that policy controls only the native
-floating window close request (including Alt+F4)\&. Buttons accept keyboard focus and do not start dragging\&. The
-global -draghandles property controls both strips, including these buttons\&. A floating strip spans the window
-width and reserves space using the content labelframe's label-widget area, preserving application pack and
-grid settings\&. The manager owns the content frame's label-widget options; applications should configure
-children inside the content frame\&. Use -buttonside left|right (default right) at construction or with
-configure to align buttons globally\&. Both docked and floating headers follow it; title alignment is
-controlled independently by -titlealign\&. Changing alignment cancels an active drag without moving content\&. It
-is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground follows the
-theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+The cross requests content deletion, subject to constraints\&. It never consults -onclose; that policy controls
+only the native floating window close request (including Alt+F4)\&. Buttons accept keyboard focus and do not
+start dragging\&. The global -draghandles property controls both strips, including these buttons\&. A floating
+strip spans the window width and reserves space using the content labelframe's label-widget area, preserving
+application pack and grid settings\&. The manager owns the content frame's label-widget options; applications
+should configure children inside the content frame\&. Use -buttonside left|right (default right) at
+construction or with configure to align buttons globally\&. Both docked and floating headers follow it; title
+alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
+moving content\&. It is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground
+follows the theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
 .SS "LEAF OUTLINES"
 .PP
 Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
@@ -880,6 +1008,9 @@ Returns the immediate logical children of a node\&. Child identifiers in pane or
 clear
 Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
 .TP
+constraints
+Queries or atomically updates restrictions for one node or floating content\&.
+.TP
 container
 Returns the geometry container for a managed node\&. The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .TP
@@ -1182,6 +1313,36 @@ Destroys the docked tree and creates one empty root leaf; floating content is re
 \fBReturn value\fR
 .PP
 The new root leaf identifier\&.
+.PP
+.RS -4n
+\fBconstraints\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Queries or atomically updates restrictions for one node or floating content\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Leaf, split, or owned floating token\&.
+.TP
+args
+No arguments, one option name, or option/value pairs\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Leaf flags follow content; split flags and subtree limits belong to node identity\&. Movement flags and
+pinned are leaf/floating-only\&. Floating content has no assignable subtree limits\&. Queries show explicit
+settings, not restrictions inherited by an operation from protected descendants\&. Pinned is a shorthand\&.
+.PP
+\fBReturn value\fR
+.PP
+One queried value, or the complete explicit settings dictionary including computed -pinned\&.
 .PP
 .RS -4n
 \fBcontainer\fR (::splitlayout::splitlayout)

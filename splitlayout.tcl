@@ -125,6 +125,122 @@ namespace eval ::splitlayout {
         modifications through the exposed native panedwindow command bypass the manager until its next geometry
         application.
 
+        ## Per-node constraints
+        Use `constraints id` to query explicit settings, `constraints id option` to query one value, and `constraints
+        id option value ...` to change several settings atomically. A floating token is accepted for content
+        flags. Constraints are independent between manager instances, including nested managers.
+
+        ```tcl
+        lassign [$manager split [$manager root]] editor output
+        $manager constraints $editor -pinned true -nodestroy true
+        $manager constraints [$manager root] -minleaves 2 -maxleaves 6 -maxdepth 3
+        puts [$manager constraints $editor -nomove]
+        $manager constraints $output -noresize true
+        ```
+
+        | Option       | Default | Applies to                  | Meaning                                                                |
+        |--------------|---------|-----------------------------|------------------------------------------------------------------------|
+        | `-nomove`    | false   | Leaf / floating content     | Reject direct `move` and either operand of `swap`.                     |
+        | `-noundock`  | false   | Leaf / floating content     | Reject undocking this content.                                         |
+        | `-nodestroy` | false   | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
+        | `-noresize`  | false   | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
+        | `-pinned`    | false   | Leaf / floating content     | Shorthand for `-nomove` plus `-noundock`; query is their logical AND.  |
+        | `-minleaves` | 1       | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
+        | `-maxleaves` | -1      | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
+        | `-maxdepth`  | -1      | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
+
+        ### Movement and pinned content
+        `-nomove` checks only the directly moved leaf. It is not imposed on ancestors. In a swap, both existing flags
+        are checked because both contents would move; no flag is added to the destination. Moving another leaf beside
+        protected content is allowed, including converting its current leaf position into a split. Moving or wrapping
+        an ancestor, changing neighboring panes, and normal geometry changes can change a protected leaf's screen
+        position.
+
+        `-nomove` alone does not prevent undocking, docking, deletion, splitting, resizing, or moving a floating window
+        on screen. `-noundock` is the separate restriction on leaving the docked tree. It does not prohibit returning
+        floating content with `dock`, or moving and swapping it while docked. The current public `move`, `swap`, and
+        `undock` commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes.
+
+        `-pinned true` sets both movement flags; `-pinned false` clears both, without changing other restrictions. It
+        is not stored independently. Set it in a separate call from `-nomove` or `-noundock`; mixing them in one update
+        is rejected rather than depending on argument order. A pinned leaf can still be deleted unless `-nodestroy` is
+        also enabled.
+
+        ### Destruction and collapse
+        `-nodestroy` on leaf content rejects `remove`, `clear`, and `retain` when they would delete that content, even
+        through an ancestor. It does not prevent undocking or splitting with retained content, because the frame
+        survives. Removing an unprotected sibling is allowed, including automatic collapse of an unprotected parent
+        that preserves protected content. A split explicitly marked `-nodestroy` cannot itself be deleted or collapsed;
+        otherwise its unprotected descendants may still be edited or removed while the split survives.
+
+        Ancestor flags are not rewritten. An ancestor can report `-nodestroy false` while a descendant makes its
+        removal illegal. Validation considers everything the whole operation would delete before changing any widgets
+        or records.  Delete buttons obey these restrictions. Native close with `-onclose destroy` leaves protected
+        content open; `-onclose dock` attempts normal docking and likewise leaves the window open if the destination
+        violates constraints.
+
+        These are manager policies, not an access-control boundary. `$manager destroy`, direct Tcl `destroy`,
+        destruction of an actual Tk ancestor, and application shutdown remain possible. Removing an outer manager's
+        content also destroys nested managers inside it; their independent policies cannot veto their actual Tk
+        ancestor's destruction. Raw Tk commands obtained through `frame`, `widget`, or `panedwindow` can bypass manager
+        policies.
+
+        ### Resize locks
+        `-noresize` rejects sash gestures that would change the allocation of a protected node, including ancestor
+        sashes.  An explicitly locked split can still adjust its own internal sashes if its children are not
+        locked. With resize locks present, a sash cannot push neighboring sashes to resize a more distant protected
+        pane. Changing constraints cancels active manager gestures and prevents further movement from an already active
+        native live sash gesture.
+
+        Changed `ratio` and `proportions` settings are conservatively rejected if the configured split contains a
+        locked descendant: minimum-size fitting can redistribute space beyond the requested panes. Reapplying the
+        identical stored proportions is allowed. A lock on the split itself does not prohibit its internal proportion
+        changes. Unrelated subtrees remain resizable.
+
+        This does not freeze an absolute size or enforce `wm resizable`: resizing the application or a floating window,
+        changing minimum sizes or decoration, and structural operations such as split, insert, move, swap, and dock may
+        resize the content. A floating content flag takes effect on its sash allocation after docking. Use `minsize` for
+        minimum dimensions; the manager must still compress allocations when its parent supplies insufficient space.
+
+        ### Leaf counts and depth
+        A leaf counts as one and has depth zero. A split containing only leaves has depth one; nesting adds one per
+        edge.  Thus `-maxdepth 0` prevents splitting that node or converting it into a split by moving or docking
+        another leaf at its edge. Counts include all docked descendant leaves, not only immediate children. Floating
+        content is excluded.  Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1. The
+        layout always has at least one root leaf, including its empty placeholder. All numeric constraint values are
+        limited to 2147483647.
+
+        The complete final layout is checked after planned insertion, source removal, and automatic collapse. Moving
+        within one bounded subtree does not temporarily violate its count. Moving between subtrees must satisfy source
+        and destination limits and all affected ancestors. Undocking can violate a minimum; docking, splitting, and
+        insertion can violate a maximum or depth limit. Reordering flat siblings does not increase depth.
+
+        Automatic collapse cannot evade the old parent's minimum: its surviving replacement subtree is checked against
+        that parent's limits before collapse is allowed. Limits belong to structural node identity and are discarded
+        when that node expires; they are not transferred to a promoted child. Explicit deletion of an entire
+        constrained subtree (including `clear`) removes its limits rather than requiring it to remain present. Add
+        `-nodestroy` to protect the node's existence. Surviving ancestors' limits are always checked.
+
+        New limits must already be satisfied by the current subtree, and minimum must not exceed a finite
+        maximum. Invalid updates leave all settings and active gestures unchanged; no panes are silently removed or
+        rearranged to fit.
+
+        ### Ownership, commands, and gesture feedback
+        Leaf flags belong to the content frame and follow allowed swaps, moves, and docking transitions. When a leaf is
+        split, they follow the child selected by `-keep`; the new empty child has default flags. Split flags and
+        subtree limits belong to node identity. Limits assigned to a leaf stay on that identifier when it becomes a
+        split. Leaf IDs expire on undocking, so their structural limits are discarded; the floating content retains its
+        flags and redocking creates a new node with default limits. Floating queries show default subtree-limit values,
+        but setting those limits requires a docked node. Removing content discards its flags.
+
+        Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
+        the tree. Errors have `-errorcode {SPLITLAYOUT CONSTRAINT option id}` and identify the restriction that blocked
+        the action.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
+        no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons are disabled
+        when their current action is illegal; blocked native close requests leave the window open without a background
+        error. Flags are explicit settings, not a cached summary of every action that might be prohibited by
+        descendants or ancestor bounds.
+
         ## Moving panes
         `move` relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
         application state. Supply exactly one destination option:
@@ -262,16 +378,16 @@ namespace eval ::splitlayout {
         | Arrow  | Undock                       | Dock at the default destination defined by `dock` |
         | Cross  | Delete content with `remove` | Delete content with `remove`                      |
 
-        The cross **always destroys content**. It never consults `-onclose`; that policy controls only the native
-        floating window close request (including Alt+F4). Buttons accept keyboard focus and do not start dragging. The
-        global `-draghandles` property controls both strips, including these buttons. A floating strip spans the window
-        width and reserves space using the content labelframe's label-widget area, preserving application `pack` and
-        `grid` settings. The manager owns the content frame's label-widget options; applications should configure
-        children inside the content frame. Use `-buttonside left|right` (default `right`) at construction or with
-        `configure` to align buttons globally. Both docked and floating headers follow it; title alignment is
-        controlled independently by `-titlealign`. Changing alignment cancels an active drag without moving content. It
-        is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground follows the
-        theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
+        The cross requests content deletion, subject to constraints. It never consults `-onclose`; that policy controls
+        only the native floating window close request (including Alt+F4). Buttons accept keyboard focus and do not
+        start dragging. The global `-draghandles` property controls both strips, including these buttons. A floating
+        strip spans the window width and reserves space using the content labelframe's label-widget area, preserving
+        application `pack` and `grid` settings. The manager owns the content frame's label-widget options; applications
+        should configure children inside the content frame. Use `-buttonside left|right` (default `right`) at
+        construction or with `configure` to align buttons globally. Both docked and floating headers follow it; title
+        alignment is controlled independently by `-titlealign`. Changing alignment cancels an active drag without
+        moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
+        follows the theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
 
         ### Leaf outlines
         Enable `-leafborder true` to surround each leaf's header and content with one independent outline.
@@ -730,7 +846,8 @@ namespace eval ::splitlayout {
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
             Borders Settings Floating VacantRoot Icons ButtonSide HeaderRelief HeaderBorder Tooltips TooltipReady\
-            Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums
+            Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules\
+            ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1221,6 +1338,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set HeaderRefresh {}
         set Icons {}
         set ButtonImages [dict create dock {} undock {} delete {}]
+        set LivePress {}
+        set NodeRules {}
+        set ContentRules {}
         set Minimums {}
         set Titles {}
         set Headers {}
@@ -1406,6 +1526,498 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
         return $id
+    }
+    method ConstraintDefaults {} {
+        # Returns the explicit-setting defaults for a node or content frame.
+        # Returns: A dictionary; maximum -1 means unlimited.
+        return {-nomove 0 -noundock 0 -nodestroy 0 -noresize 0 -minleaves 1 -maxleaves -1 -maxdepth -1}
+    }
+    method constraints {id args} {
+        # Queries or atomically updates restrictions for one node or floating content.
+        #  id - Leaf, split, or owned floating token.
+        #  args - No arguments, one option name, or option/value pairs.
+        #
+        # Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and
+        # pinned are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
+        # settings, not restrictions inherited by an operation from protected descendants. Pinned is a shorthand.
+        # Returns: One queried value, or the complete explicit settings dictionary including computed -pinned.
+        # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean?
+        #  ?-noresize boolean? ?-pinned boolean? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?
+        set floating [dict exists $Floating $id]
+        set leaf [expr {$floating || ([my type $id] eq {leaf})}]
+        set current [my ConstraintDefaults]
+        if {!$floating && [dict exists $NodeRules $id]} {
+            set current [dict merge $current [dict get $NodeRules $id]]
+        }
+        if {$leaf} {
+            set frame [my frame $id]
+            if {[dict exists $ContentRules $frame]} {
+                set current [dict merge $current [dict get $ContentRules $frame]]
+            }
+        }
+        dict set current -pinned [expr {[dict get $current -nomove] && [dict get $current -noundock]}]
+        if {![llength $args]} {
+            return $current
+        }
+        if {[llength $args] == 1} {
+            set option [lindex $args 0]
+            if {![dict exists $current $option]} {
+                return -code error "unknown constraint '$option'"
+            }
+            return [dict get $current $option]
+        }
+        set opts [argparse -inline -pfirst {
+            {-nomove= -type boolean}
+            {-noundock= -type boolean}
+            {-nodestroy= -type boolean}
+            {-noresize= -type boolean}
+            {-pinned= -type boolean}
+            -minleaves=
+            -maxleaves=
+            -maxdepth=
+        }]
+        if {[dict exists $opts pinned]} {
+            if {[dict exists $opts nomove] || [dict exists $opts noundock]} {
+                return -code error {use -pinned separately from -nomove and -noundock}
+            }
+            dict set opts nomove [dict get $opts pinned]
+            dict set opts noundock [dict get $opts pinned]
+            dict unset opts pinned
+        }
+        set nodes $NodeRules
+        set contents $ContentRules
+        dict for {key value} $opts {
+            set option -$key
+            if {$key in {nomove noundock nodestroy noresize}} {
+                if {!$leaf && $key in {nomove noundock}} {
+                    return -code error "$option applies only to leaf or floating content"
+                }
+                set value [expr {!!$value}]
+                if {$leaf} {
+                    dict set contents $frame $option $value
+                } else {
+                    dict set nodes $id $option $value
+                }
+            } else {
+                if {$floating} {
+                    return -code error {subtree limits require a docked node}
+                }
+                set lower [expr {$key eq {minleaves} ? 0 : -1}]
+                if {![string is entier -strict $value] || ($value < $lower) || ($value > 2147483647)} {
+                    return -code error "$option requires an integer from $lower to 2147483647"
+                }
+                dict set nodes $id $option [expr {$value+0}]
+            }
+        }
+        my ValidateLimits $Nodes $nodes {}
+        if {($nodes ne $NodeRules) || ($contents ne $ContentRules)} {
+            my CancelDrag
+            set NodeRules $nodes
+            set ContentRules $contents
+            my RefreshHeaders
+        }
+        return [my constraints $id]
+    }
+    method ConstraintError {id option message} {
+        # Raises a structured policy rejection before any layout mutation.
+        #  id - Node or floating identifier causing the rejection.
+        #  option - Violated constraint name.
+        #  message - Human-readable explanation.
+        # Returns: Error with code SPLITLAYOUT CONSTRAINT option id.
+        return -code error -errorcode [list SPLITLAYOUT CONSTRAINT $option $id] "$option on '$id': $message"
+    }
+    method ModelStats {model id} {
+        # Calculates logical subtree size without consulting Tk geometry.
+        #  model - Node dictionary, real or proposed.
+        #  id - Subtree root.
+        # Returns: Leaf count and edge depth; a leaf is {1 0}.
+        if {[dict get $model $id type] eq {leaf}} {return {1 0}}
+        set count 0
+        set depth 0
+        foreach child [dict get $model $id children] {
+            lassign [my ModelStats $model $child] n d
+            incr count $n
+            set depth [expr {max($depth,$d+1)}]
+        }
+        return [list $count $depth]
+    }
+    method ValidateLimits {model rules replacements} {
+        # Checks subtree bounds on the complete result, including collapsed-parent replacements.
+        #  model - Proposed node dictionary.
+        #  rules - Explicit node constraints.
+        #  replacements - Collapsed node to surviving subtree mapping.
+        #
+        # Explicitly deleted subtrees no longer have limits; collapse cannot evade the old parent's lower bound.
+        # Returns: Nothing, or a structured constraint error.
+        dict for {id settings} $rules {
+            set target $id
+            while {[dict exists $replacements $target]} {
+                set target [dict get $replacements $target]
+            }
+            if {![dict exists $model $target]} {
+                continue
+            }
+            set settings [dict merge [my ConstraintDefaults] $settings]
+            set low [dict get $settings -minleaves]
+            set high [dict get $settings -maxleaves]
+            set maximum [dict get $settings -maxdepth]
+            if {$high >= 0 && $low > $high} {
+                my ConstraintError $id -minleaves {minimum leaf count exceeds maximum}
+            }
+            lassign [my ModelStats $model $target] count depth
+            if {$count < $low} {
+                my ConstraintError $id -minleaves "operation leaves $count leaves; requires $low"
+            }
+            if {($high >= 0) && ($count > $high)} {
+                my ConstraintError $id -maxleaves "operation leaves $count leaves; maximum is $high"
+            }
+            if {($maximum >= 0) && ($depth > $maximum)} {
+                my ConstraintError $id -maxdepth "operation creates depth $depth; maximum is $maximum"
+            }
+        }
+    }
+    method ModelLeaf {modelVar parent {frame {}}} {
+        # Adds a synthetic leaf to a caller-owned proposed model.
+        #  modelVar - Caller variable holding the node dictionary.
+        #  parent - Proposed parent identifier.
+        #  frame - Retained content pathname; omitted means new content.
+        # Returns: A synthetic identifier that cannot collide with real n-prefixed IDs.
+        upvar 1 $modelVar model
+        set i 0
+        while {[dict exists $model @new[incr i]]} {}
+        set id @new$i
+        if {$frame eq {}} {
+            set frame @content$i
+        }
+        dict set model $id [dict create type leaf parent $parent widget $frame]
+        return $id
+    }
+    method ModelDrop {modelVar id} {
+        # Removes a subtree from a proposed model without destroying widgets.
+        #  modelVar - Caller node dictionary variable.
+        #  id - Subtree to remove.
+        # Returns: Nothing.
+        upvar 1 $modelVar model
+        if {[dict get $model $id type] eq {split}} {
+            foreach child [dict get $model $id children] {
+                my ModelDrop model $child
+            }
+        }
+        dict unset model $id
+    }
+    method ModelCollapse {modelVar rootVar replacementVar parent} {
+        # Promotes a singleton child in a proposed tree and records the vanished parent for validation.
+        #  modelVar - Caller node dictionary variable.
+        #  rootVar - Caller root variable.
+        #  replacementVar - Caller collapsed-parent dictionary variable.
+        #  parent - Split to collapse if it has one child.
+        # Returns: Nothing.
+        upvar 1 $modelVar model $rootVar root $replacementVar replacements
+        if {($parent eq {}) || ![dict exists $model $parent]} {
+            return
+        }
+        set children [dict get $model $parent children]
+        if {[llength $children] != 1} {
+            return
+        }
+        set survivor [lindex $children 0]
+        set grand [dict get $model $parent parent]
+        dict set model $survivor parent $grand
+        if {$grand eq {}} {
+            set root $survivor
+        } else {
+            set siblings [dict get $model $grand children]
+            set at [lsearch -exact $siblings $parent]
+            dict set model $grand children [lreplace $siblings $at $at $survivor]
+        }
+        dict unset model $parent
+        dict set replacements $parent $survivor
+    }
+    method ModelAttach {modelVar rootVar source target side} {
+        # Inserts a proposed leaf using the same edge and sibling semantics as move/dock.
+        #  modelVar - Caller node dictionary variable.
+        #  rootVar - Caller root variable.
+        #  source - Detached leaf identifier.
+        #  target - Existing target node.
+        #  side - left, right, top, bottom, before, or after.
+        # Returns: Nothing.
+        upvar 1 $modelVar model $rootVar root
+        set parent [dict get $model $target parent]
+        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
+        set before [expr {$side in {left top before}}]
+        set wrap [expr {($side in {left right top bottom}) &&\
+                                (($parent eq {}) || ([dict get $model $parent orient] ne $orient))}]
+        if {$wrap} {
+            if {[dict get $model $target type] eq {leaf}} {
+                set wrapper $target
+                set retained [my ModelLeaf model $wrapper [dict get $model $target widget]]
+            } else {
+                set wrapper [my ModelLeaf model $parent]
+                set retained $target
+                dict set model $target parent $wrapper
+                if {$parent eq {}} {
+                    set root $wrapper
+                } else {
+                    set children [dict get $model $parent children]
+                    set at [lsearch -exact $children $target]
+                    dict set model $parent children [lreplace $children $at $at $wrapper]
+                }
+            }
+            dict set model $wrapper [dict create type split parent $parent orient $orient widget @split\
+                                             children [expr {$before ? [list $source $retained] :\
+                                                                     [list $retained $source]}]]
+            dict set model $source parent $wrapper
+        } else {
+            set children [dict get $model $parent children]
+            set at [lsearch -exact $children $target]
+            if {!$before} {
+                incr at
+            }
+            dict set model $parent children [linsert $children $at $source]
+            dict set model $source parent $parent
+        }
+    }
+    method ValidateOperation {operation args} {
+        # Preflights a canonical operation using an isolated logical model.
+        #  operation - split, insert, move, swap, remove, retain, clear, undock, or dock.
+        #  args - Validated operation operands; dock uses token, side, target, and placeholder-replacement boolean.
+        #
+        # No widgets, IDs, bindings, proportions, callbacks, or gesture state are mutated. Surviving content paths
+        # distinguish deletion from leaf-to-split conversion and undocking. The final model validates all ancestors.
+        # Returns: Nothing, or a structured constraint error.
+        if {![dict size $NodeRules] && ![dict size $ContentRules]} {
+            return
+        }
+        set model $Nodes
+        set root $Root
+        set replacements {}
+        set floats $Floating
+        set id [lindex $args 0]
+        switch $operation {
+            split {
+                lassign $args id orient keep
+                set frame [dict get $model $id widget]
+                set a [my ModelLeaf model $id]
+                set b [my ModelLeaf model $id]
+                dict set model [expr {$keep eq {first} ? $a : $b}] widget $frame
+                dict set model $id [dict create type split parent [my parent $id] widget @split orient $orient\
+                                            children [list $a $b]]
+            }
+            insert {
+                lassign $args id side
+                set source [my ModelLeaf model {}]
+                my ModelAttach model root $source $id $side
+            }
+            move {
+                lassign $args source side target
+                if {$source eq $target} {return}
+                if {[my constraints $source -nomove]} {
+                    my ConstraintError $source -nomove {direct movement is disabled}
+                }
+                set parent [dict get $model $source parent]
+                set children [dict get $model $parent children]
+                set at [lsearch -exact $children $source]
+                dict set model $parent children [lreplace $children $at $at]
+                my ModelAttach model root $source $target $side
+                my ModelCollapse model root replacements $parent
+            }
+            swap {
+                lassign $args a b
+                if {$a eq $b} {
+                    return
+                }
+                foreach leaf [list $a $b] {
+                    if {[my constraints $leaf -nomove]} {
+                        my ConstraintError $leaf -nomove {swap would move protected content}
+                    }
+                }
+                set fa [dict get $model $a widget]
+                dict set model $a widget [dict get $model $b widget]
+                dict set model $b widget $fa
+            }
+            clear {
+                set model {}
+                set root [my ModelLeaf model {}]
+            }
+            retain {
+                set parent [dict get $model $id parent]
+                if {$parent eq {}} {return}
+                foreach sibling [dict get $model $parent children] {
+                    if {$sibling ne $id} {
+                        my ModelDrop model $sibling
+                    }
+                }
+                dict set model $parent children [list $id]
+                my ModelCollapse model root replacements $parent
+            }
+            remove - undock {
+                if {[dict exists $floats $id]} {
+                    dict unset floats $id
+                } else {
+                    if {$operation eq {undock}} {
+                        if {[my constraints $id -noundock]} {
+                            my ConstraintError $id -noundock {undocking is disabled}
+                        }
+                        dict set floats @floating [dict create frame [dict get $model $id widget]]
+                    }
+                    set parent [dict get $model $id parent]
+                    my ModelDrop model $id
+                    if {$parent eq {}} {
+                        set root [my ModelLeaf model {}]
+                    } else {
+                        set children [dict get $model $parent children]
+                        set at [lsearch -exact $children $id]
+                        dict set model $parent children [lreplace $children $at $at]
+                        my ModelCollapse model root replacements $parent
+                    }
+                }
+            }
+            dock {
+                lassign $args token side target replace
+                set source [my ModelLeaf model {} [dict get $floats $token frame]]
+                dict unset floats $token
+                if {$replace} {
+                    my ModelDrop model $root
+                    set root $source
+                } else {
+                    my ModelAttach model root $source $target $side
+                }
+            }
+            default {
+                return -code error "unknown planned operation '$operation'"
+            }
+        }
+        set surviving {}
+        dict for {node data} $model {
+            if {[dict get $data type] eq {leaf}} {
+                dict set surviving [dict get $data widget] 1
+            }
+        }
+        dict for {token data} $floats {
+            dict set surviving [dict get $data frame] 1
+        }
+        dict for {node data} $Nodes {
+            if {[dict get $data type] eq {leaf}} {
+                set frame [dict get $data widget]
+                if {![dict exists $surviving $frame] && [my constraints $node -nodestroy]} {
+                    my ConstraintError $node -nodestroy {operation would destroy protected content}
+                }
+            } elseif {![dict exists $model $node] && [my constraints $node -nodestroy]} {
+                my ConstraintError $node -nodestroy {operation would delete or collapse this split}
+            }
+        }
+        dict for {token data} $Floating {
+            if {![dict exists $surviving [dict get $data frame]] && [my constraints $token -nodestroy]} {
+                my ConstraintError $token -nodestroy {operation would destroy protected floating content}
+            }
+        }
+        my ValidateLimits $model $NodeRules $replacements
+    }
+    method DockDestination {token opts} {
+        # Resolves explicit or remembered docking without changing any widgets.
+        #  token - Owned floating token.
+        #  opts - Parsed destination dictionary, with unprefixed option names.
+        # Returns: Side, target, and untouched-placeholder replacement boolean.
+        my FloatingFrame $token
+        set destinations {}
+        foreach side {left right top bottom before after} {
+            if {[dict exists $opts $side]} {
+                lappend destinations $side
+            }
+        }
+        if {[llength $destinations] > 1} {
+            return -code error {expected at most one docking destination}
+        }
+        if {![llength $destinations]} {
+            set remembered [my RestoreDestination $token]
+            if {$remembered ne {}} {
+                lassign $remembered side target
+                dict set opts $side $target
+                set destinations [list $side]
+            }
+        }
+        set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf}) &&\
+                                   ![llength [winfo children [my frame $Root]]] && ([my title $Root] eq {})}]
+        set side right
+        set target $Root
+        if {[llength $destinations]} {
+            set side [lindex $destinations 0]
+            set target [my Check [dict get $opts $side]]
+        }
+        if {($side in {before after}) && ([my parent $target] eq {})} {
+            return -code error {cannot dock beside root; use an edge destination}
+        }
+        return [list $side $target $replace]
+    }
+    method ActionAllowed {id action} {
+        # Tests a header or native-close action against the same command preflight.
+        #  id - Leaf or floating token.
+        #  action - dock, undock, or delete.
+        # Returns: Boolean. Unexpected implementation errors remain errors.
+        set op [expr {$action eq {delete} ? {remove} : $action}]
+        set args [list $id]
+        if {$op eq {dock}} {
+            lappend args {*}[my DockDestination $id {}]
+        }
+        if {[catch {my ValidateOperation $op {*}$args} message options]} {
+            if {[lrange [dict get $options -errorcode] 0 1] eq {SPLITLAYOUT CONSTRAINT}} {
+                return 0
+            }
+            return -options $options $message
+        }
+        return 1
+    }
+    method HasResizeLocks {} {
+        # Reports whether managed sash gestures must avoid native neighbor-pushing behavior.
+        # Returns: Boolean; explicit false settings do not activate constrained live dragging.
+        foreach rules [list $NodeRules $ContentRules] {
+            dict for {id settings} $rules {
+                if {[dict exists $settings -noresize] && [dict get $settings -noresize]} {
+                    return 1
+                }
+            }
+        }
+        return 0
+    }
+    method SubtreeResizeLocked {id} {
+        # Determines whether changing this subtree's outer allocation would resize protected content.
+        #  id - Existing node.
+        # Returns: Boolean. Used for sash allocation, not for structural movement.
+        if {[my constraints $id -noresize]} {
+            return 1
+        }
+        foreach child [my children $id] {
+            if {[my SubtreeResizeLocked $child]} {
+                return 1
+            }
+        }
+        return 0
+    }
+    method SashLocked {id sash} {
+        # Tests the two adjacent subtree allocations affected by a sash.
+        #  id - Split identifier.
+        #  sash - Sash index.
+        # Returns: Boolean; a split's own flag does not lock its internal sashes.
+        set children [my children $id]
+        expr {[my SubtreeResizeLocked [lindex $children $sash]] ||\
+                      [my SubtreeResizeLocked [lindex $children [expr {$sash+1}]]]}
+    }
+    method ValidateResize {id values} {
+        # Rejects changed split proportions when a descendant allocation is protected.
+        #  id - Split being configured.
+        #  values - Valid normalized proportions.
+        #
+        # Identical stored proportions are a no-op. A split's own flag permits internal resizing; descendant flags
+        # conservatively reject the entire proportions update, since native minimum fitting may affect other panes.
+        # Returns: Nothing, or a constraint error.
+        if {$values eq [dict get $Nodes $id proportions]} {
+            return
+        }
+        foreach child [my children $id] {
+            if {[my SubtreeResizeLocked $child]} {
+                my ConstraintError $child -noresize {proportion changes could resize a protected descendant}
+            }
+        }
     }
     method minsize {args} {
         # Gets or sets the minimum content-area dimensions of a leaf or floating window.
@@ -1819,6 +2431,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set id [my Check [dict get $opts leaf] leaf]
         set frame [my frame $id]
         set parent [my parent $id]
+        my ValidateOperation undock $id
         set placement [my RememberPlacement $id]
         set top [winfo toplevel $frame]
         set tags [my BindingSnapshot $frame]
@@ -1900,31 +2513,8 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         set token [dict get $opts floating]
         set frame [my FloatingFrame $token]
-        set destinations {}
-        foreach side {left right top bottom before after} {
-            if {[dict exists $opts $side]} {
-                lappend destinations $side
-            }
-        }
-        if {[llength $destinations] > 1} {
-            return -code error {expected at most one docking destination}
-        }
-        if {![llength $destinations]} {
-            set remembered [my RestoreDestination $token]
-            if {$remembered ne {}} {
-                lassign $remembered side target
-                dict set opts $side $target
-                set destinations [list $side]
-            }
-        }
-        set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf})\
-                                   && ![llength [winfo children [my frame $Root]]] && ([my title $Root] eq {})}]
-        set side right
-        set target $Root
-        if {[llength $destinations]} {
-            set side [lindex $destinations 0]
-            set target [my Check [dict get $opts $side]]
-        }
+        lassign [my DockDestination $token $opts] side target replace
+        my ValidateOperation dock $token $side $target $replace
         set parent [my parent $target]
         set edge [expr {$side in {left right top bottom}}]
         if {!$edge && ($parent eq {})} {
@@ -2009,11 +2599,15 @@ oo::configurable create ::splitlayout::splitlayout {
         # Handles the native close button according to the floating record's close policy.
         #  id - Floating token, possibly already expired during teardown.
         #
-        # Returns: Nothing. The default tries the saved position; destroy explicitly discards content.
+        # Returns: Nothing. Constraints may refuse either action, leaving the window open without a background error.
         if {$Closing || ![dict exists $Floating $id]} {
             return
         }
-        if {[dict get $Floating $id onclose] eq {dock}} {
+        set action [expr {[dict get $Floating $id onclose] eq {dock} ? {dock} : {delete}}]
+        if {![my ActionAllowed $id $action]} {
+            return
+        }
+        if {$action eq {dock}} {
             my dock $id
         } else {
             my remove $id
@@ -2221,6 +2815,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         set id [my Check [dict get $opts node] leaf]
         set fraction [my Fraction [dict get $opts ratio]]
+        my ValidateOperation split $id [dict get $opts orient] [dict get $opts keep]
         my CaptureAll
         set old [my frame $id]
         set pw [my NewSplitWidget $id [dict get $opts orient]]
@@ -2337,6 +2932,7 @@ oo::configurable create ::splitlayout::splitlayout {
             if {$reordered eq $children} {
                 return $source
             }
+            my ValidateOperation move $source $where $target
             my CancelDrag
             my CaptureAll
             set weights [dict get $Nodes $oldParent proportions]
@@ -2347,6 +2943,7 @@ oo::configurable create ::splitlayout::splitlayout {
             my Rebuild
             return $source
         }
+        my ValidateOperation move $source $where $target
         # Allocate any new native widget before detaching the source.
         set wrapSplit [expr {$wrap && ([my type $target] eq {split})}]
         if {$wrap} {
@@ -2428,6 +3025,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$parent eq {}} {
             return -code error {cannot insert beside root; split it first}
         }
+        my ValidateOperation insert $id [dict get $opts side]
         my CaptureAll
         set children [my children $parent]
         set index [lsearch -exact $children $id]
@@ -2492,6 +3090,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set id [my Check [dict get $opts node] split]
         if {[dict exists $opts weights]} {
             set values [my Normalize [dict get $opts weights] [llength [my children $id]]]
+            my ValidateResize $id $values
             my CancelDrag
             dict set Nodes $id proportions $values
             my Schedule $id
@@ -2541,6 +3140,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         my CancelDrag
+        dict for {id settings} $NodeRules {
+            if {![dict exists $Nodes $id]} {dict unset NodeRules $id}
+        }
         # Detach all known windows before adding any: this also handles swaps
         # where both frames were originally in the same panedwindow.
         dict for {id data} $Nodes {
@@ -2782,6 +3384,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         if {[dict exists $opts value]} {
             set fraction [my Fraction [dict get $opts value]]
+            my ValidateResize $id [list $fraction [expr {1.0-$fraction}]]
             my CancelDrag
             dict set Nodes $id proportions [list $fraction [expr {1.0-$fraction}]]
             my Schedule $id
@@ -2827,12 +3430,14 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
         if {[dict exists $Floating $id]} {
+            my ValidateOperation remove $id
             set frame [my FloatingFrame $id]
             dict unset Floating $id
             destroy $frame
             return
         }
         my Check $id
+        my ValidateOperation remove $id
         if {$id eq $Root} {
             return [my clear]
         }
@@ -2899,6 +3504,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$parent eq {}} {
             return $id
         }
+        my ValidateOperation retain $id
         my CaptureAll
         foreach sibling [my children $parent] {
             if {$sibling ne $id} {
@@ -2913,6 +3519,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Destroys the docked tree and creates one empty root leaf; floating content is retained.
         #
         # Returns: The new root leaf identifier.
+        my ValidateOperation clear
         my Drop $Root
         set Root [my NewLeaf {}]
         my Rebuild
@@ -2933,6 +3540,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$a eq $b} {
             return
         }
+        my ValidateOperation swap $a $b
         my CaptureAll
         set fa [my frame $a]
         set fb [my frame $b]
@@ -3153,7 +3761,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  id - Docked leaf or floating token.
         #  action - dock, undock, or delete.
         #
-        # Returns: Nothing. Delete always destroys the content, including when onclose is dock.
+        # Returns: Nothing. Delete requests removal regardless of onclose, but still honors node constraints.
+        if {![my ActionAllowed $id $action]} {
+            return
+        }
         my CancelDrag
         switch $action {
             dock {
@@ -3451,6 +4062,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set action [expr {[dict exists $Floating $id] ? {dock} : {undock}}]
         set widths {}
         foreach name {toggle delete} kind [list $action delete] {
+            $grip.$name state [expr {[my ActionAllowed $id $kind] ? {!disabled} : {disabled}}]
             set image [my ButtonImage $kind]
             if {[lindex [$grip.$name cget -image] 0] ne $image} {
                 $grip.$name configure -image [list $image]
@@ -3662,6 +4274,38 @@ oo::configurable create ::splitlayout::splitlayout {
         return [dict create op move target $target side $action kind outer rect $rect]
     }
     method DockTarget {x y} {
+        # Filters geometric drop candidates through the same atomic command validator.
+        #  x - Screen x coordinate.
+        #  y - Screen y coordinate.
+        # Returns: An allowed destination dictionary, or empty for a prohibited drop.
+        set target [my RawDockTarget $x $y]
+        if {$target eq {}} {
+            return
+        }
+        set source [dict get $Dock source]
+        set op [dict get $target op]
+        set args [list $source]
+        if {$op ne {undock} && [dict exists $Floating $source]} {
+            set op dock
+            set opts {}
+            if {[dict get $target side] ne {}} {
+                dict set opts [dict get $target side] [dict get $target target]
+            }
+            lappend args {*}[my DockDestination $source $opts]
+        } elseif {$op eq {swap}} {
+            lappend args [dict get $target target]
+        } elseif {$op eq {move}} {
+            lappend args [dict get $target side] [dict get $target target]
+        }
+        if {[catch {my ValidateOperation $op {*}$args} message options]} {
+            if {[lrange [dict get $options -errorcode] 0 1] eq {SPLITLAYOUT CONSTRAINT}} {
+                return
+            }
+            return -options $options $message
+        }
+        return $target
+    }
+    method RawDockTarget {x y} {
         # Resolves a screen coordinate to a docking operation in this manager only.
         #  x - Screen x coordinate.
         #  y - Screen y coordinate.
@@ -3899,7 +4543,9 @@ oo::configurable create ::splitlayout::splitlayout {
             set target [my DockTarget $x $y]
         }
         # A released floating window retains its new position; Escape restores it.
-        if {[dict exists $Dock floatingGeometry]} {dict unset Dock floatingGeometry}
+        if {[dict exists $Dock floatingGeometry]} {
+            dict unset Dock floatingGeometry
+        }
         my CancelDock
         if {$target ne {}} {
             if {[dict get $target op] eq {undock}} {
@@ -3978,10 +4624,6 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing for a pass-through event; Tcl break completion for an accepted gesture.
         my SyncOwner
-        if {$Opaque && ![dict size $Minimums]} {
-            return
-        }
-        my CancelDrag
         set sash [$pw identify sash $x $y]
         if {$sash eq {}} {
             return
@@ -3990,6 +4632,18 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$id eq {}} {
             return
         }
+        if {[my SashLocked $id $sash]} {
+            my CancelDrag
+            set LivePress [dict create pw $pw cancelled 1]
+            return -code break
+        }
+        if {$Opaque && ![dict size $Minimums] && ![my HasResizeLocks]} {
+            my CancelDrag
+            set LivePress [dict create pw $pw cancelled 0]
+            return
+        }
+        my CancelDrag
+        set LivePress {}
         if {[dict exists $Pending $id]} {
             after cancel [dict get $Pending $id]
             my ApplyRatio $id
@@ -4026,6 +4680,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # Only a gesture belonging to this panedwindow updates the target; live mode applies it immediately.
         #
         # Returns: Nothing for an unrelated event; Tcl break completion for handled motion.
+        if {$LivePress ne {} && [dict get $LivePress pw] eq $pw && [dict get $LivePress cancelled]} {
+            return -code break
+        }
         if {($Drag eq {}) || ([dict get $Drag pw] ne $pw)} {
             return
         }
@@ -4058,6 +4715,13 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         if {$sash < [llength [$pw panes]]-2} {
             set upper [$pw sashpos [expr {$sash+1}]]
+        }
+        if {[my HasResizeLocks]} {
+            set gap [my SashThickness [dict get $Drag id]]
+            if {$sash > 0} {
+                incr lower $gap
+            }
+            incr upper -$gap
         }
         set target [expr {max($lower,min($upper,$target))}]
         dict set Drag target [my ConstrainSash [dict get $Drag id] $sash $target]
@@ -4123,6 +4787,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # if sash placement fails. Actual layout work is requested before the preview is destroyed.
         #
         # Returns: Nothing for an unrelated event; Tcl break completion for a handled release.
+        if {$LivePress ne {} && [dict get $LivePress pw] eq $pw} {
+            set LivePress {}
+            return
+        }
         if {($Drag eq {}) || ([dict get $Drag pw] ne $pw)} {
             return
         }
@@ -4159,6 +4827,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # The target sash position is not committed. Safe without an active gesture.
         #
         # Returns: Nothing.
+        if {[info exists LivePress] && ($LivePress ne {})} {
+            dict set LivePress cancelled 1
+        }
         my CancelDock
         if {![info exists Drag] || ($Drag eq {})} {
             return

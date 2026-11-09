@@ -3334,6 +3334,395 @@ test splitlayout-nested-28.9 {failed ancestor promotion keeps nested owners and 
             [$outer floating]
 } -cleanup {::sltest::cleanup} -result {1 .sltest 1 1 {}}
 
+namespace eval ::sltest {
+    proc policySnapshot {m} {
+        set ns [info object namespace $m]
+        set result {}
+        foreach name {Nodes Root Serial Floating Pending Panels Borders Dock Drag NodeRules ContentRules LivePress} {
+            lappend result [set ${ns}::$name]
+        }
+        lappend result [winfo children $m] [grab current $m]
+        return $result
+    }
+    proc blocked {m script option} {
+        set before [policySnapshot $m]
+        set code [catch {uplevel 1 $script} message opts]
+        expr {$code == 1 && [lrange [dict get $opts -errorcode] 0 2] eq [list SPLITLAYOUT CONSTRAINT $option] &&
+                $before eq [policySnapshot $m]}
+    }
+}
+
+test splitlayout-constraints-29.1 {defaults atomic settings pinned shorthand and node-type validation} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+} -body {
+    set defaults [$m constraints $r]
+    $m constraints $r -pinned true -nodestroy true
+    set on [list [$m constraints $r -nomove] [$m constraints $r -noundock] [$m constraints $r -pinned]]
+    $m constraints $r -nomove false
+    set partial [$m constraints $r -pinned]
+    set before [$m constraints $r]
+    set bad [catch {$m constraints $r -nomove true -maxleaves 0}]
+    set atomic [expr {$before eq [$m constraints $r]}]
+    set mixed [catch {$m constraints $r -pinned true -nomove false}]
+    set invalid [catch {$m constraints $r -noresize maybe}]
+    $m constraints $r -pinned false
+    lassign [$m split $r] a b
+    list [dict get $defaults -maxleaves] [dict get $defaults -maxdepth] $on $partial $bad $atomic $mixed $invalid \
+            [catch {$m constraints $r -nomove true}] [$m constraints $a -nodestroy] [$m constraints $b -nodestroy]
+} -cleanup {::sltest::cleanup} -result {-1 -1 {1 1 1} 0 1 1 1 1 1 1 0}
+
+foreach direction {first second} {
+    test splitlayout-constraints-29.2-$direction {leaf protection follows retained content while subtree limits stay on the split} -setup {
+        set m [::sltest::setup]
+        set r [$m root]
+        $m constraints $r -nomove true -noundock true -nodestroy true -noresize true -maxleaves 2 -maxdepth 1
+    } -body {
+        lassign [$m split $r -keep $direction] a b
+        set keep [expr {$direction eq {first} ? $a : $b}]
+        set fresh [expr {$direction eq {first} ? $b : $a}]
+        list [$m constraints $keep -pinned] [$m constraints $keep -nodestroy] [$m constraints $keep -noresize] \
+                [$m constraints $fresh -pinned] [$m constraints $r -maxleaves] [$m constraints $keep -maxleaves] \
+                [::sltest::blocked $m [list $m split $fresh] -maxleaves]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 0 2 -1 1}
+}
+
+test splitlayout-constraints-29.3 {nomove blocks only direct move and either swap operand; neighboring edits and undock stay allowed} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    set c [$m insert $b]
+    $m constraints $a -nomove true
+} -body {
+    set results [list [::sltest::blocked $m [list $m move $a -after $b] -nomove] \
+            [::sltest::blocked $m [list $m swap $a $b] -nomove] [::sltest::blocked $m [list $m swap $b $a] -nomove]]
+    $m move $c -before $a
+    $m insert $a
+    set token [$m undock $a]
+    set back [$m dock $token]
+    lappend results [$m constraints $back -nomove] [expr {[$m move $back -left $back] eq $back}]
+    set results
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1}
+
+test splitlayout-constraints-29.4 {noundock independently blocks direct command and button but permits move and swap} -setup {
+    lassign [::sltest::docksetup] m r a b
+    $m constraints $a -noundock true
+    update
+} -body {
+    set g [::sltest::grip $m $a]
+    set blocked [::sltest::blocked $m [list $m undock $a] -noundock]
+    set disabled [$g.toggle instate disabled]
+    $g.toggle invoke
+    $m swap $a $b
+    $m move $b -top $a
+    list $blocked $disabled [$m floating] [$m constraints $b -noundock]
+} -cleanup {::sltest::cleanup} -result {1 1 {} 1}
+
+test splitlayout-constraints-29.5 {nodestroy prevents removal clear and retain of protected descendants without marking ancestors} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    lassign [$m split $b -orient vertical] c d
+    $m constraints $c -nodestroy true
+} -body {
+    set results [list [$m constraints $r -nodestroy] \
+            [::sltest::blocked $m [list $m remove $c] -nodestroy] [::sltest::blocked $m [list $m remove $b] -nodestroy] \
+            [::sltest::blocked $m [list $m clear] -nodestroy] [::sltest::blocked $m [list $m retain $a] -nodestroy]]
+    $m remove $d
+    lappend results [expr {[$m parent $c] eq $r}] [$m constraints $c -nodestroy]
+    set results
+} -cleanup {::sltest::cleanup} -result {0 1 1 1 1 1 1}
+
+foreach operation {remove retain move undock} {
+    test splitlayout-constraints-29.6-$operation {an explicitly protected split cannot be collapsed by an indirect operation} -setup {
+        set m [::sltest::setup]
+        set r [$m root]
+        lassign [$m split $r] a b
+        lassign [$m split $b -orient vertical] c d
+        $m constraints $b -nodestroy true
+    } -body {
+        switch $operation {
+            remove {set command [list $m remove $c]}
+            retain {set command [list $m retain $d]}
+            move {set command [list $m move $c -left $a]}
+            undock {set command [list $m undock $c]}
+        }
+        ::sltest::blocked $m $command -nodestroy
+    } -cleanup {::sltest::cleanup} -result 1
+}
+
+test splitlayout-constraints-29.7 {floating deletion and native close honor protection while docking preserves flags} -setup {
+    lassign [::sltest::docksetup] m r a b
+    $m constraints $a -nodestroy true
+    set token [$m undock $a -onclose destroy]
+    update
+} -body {
+    set frame [$m frame $token]
+    set g [::sltest::floatgrip $m $token]
+    set command [wm protocol $frame WM_DELETE_WINDOW]
+    uplevel #0 $command
+    $g.delete invoke
+    set denied [::sltest::blocked $m [list $m remove $token] -nodestroy]
+    set leaf [$m dock $token]
+    list $denied [winfo exists $frame] [$m constraints $leaf -nodestroy] [expr {[$m frame $leaf] eq $frame}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+foreach operation {remove retain undock move} {
+    test splitlayout-constraints-29.8-$operation {minimum leaf count cannot be bypassed by singleton collapse} -setup {
+        set m [::sltest::setup]
+        set r [$m root]
+        lassign [$m split $r] a b
+        lassign [$m split $b -orient vertical] c d
+        $m constraints $b -minleaves 2
+    } -body {
+        switch $operation {
+            remove {set command [list $m remove $c]}
+            retain {set command [list $m retain $d]}
+            undock {set command [list $m undock $c]}
+            move {set command [list $m move $c -left $a]}
+        }
+        ::sltest::blocked $m $command -minleaves
+    } -cleanup {::sltest::cleanup} -result 1
+}
+
+test splitlayout-constraints-29.9 {maximum leaf count constrains split insert and docking atomically} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    set c [$m insert $b]
+    set token [$m undock $c]
+    $m constraints $r -maxleaves 2
+} -body {
+    list [::sltest::blocked $m [list $m split $a] -maxleaves] \
+            [::sltest::blocked $m [list $m insert $b] -maxleaves] \
+            [::sltest::blocked $m [list $m dock $token -before $a] -maxleaves] \
+            [expr {[llength [$m floating]] == 1}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-constraints-29.10 {maximum depth distinguishes flat insertion from nesting and permits reordering} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    $m constraints $r -maxdepth 1
+    set c [$m insert $b]
+} -body {
+    set results [list [::sltest::blocked $m [list $m split $b] -maxdepth] \
+            [::sltest::blocked $m [list $m move $c -top $b] -maxdepth]]
+    $m move $c -before $a
+    lappend results [expr {[$m children $r] eq [list $c $a $b]}]
+    set results
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-constraints-29.11 {maxdepth zero stays on the original position during leaf conversion} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    $m constraints $a -maxdepth 0
+} -body {
+    list [::sltest::blocked $m [list $m split $a] -maxdepth] \
+            [::sltest::blocked $m [list $m move $b -top $a] -maxdepth]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-constraints-29.12 {subtree bounds do not forbid deleting that whole subtree and metadata is cleaned} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    lassign [$m split $b] c d
+    $m constraints $b -minleaves 2 -maxleaves 2 -maxdepth 1
+} -body {
+    $m remove $b
+    set ns [info object namespace $m]
+    list [$m root] [dict exists [set ${ns}::NodeRules] $b]
+} -cleanup {::sltest::cleanup} -match glob -result {n* 0}
+
+foreach opaque {true false} {
+    test splitlayout-constraints-29.13-$opaque {resize locks block ancestor sashes and proportion commands but allow window resizing} -setup {
+        set m [::sltest::setup]
+        $m configure -opaqueresize $opaque
+        set r [$m root]
+        lassign [$m split $r] a b
+        lassign [$m split $b -orient vertical] c d
+        $m constraints $c -noresize true
+        update
+    } -body {
+        set pw [$m panedwindow $r]
+        set old [$pw sashpos 0]
+        ::sltest::gesture $pw 0 80 1
+        update
+        set unchanged [expr {[$pw sashpos 0] == $old}]
+        set command [::sltest::blocked $m [list $m ratio $r 0.7] -noresize]
+        set proportions [::sltest::blocked $m [list $m proportions $r {1 3}] -noresize]
+        set width [winfo width [$m frame $c]]
+        wm geometry .sltest 1000x700
+        update
+        list $unchanged $command $proportions [expr {[winfo width [$m frame $c]] != $width}]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 1}
+}
+
+test splitlayout-constraints-29.14 {locking a split allocation still permits its internal resizing and structural edits} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    lassign [$m split $b -orient vertical] c d
+    $m constraints $b -noresize true
+} -body {
+    $m ratio $b 0.7
+    set result [expr {abs([$m ratio $b]-0.7) < 0.01}]
+    $m split $c
+    list $result [::sltest::blocked $m [list $m ratio $r 0.7] -noresize]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+foreach flag {nomove noundock} {
+    test splitlayout-constraints-29.15-$flag {forbidden gesture destinations show no preview and make no mutation} -setup {
+        lassign [::sltest::docksetup] m r a b
+        $m constraints $a -$flag true
+        update
+    } -body {
+        if {$flag eq {nomove}} {set dest [::sltest::point [$m widget $b]]} else {
+            set dest [list [expr {[winfo rootx $m]+[winfo width $m]+30}] [winfo rooty $m]]
+        }
+        set frame [$m frame $a]
+        set g [::sltest::dockstart $m $a $dest]
+        set target [dict get [::sltest::dockstate $m] target]
+        ::sltest::dockevent $g <ButtonRelease-1> $dest
+        update
+        list $target [$m floating] [expr {[$m frame $a] eq $frame}] [llength [info commands $m.drop*]] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {{} {} 1 0 {}}
+}
+
+test splitlayout-constraints-29.16 {maximum count blocks default dock button and WM close without background errors} -setup {
+    lassign [::sltest::docksetup] m r a b
+    set c [$m insert $b]
+    set token [$m undock $c]
+    $m constraints $r -maxleaves 2
+    update
+} -body {
+    set frame [$m frame $token]
+    set g [::sltest::floatgrip $m $token]
+    $g.toggle invoke
+    uplevel #0 [wm protocol $frame WM_DELETE_WINDOW]
+    list [$g.toggle instate disabled] [winfo exists $frame] [llength [$m floating]] \
+            [::sltest::blocked $m [list $m dock $token] -maxleaves]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-constraints-29.17 {invalid settings preserve active gestures while accepted changes cancel them} -setup {
+    lassign [::sltest::docksetup] m r a b
+} -body {
+    set g [::sltest::dockstart $m $a [::sltest::point [$m widget $b]]]
+    set before [::sltest::dockstate $m]
+    set invalid [catch {$m constraints $r -maxleaves 1}]
+    set retained [expr {$before eq [::sltest::dockstate $m]}]
+    $m constraints $a -nomove true
+    list $invalid $retained [::sltest::dockstate $m] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {1 1 {} {}}
+
+test splitlayout-constraints-29.18 {outer moves carry protected nested contents without propagating nomove} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    $inner constraints $a -nomove true
+} -body {
+    $outer swap $host $other
+    $outer move $other -top $host
+    list [$inner constraints $a -nomove] [::sltest::blocked $inner [list $inner move $a -top $b] -nomove]
+} -cleanup {::sltest::cleanup} -result {1 1}
+
+test splitlayout-constraints-29.19 {manager teardown and direct Tk destruction remain possible} -setup {
+    set m [::sltest::setup]
+    set id [$m root]
+    $m constraints $id -pinned true -nodestroy true -noresize true
+} -body {
+    set frame [$m frame $id]
+    $m destroy
+    list [winfo exists $m] [winfo exists $frame]
+} -cleanup {::sltest::cleanup} -result {0 0}
+
+test splitlayout-constraints-29.20 {moving beside an ancestor validates final counts without propagating nomove} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    lassign [$m split $b -orient vertical] c d
+    $m constraints $a -nomove true
+    $m constraints $r -maxleaves 3 -maxdepth 2
+    set frame [$m frame $a]
+} -body {
+    $m move $c -top $r
+    list [expr {[$m frame $a] eq $frame}] [$m constraints $a -nomove] \
+            [expr {[$m root] ne $r}] [llength [$m leaves]] [::sltest::check $m]
+} -cleanup {::sltest::cleanup} -result {1 1 1 3 1}
+
+test splitlayout-constraints-29.21 {protected destination content survives implicit leaf-to-split conversion} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    set frame [$m frame $a]
+    $m constraints $a -nomove true -nodestroy true
+} -body {
+    $m move $b -top $a
+    set retained [$m node $frame]
+    list [expr {$retained ne $a}] [$m constraints $retained -nomove] [$m constraints $retained -nodestroy] \
+            [expr {[$m frame $retained] eq $frame}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+foreach opaque {true false} {
+    test splitlayout-constraints-29.22-$opaque {unlocked sash cannot push a remote protected pane} -setup {
+        set m [::sltest::setup]
+        $m configure -opaqueresize $opaque
+        set r [$m root]
+        lassign [$m split $r] a b
+        set c [$m insert $b]
+        set d [$m insert $c]
+        $m constraints $d -noresize true
+        update
+    } -body {
+        set pw [$m panedwindow $r]
+        set old [winfo width [$m frame $d]]
+        ::sltest::gesture $pw 0 1500 1
+        update
+        list [expr {[winfo width [$m frame $d]] == $old}] [expr {[$pw sashpos 0] <= [$pw sashpos 1]}]
+    } -cleanup {::sltest::cleanup} -result {1 1}
+}
+
+test splitlayout-constraints-29.23 {new resize lock stops an already active native live sash gesture} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    update
+} -body {
+    set pw [$m panedwindow $r]
+    lassign [::sltest::gesture $pw 0 20] x y
+    update
+    $m constraints $a -noresize true
+    set old [$pw sashpos 0]
+    event generate $pw <B1-Motion> -x [expr {$x+100}] -y $y
+    event generate $pw <ButtonRelease-1> -x [expr {$x+100}] -y $y
+    update
+    list [expr {[$pw sashpos 0] == $old}] [set [info object namespace $m]::LivePress]
+} -cleanup {::sltest::cleanup} -result {1 {}}
+
+test splitlayout-constraints-29.24 {protected placeholder cannot be implicitly replaced when floating content returns} -setup {
+    set m [::sltest::setup]
+    set token [$m undock [$m root]]
+    set placeholder [$m root]
+    $m constraints $placeholder -nodestroy true
+} -body {
+    set rejected [::sltest::blocked $m [list $m dock $token] -nodestroy]
+    set leaf [$m dock $token -right $placeholder]
+    list $rejected [llength [$m leaves]] [winfo exists [$m frame $leaf]]
+} -cleanup {::sltest::cleanup} -result {1 2 1}
+
+test splitlayout-constraints-29.25 {limits on moved subtree and destination ancestors are checked independently} -setup {
+    set m [::sltest::setup]
+    set r [$m root]
+    lassign [$m split $r] a b
+    lassign [$m split $b -orient vertical] c d
+    $m constraints $b -maxleaves 2
+    $m constraints $a -maxdepth 0
+} -body {
+    set rejected [::sltest::blocked $m [list $m move $a -before $c] -maxleaves]
+    $m constraints $b -maxleaves 3
+    $m move $a -before $c
+    list $rejected [$m constraints $a -maxdepth] [llength [$m leaves]]
+} -cleanup {::sltest::cleanup} -result {1 0 3}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors
