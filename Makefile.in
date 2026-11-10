@@ -108,7 +108,7 @@ install-doc:
 	  echo " Install" "$$p" "$(DESTDIR)$(mandir)/mann/`basename "$$p"`"; \
 	  $(INSTALL_DATA) "$$p" "$(DESTDIR)$(mandir)/mann/`basename "$$p"`"; \
 	done
-	@set -e; for p in "$(srcdir)"/docs/*.html "$(srcdir)"/docs/objects.inv "$(srcdir)"/docs/searchindex.js; do \
+	@set -e; for p in "$(srcdir)"/docs/*.html "$(srcdir)"/docs/objects.inv "$(srcdir)"/docs/searchindex.js "$(srcdir)"/docs/.nojekyll; do \
 	  test -f "$$p" || continue; \
 	  echo " Install" "$$p" "$(DOC_INSTALL_DIR)/`basename "$$p"`"; \
 	  $(INSTALL_DATA) "$$p" "$(DOC_INSTALL_DIR)/`basename "$$p"`"; \
@@ -211,7 +211,7 @@ uninstall-doc:
 	  test -f "$$p" || continue; \
 	  rm -f "$(DESTDIR)$(mandir)/mann/`basename "$$p"`"; \
 	done
-	@set -e; for p in "$(srcdir)"/docs/*.html "$(srcdir)"/docs/objects.inv "$(srcdir)"/docs/searchindex.js; do \
+	@set -e; for p in "$(srcdir)"/docs/*.html "$(srcdir)"/docs/objects.inv "$(srcdir)"/docs/searchindex.js "$(srcdir)"/docs/.nojekyll; do \
 	  test -f "$$p" || continue; \
 	  rm -f "$(DOC_INSTALL_DIR)/`basename "$$p"`"; \
 	done

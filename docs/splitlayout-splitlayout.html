@@ -1,45 +1,161 @@
+
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<html lang="en" data-content_root="./">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>splitlayout &mdash; splitlayout  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/manual.css?v=00cdc845" />
 
-    <title>splitlayout &#8212; splitlayout  documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=f11ead97" />
-    
-    <script src="_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="prev" title="splitlayout — Dynamic pane layouts for Tcl/Tk" href="splitlayout.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="splitlayout.html" title="splitlayout — Dynamic pane layouts for Tcl/Tk"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">splitlayout</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            splitlayout
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="splitlayout.html">splitlayout — Dynamic pane layouts for Tcl/Tk</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout.html#what-it-gives-you-at-a-glance">What it gives you (at a glance)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout.html#general-concept">General concept</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout.html#two-hierarchies">Two hierarchies</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout.html#installing">Installing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">splitlayout</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#minimum-content-sizes">Minimum content sizes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#per-node-constraints">Per-node constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lock-terminology-and-migration">Lock terminology and migration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#movement-and-locked-content">Movement and locked content</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#destruction-and-collapse">Destruction and collapse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#resize-locks">Resize locks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#leaf-counts-and-depth">Leaf counts and depth</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ownership-commands-and-gesture-feedback">Ownership, commands, and gesture feedback</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#moving-panes">Moving panes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#lock-button">Lock button</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#optional-tooltips">Optional tooltips</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#nested-managers">Nested managers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#visual-structure">Visual structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#resizing">Resizing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#appearance-and-drag-detection">Appearance and drag detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#floating-managed-content">Floating managed content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#inspecting-the-layout">Inspecting the layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout"><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#constructor"><code class="docutils literal notranslate"><span class="pre">constructor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#destructor"><code class="docutils literal notranslate"><span class="pre">destructor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#children"><code class="docutils literal notranslate"><span class="pre">children</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#clear"><code class="docutils literal notranslate"><span class="pre">clear</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#constraints"><code class="docutils literal notranslate"><span class="pre">constraints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#container"><code class="docutils literal notranslate"><span class="pre">container</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dock"><code class="docutils literal notranslate"><span class="pre">dock</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#floating"><code class="docutils literal notranslate"><span class="pre">floating</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#frame"><code class="docutils literal notranslate"><span class="pre">frame</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#insert"><code class="docutils literal notranslate"><span class="pre">insert</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#leaves"><code class="docutils literal notranslate"><span class="pre">leaves</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#locate"><code class="docutils literal notranslate"><span class="pre">locate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#minsize"><code class="docutils literal notranslate"><span class="pre">minsize</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#move"><code class="docutils literal notranslate"><span class="pre">move</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#node"><code class="docutils literal notranslate"><span class="pre">node</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#panedwindow"><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parent"><code class="docutils literal notranslate"><span class="pre">parent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#proportions"><code class="docutils literal notranslate"><span class="pre">proportions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ratio"><code class="docutils literal notranslate"><span class="pre">ratio</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#remove"><code class="docutils literal notranslate"><span class="pre">remove</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#requiredsize"><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#retain"><code class="docutils literal notranslate"><span class="pre">retain</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#root"><code class="docutils literal notranslate"><span class="pre">root</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#split"><code class="docutils literal notranslate"><span class="pre">split</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#swap"><code class="docutils literal notranslate"><span class="pre">swap</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#title"><code class="docutils literal notranslate"><span class="pre">title</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tree"><code class="docutils literal notranslate"><span class="pre">tree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#type"><code class="docutils literal notranslate"><span class="pre">type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#undock"><code class="docutils literal notranslate"><span class="pre">undock</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#widget"><code class="docutils literal notranslate"><span class="pre">widget</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#widgets"><code class="docutils literal notranslate"><span class="pre">widgets</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="genindex.html">Index</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">splitlayout</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">splitlayout</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/splitlayout-splitlayout.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="splitlayout">
-<span id="r-splitlayout"></span><span id="r-namespaceqz3a3asplitlayout"></span><h1>splitlayout<a class="headerlink" href="#splitlayout" title="Link to this heading">¶</a></h1>
+<span id="r-splitlayout"></span><span id="r-namespaceqz3a3asplitlayout"></span><h1>splitlayout<a class="headerlink" href="#splitlayout" title="Link to this heading"></a></h1>
 <section id="quick-start">
-<span id="r-splitlayout-quick-start"></span><span id="r-3a3asplitlayoutqzquick20start"></span><h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-quick-start"></span><span id="r-3a3asplitlayoutqzquick20start"></span><h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout
 
 <span class="nv">wm</span><span class="w"> </span>title<span class="w"> </span>.<span class="w"> </span><span class="k">{</span><span class="nv">Split</span><span class="w"> </span>layout<span class="w"> </span>example<span class="k">}</span>
@@ -68,7 +184,7 @@ and with Tk geometry managers. The constructor accepts <code class="docutils lit
 <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>, <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>, <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code>, <code class="docutils literal notranslate"><span class="pre">-structureopts</span></code>, and <code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code>.</p>
 </section>
 <section id="splitting-existing-content">
-<span id="r-splitlayout-splitting-existing-content"></span><span id="r-3a3asplitlayoutqzsplitting20existing20content"></span><h2>Splitting existing content<a class="headerlink" href="#splitting-existing-content" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-splitting-existing-content"></span><span id="r-3a3asplitlayoutqzsplitting20existing20content"></span><h2>Splitting existing content<a class="headerlink" href="#splitting-existing-content" title="Link to this heading"></a></h2>
 <p>Continue from the quick-start example:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>split<span class="w"> </span><span class="nv">$right</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.65</span><span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>top<span class="w"> </span>bottom
 
@@ -82,7 +198,7 @@ identifies the parent split; <code class="docutils literal notranslate"><span cl
 editor in the second child instead. Both children are returned in pane order.</p>
 </section>
 <section id="adding-panes-at-the-same-level">
-<span id="r-splitlayout-adding-panes-at-the-same-level"></span><span id="r-3a3asplitlayoutqzadding20panes20at20the20same20level"></span><h2>Adding panes at the same level<a class="headerlink" href="#adding-panes-at-the-same-level" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-adding-panes-at-the-same-level"></span><span id="r-3a3asplitlayoutqzadding20panes20at20the20same20level"></span><h2>Adding panes at the same level<a class="headerlink" href="#adding-panes-at-the-same-level" title="Link to this heading"></a></h2>
 <p>Insert beside a leaf or a split, provided that it has a parent:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>middle<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>insert<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>middleFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
@@ -108,7 +224,7 @@ child’s fraction:</p>
 stored values before the sashes have moved.</p>
 </section>
 <section id="minimum-content-sizes">
-<span id="r-splitlayout-minimum-content-sizes"></span><span id="r-3a3asplitlayoutqzminimum20content20sizes"></span><h2>Minimum content sizes<a class="headerlink" href="#minimum-content-sizes" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-minimum-content-sizes"></span><span id="r-3a3asplitlayoutqzminimum20content20sizes"></span><h2>Minimum content sizes<a class="headerlink" href="#minimum-content-sizes" title="Link to this heading"></a></h2>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">minsize</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="mi">200</span><span class="w"> </span><span class="mi">120</span>
 <span class="nb">puts</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">minsize</span><span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span><span class="w">                </span><span class="k">;</span><span class="c"># 200 120 (content area)</span>
 <span class="nb">puts</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">requiredsize</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">root</span><span class="k">]]</span><span class="w"> </span><span class="k">;</span><span class="c"># Recursive outer minimum</span>
@@ -145,7 +261,7 @@ modifications through the exposed native panedwindow command bypass the manager 
 application.</p>
 </section>
 <section id="per-node-constraints">
-<span id="r-splitlayout-per-node-constraints"></span><span id="r-3a3asplitlayoutqzper2dnode20constraints"></span><h2>Per-node constraints<a class="headerlink" href="#per-node-constraints" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-per-node-constraints"></span><span id="r-3a3asplitlayoutqzper2dnode20constraints"></span><h2>Per-node constraints<a class="headerlink" href="#per-node-constraints" title="Link to this heading"></a></h2>
 <p>Use <code class="docutils literal notranslate"><span class="pre">constraints</span> <span class="pre">id</span></code> to query explicit settings, <code class="docutils literal notranslate"><span class="pre">constraints</span> <span class="pre">id</span> <span class="pre">option</span></code> to query one value, and <code class="docutils literal notranslate"><span class="pre">constraints</span>
 <span class="pre">id</span> <span class="pre">option</span> <span class="pre">value</span> <span class="pre">...</span></code> to change several settings atomically. A floating token is accepted for content
 flags. Constraints are independent between manager instances, including nested managers.</p>
@@ -219,7 +335,7 @@ flags. Constraints are independent between manager instances, including nested m
 </tbody>
 </table>
 <section id="lock-terminology-and-migration">
-<span id="r-splitlayout-lock-terminology-and-migration"></span><span id="r-3a3asplitlayoutqzlock20terminology20and20migration"></span><h3>Lock terminology and migration<a class="headerlink" href="#lock-terminology-and-migration" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-lock-terminology-and-migration"></span><span id="r-3a3asplitlayoutqzlock20terminology20and20migration"></span><h3>Lock terminology and migration<a class="headerlink" href="#lock-terminology-and-migration" title="Link to this heading"></a></h3>
 <p>Locking replaces the former pin terminology throughout the API and user interface. Update existing scripts
 and custom image dictionaries using these names; the former names are not retained as aliases:</p>
 <table class="docutils align-default">
@@ -254,7 +370,7 @@ and custom image dictionaries using these names; the former names are not retain
 <code class="docutils literal notranslate"><span class="pre">-nomove</span></code> and <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> are unchanged. Constraint errors now identify <code class="docutils literal notranslate"><span class="pre">-locked</span></code> when locking blocks placement.</p>
 </section>
 <section id="movement-and-locked-content">
-<span id="r-splitlayout-movement-and-locked-content"></span><span id="r-3a3asplitlayoutqzmovement20and20locked20content"></span><h3>Movement and locked content<a class="headerlink" href="#movement-and-locked-content" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-movement-and-locked-content"></span><span id="r-3a3asplitlayoutqzmovement20and20locked20content"></span><h3>Movement and locked content<a class="headerlink" href="#movement-and-locked-content" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-nomove</span></code> checks only the directly moved leaf. It is not imposed on ancestors. In a swap, both existing flags
 are checked because both contents would move; no flag is added to the destination. Moving another leaf beside
 protected content is allowed, including converting its current leaf position into a split. Moving or wrapping
@@ -307,7 +423,7 @@ follows retained content through splitting and docking just like the other leaf 
 frame may be docked at an allowed destination; once docked, its adjacent boundaries are protected.</p>
 </section>
 <section id="destruction-and-collapse">
-<span id="r-splitlayout-destruction-and-collapse"></span><span id="r-3a3asplitlayoutqzdestruction20and20collapse"></span><h3>Destruction and collapse<a class="headerlink" href="#destruction-and-collapse" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-destruction-and-collapse"></span><span id="r-3a3asplitlayoutqzdestruction20and20collapse"></span><h3>Destruction and collapse<a class="headerlink" href="#destruction-and-collapse" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code> on leaf content rejects <code class="docutils literal notranslate"><span class="pre">remove</span></code>, <code class="docutils literal notranslate"><span class="pre">clear</span></code>, and <code class="docutils literal notranslate"><span class="pre">retain</span></code> when they would delete that content, even
 through an ancestor. It does not prevent undocking or splitting with retained content, because the frame
 survives. Removing an unprotected sibling is allowed, including automatic collapse of an unprotected parent
@@ -325,7 +441,7 @@ ancestor’s destruction. Raw Tk commands obtained through <code class="docutils
 policies.</p>
 </section>
 <section id="resize-locks">
-<span id="r-splitlayout-resize-locks"></span><span id="r-3a3asplitlayoutqzresize20locks"></span><h3>Resize locks<a class="headerlink" href="#resize-locks" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-resize-locks"></span><span id="r-3a3asplitlayoutqzresize20locks"></span><h3>Resize locks<a class="headerlink" href="#resize-locks" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-noresize</span></code> rejects sash gestures that would change the allocation of a protected node, including ancestor
 sashes.  An explicitly locked split can still adjust its own internal sashes if its children are not
 locked. With resize locks present, a sash cannot push neighboring sashes to resize a more distant protected
@@ -341,7 +457,7 @@ resize the content. A floating content flag takes effect on its sash allocation 
 minimum dimensions; the manager must still compress allocations when its parent supplies insufficient space.</p>
 </section>
 <section id="leaf-counts-and-depth">
-<span id="r-splitlayout-leaf-counts-and-depth"></span><span id="r-3a3asplitlayoutqzleaf20counts20and20depth"></span><h3>Leaf counts and depth<a class="headerlink" href="#leaf-counts-and-depth" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-leaf-counts-and-depth"></span><span id="r-3a3asplitlayoutqzleaf20counts20and20depth"></span><h3>Leaf counts and depth<a class="headerlink" href="#leaf-counts-and-depth" title="Link to this heading"></a></h3>
 <p>A leaf counts as one and has depth zero. A split containing only leaves has depth one; nesting adds one per
 edge.  Thus <code class="docutils literal notranslate"><span class="pre">-maxdepth</span> <span class="pre">0</span></code> prevents splitting that node or converting it into a split by moving or docking
 another leaf at its edge. Counts include all docked descendant leaves, not only immediate children. Floating
@@ -362,7 +478,7 @@ maximum. Invalid updates leave all settings and active gestures unchanged; no pa
 rearranged to fit.</p>
 </section>
 <section id="ownership-commands-and-gesture-feedback">
-<span id="r-splitlayout-ownership-commands-and-gesture-feedback"></span><span id="r-3a3asplitlayoutqzownership2c20commands2c20and20gesture20feedback"></span><h3>Ownership, commands, and gesture feedback<a class="headerlink" href="#ownership-commands-and-gesture-feedback" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-ownership-commands-and-gesture-feedback"></span><span id="r-3a3asplitlayoutqzownership2c20commands2c20and20gesture20feedback"></span><h3>Ownership, commands, and gesture feedback<a class="headerlink" href="#ownership-commands-and-gesture-feedback" title="Link to this heading"></a></h3>
 <p>Leaf flags belong to the content frame and follow allowed swaps, moves, and docking transitions. When a leaf is
 split, they follow the child selected by <code class="docutils literal notranslate"><span class="pre">-keep</span></code>; the new empty child has default flags. Split flags and
 subtree limits belong to node identity. Limits assigned to a leaf stay on that identifier when it becomes a
@@ -380,7 +496,7 @@ summary of every action that might be prohibited by descendants or ancestor boun
 </section>
 </section>
 <section id="moving-panes">
-<span id="r-splitlayout-moving-panes"></span><span id="r-3a3asplitlayoutqzmoving20panes"></span><h2>Moving panes<a class="headerlink" href="#moving-panes" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-moving-panes"></span><span id="r-3a3asplitlayoutqzmoving20panes"></span><h2>Moving panes<a class="headerlink" href="#moving-panes" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">move</span></code> relocates an existing leaf while retaining its identifier, content frame, widget pathnames, and
 application state. Supply exactly one destination option:</p>
 <table class="docutils align-default">
@@ -454,7 +570,7 @@ destroyed.</p>
 <p><code class="docutils literal notranslate"><span class="pre">move</span></code> changes pane placement; <code class="docutils literal notranslate"><span class="pre">swap</span></code> exchanges content at two existing positions.</p>
 </section>
 <section id="dragging-panes">
-<span id="r-splitlayout-dragging-panes"></span><span id="r-3a3asplitlayoutqzdragging20panes"></span><h2>Dragging panes<a class="headerlink" href="#dragging-panes" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-dragging-panes"></span><span id="r-3a3asplitlayoutqzdragging20panes"></span><h2>Dragging panes<a class="headerlink" href="#dragging-panes" title="Link to this heading"></a></h2>
 <p>Enable minimal, manager-owned grips for every leaf with the global <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> property:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">splitlayout</span><span class="w"> </span>.docking<span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false
 <span class="nv">pack</span><span class="w"> </span>.docking<span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
@@ -606,7 +722,7 @@ directory. Abrupt process termination may leave temporary files behind. If creat
 hover, pressed, and active dragging fall back to <code class="docutils literal notranslate"><span class="pre">fleur</span></code>, <code class="docutils literal notranslate"><span class="pre">exchange</span></code>, and <code class="docutils literal notranslate"><span class="pre">icon</span></code>, respectively.
 No extra package or C extension is required.</p>
 <section id="lock-button">
-<span id="r-splitlayout-lock-button"></span><span id="r-3a3asplitlayoutqzlock20button"></span><h3>Lock button<a class="headerlink" href="#lock-button" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-lock-button"></span><span id="r-3a3asplitlayoutqzlock20button"></span><h3>Lock button<a class="headerlink" href="#lock-button" title="Link to this heading"></a></h3>
 <p>The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image
 keys describe the next action: <code class="docutils literal notranslate"><span class="pre">lock</span></code> is displayed while unlocked, and <code class="docutils literal notranslate"><span class="pre">unlock</span></code> while locked. A dynamic
 tooltip describes the action and current constraints. The button remains available when movement, undocking, or
@@ -661,7 +777,7 @@ them. To recalculate, unlock and lock again. Changing the mode does not change d
 existing flags, or an active drag. The mode belongs to each manager independently, including nested managers.</p>
 </section>
 <section id="leaf-outlines">
-<span id="r-splitlayout-leaf-outlines"></span><span id="r-3a3asplitlayoutqzleaf20outlines"></span><h3>Leaf outlines<a class="headerlink" href="#leaf-outlines" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-leaf-outlines"></span><span id="r-3a3asplitlayoutqzleaf20outlines"></span><h3>Leaf outlines<a class="headerlink" href="#leaf-outlines" title="Link to this heading"></a></h3>
 <p>Enable <code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">true</span></code> to surround each leaf’s header and content with one independent outline.</p>
 <p>The header and content share the same inner left and right edges. Floating windows use the same settings.
 With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted.
@@ -684,7 +800,7 @@ Floating borders temporarily use the content frame’s background as their base 
 is restored when the border is disabled or the window is docked.</p>
 </section>
 <section id="header-appearance-and-titles">
-<span id="r-splitlayout-header-appearance-and-titles"></span><span id="r-3a3asplitlayoutqzheader20appearance20and20titles"></span><h3>Header appearance and titles<a class="headerlink" href="#header-appearance-and-titles" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-header-appearance-and-titles"></span><span id="r-3a3asplitlayoutqzheader20appearance20and20titles"></span><h3>Header appearance and titles<a class="headerlink" href="#header-appearance-and-titles" title="Link to this heading"></a></h3>
 <p>The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
 dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
 thickness are global properties; they do not override ttk button styles:</p>
@@ -704,7 +820,7 @@ line breaks with spaces and shortening long headings with an ellipsis. The gette
 Centering reserves equal space at both ends for either button alignment, keeping the title clear of buttons.</p>
 </section>
 <section id="title-alignment-and-custom-button-images">
-<span id="r-splitlayout-title-alignment-and-custom-button-images"></span><span id="r-3a3asplitlayoutqztitle20alignment20and20custom20button20images"></span><h3>Title alignment and custom button images<a class="headerlink" href="#title-alignment-and-custom-button-images" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-title-alignment-and-custom-button-images"></span><span id="r-3a3asplitlayoutqztitle20alignment20and20custom20button20images"></span><h3>Title alignment and custom button images<a class="headerlink" href="#title-alignment-and-custom-button-images" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">left|center|right</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">center</span></code> and is independent of <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>. Left and right titles
 use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
 header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.</p>
@@ -727,7 +843,7 @@ a subsequent refresh falls back to the built-in bitmap. After changing an image�
 its override to refresh header sizing. Tk photo images hold rasterized SVG output, not editable vector data.</p>
 </section>
 <section id="optional-tooltips">
-<span id="r-splitlayout-optional-tooltips"></span><span id="r-3a3asplitlayoutqzoptional20tooltips"></span><h3>Optional tooltips<a class="headerlink" href="#optional-tooltips" title="Link to this heading">¶</a></h3>
+<span id="r-splitlayout-optional-tooltips"></span><span id="r-3a3asplitlayoutqzoptional20tooltips"></span><h3>Optional tooltips<a class="headerlink" href="#optional-tooltips" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">true|false</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">true</span></code>. When enabled, the manager attempts <code class="docutils literal notranslate"><span class="pre">package</span> <span class="pre">require</span> <span class="pre">tooltip</span></code> and
 uses <a class="reference external" href="https://core.tcl-lang.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip.md">Tklib tooltip</a> for the
 drag area and action buttons. Drag-area text describes rearranging/undocking or moving/docking, depending on
@@ -739,7 +855,7 @@ when the package is unavailable.</p>
 </section>
 </section>
 <section id="nested-managers">
-<span id="r-splitlayout-nested-managers"></span><span id="r-3a3asplitlayoutqznested20managers"></span><h2>Nested managers<a class="headerlink" href="#nested-managers" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-nested-managers"></span><span id="r-3a3asplitlayoutqznested20managers"></span><h2>Nested managers<a class="headerlink" href="#nested-managers" title="Link to this heading"></a></h2>
 <p>A leaf can contain another splitlayout instance as ordinary application content:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>content<span class="w"> </span><span class="k">[</span><span class="nv">$outer</span><span class="w"> </span><span class="nv">frame</span><span class="w"> </span><span class="nv">$hostLeaf</span><span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>inner<span class="w"> </span><span class="k">[</span><span class="nv">splitlayout</span><span class="w"> </span><span class="nv">$content.inner</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="k">]</span>
@@ -763,7 +879,7 @@ application widgets. To constrain the host leaf, set its content minimum from th
 adding any hull padding or other surrounding widgets, and refresh it when the inner requirements change.</p>
 </section>
 <section id="swapping-and-removing-content">
-<span id="r-splitlayout-swapping-and-removing-content"></span><span id="r-3a3asplitlayoutqzswapping20and20removing20content"></span><h2>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-swapping-and-removing-content"></span><span id="r-3a3asplitlayoutqzswapping20and20removing20content"></span><h2>Swapping and removing content<a class="headerlink" href="#swapping-and-removing-content" title="Link to this heading"></a></h2>
 <p>The following operations continue the example above:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Exchange complete content frames across different nesting levels.</span>
 <span class="nv">.layout</span><span class="w"> </span>swap<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="nv">$bottom</span>
@@ -788,7 +904,7 @@ ancestors. Retaining the root does nothing.</p>
 structural changes. To destroy the entire layout, use <code class="docutils literal notranslate"><span class="pre">.layout</span> <span class="pre">destroy</span></code> or <code class="docutils literal notranslate"><span class="pre">destroy</span> <span class="pre">.layout</span></code>.</p>
 </section>
 <section id="visual-structure">
-<span id="r-splitlayout-visual-structure"></span><span id="r-3a3asplitlayoutqzvisual20structure"></span><h2>Visual structure<a class="headerlink" href="#visual-structure" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-visual-structure"></span><span id="r-3a3asplitlayoutqzvisual20structure"></span><h2>Visual structure<a class="headerlink" href="#visual-structure" title="Link to this heading"></a></h2>
 <p>Enable outlines for the whole layout to distinguish flat sibling arrangements from nested groups:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>showstructure<span class="w"> </span>true
 <span class="c"># Also accepted at construction:</span>
@@ -818,7 +934,7 @@ for splits; <code class="docutils literal notranslate"><span class="pre">widgets
 the hull.</p>
 </section>
 <section id="resizing">
-<span id="r-splitlayout-resizing"></span><span id="r-3a3asplitlayoutqzresizing"></span><h2>Resizing<a class="headerlink" href="#resizing" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-resizing"></span><span id="r-3a3asplitlayoutqzresizing"></span><h2>Resizing<a class="headerlink" href="#resizing" title="Link to this heading"></a></h2>
 <p>Enable deferred resizing at construction or through <code class="docutils literal notranslate"><span class="pre">configure</span></code>:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">.layout</span><span class="w"> </span>configure<span class="w"> </span><span class="o">-</span>opaqueresize<span class="w"> </span>false<span class="w"> </span><span class="o">-</span>sashpreview<span class="w"> </span>window
 </pre></div>
@@ -853,7 +969,7 @@ appearance depends on Tk and the window manager; it does not guarantee atomic re
 widgets.</p>
 </section>
 <section id="options">
-<span id="r-splitlayout-options"></span><span id="r-3a3asplitlayoutqzoptions"></span><h2>Options<a class="headerlink" href="#options" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-options"></span><span id="r-3a3asplitlayoutqzoptions"></span><h2>Options<a class="headerlink" href="#options" title="Link to this heading"></a></h2>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 33.3%" />
@@ -958,7 +1074,7 @@ in effect. Invalid resizing values leave that property’s value and any active 
 resizing value cancels the active drag. Setting the same value preserves it.</p>
 </section>
 <section id="appearance-and-drag-detection">
-<span id="r-splitlayout-appearance-and-drag-detection"></span><span id="r-3a3asplitlayoutqzappearance20and20drag20detection"></span><h2>Appearance and drag detection<a class="headerlink" href="#appearance-and-drag-detection" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-appearance-and-drag-detection"></span><span id="r-3a3asplitlayoutqzappearance20and20drag20detection"></span><h2>Appearance and drag detection<a class="headerlink" href="#appearance-and-drag-detection" title="Link to this heading"></a></h2>
 <p>Manager-owned decoration and drag detection settings follow graphtoolbar’s Tk option-database convention:
 package-specific resource names, defaults registered at <code class="docutils literal notranslate"><span class="pre">widgetDefault</span></code> priority, and dictionary properties for
 explicit per-instance overrides. No option instances are created.</p>
@@ -1097,7 +1213,7 @@ behavior properties (<code class="docutils literal notranslate"><span class="pre
 from database styling.</p>
 </section>
 <section id="floating-managed-content">
-<span id="r-splitlayout-floating-managed-content"></span><span id="r-3a3asplitlayoutqzfloating20managed20content"></span><h2>Floating managed content<a class="headerlink" href="#floating-managed-content" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-floating-managed-content"></span><span id="r-3a3asplitlayoutqzfloating20managed20content"></span><h2>Floating managed content<a class="headerlink" href="#floating-managed-content" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">undock</span></code> promotes an existing leaf’s content frame to a native window, removes its leaf from the docked tree,
 and collapses a parent with only one remaining child. The application widgets, paths, bindings, and content
 state are retained. <code class="docutils literal notranslate"><span class="pre">dock</span></code> returns that owned content to a new leaf. Arbitrary windows and other managers’
@@ -1159,7 +1275,7 @@ behavior should be verified on their native Tk builds; X11 test results alone do
 compatibility.</p>
 </section>
 <section id="inspecting-the-layout">
-<span id="r-splitlayout-inspecting-the-layout"></span><span id="r-3a3asplitlayoutqzinspecting20the20layout"></span><h2>Inspecting the layout<a class="headerlink" href="#inspecting-the-layout" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-inspecting-the-layout"></span><span id="r-3a3asplitlayoutqzinspecting20the20layout"></span><h2>Inspecting the layout<a class="headerlink" href="#inspecting-the-layout" title="Link to this heading"></a></h2>
 <p>Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>leaf<span class="w"> </span><span class="k">[</span><span class="nb">lindex</span><span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>leaves<span class="k">]</span><span class="w"> </span><span class="mi">0</span><span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>contentFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$leaf</span><span class="k">]</span>
@@ -1196,9 +1312,9 @@ managed by pack, grid, or place; it is empty for other managers without a suppor
 operation.</p>
 </section>
 <section id="classes">
-<span id="r-splitlayout-classes"></span><span id="r-3a3asplitlayoutqzclasses"></span><h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<span id="r-splitlayout-classes"></span><span id="r-3a3asplitlayoutqzclasses"></span><h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
 <section id="r-symbolqz3a3asplitlayout3a3asplitlayout">
-<span id="index-1"></span><span id="index-0"></span><span id="id1"></span><h3><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code><a class="headerlink" href="#r-symbolqz3a3asplitlayout3a3asplitlayout" title="Link to this heading">¶</a></h3>
+<span id="index-1"></span><span id="index-0"></span><span id="id1"></span><h3><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code><a class="headerlink" href="#r-symbolqz3a3asplitlayout3a3asplitlayout" title="Link to this heading"></a></h3>
 <p>Configurable TclOO layout manager for Tcl/Tk 9.</p>
 <p><code class="docutils literal notranslate"><span class="pre">configure</span></code> is inherited from <code class="docutils literal notranslate"><span class="pre">oo::configurable</span></code>. With no arguments it returns a dictionary of property
 names and values; with one property name it returns that value. Set properties with option/value
@@ -1359,7 +1475,7 @@ database; see the namespace resource reference.</p>
 </dd>
 </dl>
 <section id="constructor">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading"></a></h4>
 <p>Creates a split layout with one empty root leaf.</p>
 <pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em>
 <strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em></pre>
@@ -1437,7 +1553,7 @@ commands at that pathname, invalid sizes, and invalid options raise an error.</p
 <p>Nothing.</p>
 </section>
 <section id="destructor">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3adestructor"></span><span id="index-5"></span><span id="index-4"></span><h4><code class="docutils literal notranslate"><span class="pre">destructor</span></code><a class="headerlink" href="#destructor" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3adestructor"></span><span id="index-5"></span><span id="index-4"></span><h4><code class="docutils literal notranslate"><span class="pre">destructor</span></code><a class="headerlink" href="#destructor" title="Link to this heading"></a></h4>
 <p>Destroys the layout and all of its content widgets.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ destroy</strong></pre>
 <p class="rubric">Description</p>
@@ -1447,7 +1563,7 @@ bindtag, and destroys the owned hull. Also supports cleanup after partially comp
 <p>Nothing.</p>
 </section>
 <section id="children">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3achildren"></span><span id="index-7"></span><span id="index-6"></span><h4><code class="docutils literal notranslate"><span class="pre">children</span></code><a class="headerlink" href="#children" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3achildren"></span><span id="index-7"></span><span id="index-6"></span><h4><code class="docutils literal notranslate"><span class="pre">children</span></code><a class="headerlink" href="#children" title="Link to this heading"></a></h4>
 <p>Returns the immediate logical children of a node.
 Child identifiers in pane order, or an empty list for a leaf.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ children</strong> <em>id</em></pre>
@@ -1462,14 +1578,14 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 Child identifiers in pane order, or an empty list for a leaf.</p>
 </section>
 <section id="clear">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aclear"></span><span id="index-9"></span><span id="index-8"></span><h4><code class="docutils literal notranslate"><span class="pre">clear</span></code><a class="headerlink" href="#clear" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aclear"></span><span id="index-9"></span><span id="index-8"></span><h4><code class="docutils literal notranslate"><span class="pre">clear</span></code><a class="headerlink" href="#clear" title="Link to this heading"></a></h4>
 <p>Destroys the docked tree and creates one empty root leaf; floating content is retained.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ clear</strong></pre>
 <p class="rubric">Return value</p>
 <p>The new root leaf identifier.</p>
 </section>
 <section id="constraints">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstraints"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">constraints</span></code><a class="headerlink" href="#constraints" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstraints"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">constraints</span></code><a class="headerlink" href="#constraints" title="Link to this heading"></a></h4>
 <p>Queries or atomically updates restrictions for one node or floating content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ constraints</strong> <em>id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1491,7 +1607,7 @@ Lockedside is a list of left/right/top/bottom; defaults to all four, and empty d
 <p>One queried value, or the complete explicit settings dictionary.</p>
 </section>
 <section id="container">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"></span><span id="index-13"></span><span id="index-12"></span><h4><code class="docutils literal notranslate"><span class="pre">container</span></code><a class="headerlink" href="#container" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3acontainer"></span><span id="index-13"></span><span id="index-12"></span><h4><code class="docutils literal notranslate"><span class="pre">container</span></code><a class="headerlink" href="#container" title="Link to this heading"></a></h4>
 <p>Returns the geometry container for a managed node.
 The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ container</strong> <em>value</em></pre>
@@ -1511,7 +1627,7 @@ enclosing split wrapper when showstructure is enabled.</p>
 The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate.</p>
 </section>
 <section id="dock">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3adock"></span><span id="index-15"></span><span id="index-14"></span><h4><code class="docutils literal notranslate"><span class="pre">dock</span></code><a class="headerlink" href="#dock" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3adock"></span><span id="index-15"></span><span id="index-14"></span><h4><code class="docutils literal notranslate"><span class="pre">dock</span></code><a class="headerlink" href="#dock" title="Link to this heading"></a></h4>
 <p>Returns owned floating content to a new leaf in the docked layout.
 The new docked leaf identifier.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ dock</strong> <em>floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?</em></pre>
@@ -1551,7 +1667,7 @@ other managers’ tokens are rejected. Custom toplevel bindtags are adjusted; li
 The new docked leaf identifier.</p>
 </section>
 <section id="floating">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3afloating"></span><span id="index-17"></span><span id="index-16"></span><h4><code class="docutils literal notranslate"><span class="pre">floating</span></code><a class="headerlink" href="#floating" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3afloating"></span><span id="index-17"></span><span id="index-16"></span><h4><code class="docutils literal notranslate"><span class="pre">floating</span></code><a class="headerlink" href="#floating" title="Link to this heading"></a></h4>
 <p>Lists floating content or describes one floating window owned by this manager.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ floating</strong> <em>?id?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1567,7 +1683,7 @@ The snapshot contains id, frame, title, geometry, state, and onclose. Tokens exp
 <p>A list of floating tokens, or a dictionary describing one floating window.</p>
 </section>
 <section id="frame">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aframe"></span><span id="index-19"></span><span id="index-18"></span><h4><code class="docutils literal notranslate"><span class="pre">frame</span></code><a class="headerlink" href="#frame" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aframe"></span><span id="index-19"></span><span id="index-18"></span><h4><code class="docutils literal notranslate"><span class="pre">frame</span></code><a class="headerlink" href="#frame" title="Link to this heading"></a></h4>
 <p>Returns the retained content frame of a docked leaf or floating window.
 The content frame pathname, unchanged across docking transitions.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ frame</strong> <em>id</em></pre>
@@ -1584,7 +1700,7 @@ The content frame pathname, unchanged across docking transitions.</p>
 The content frame pathname, unchanged across docking transitions.</p>
 </section>
 <section id="insert">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"></span><span id="index-21"></span><span id="index-20"></span><h4><code class="docutils literal notranslate"><span class="pre">insert</span></code><a class="headerlink" href="#insert" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"></span><span id="index-21"></span><span id="index-20"></span><h4><code class="docutils literal notranslate"><span class="pre">insert</span></code><a class="headerlink" href="#insert" title="Link to this heading"></a></h4>
 <p>Inserts an empty leaf beside an existing non-root node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ insert</strong> <em>node ?-side side?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1603,7 +1719,7 @@ Inserting beside the root raises an error; split the root first.</p>
 <p>The new leaf identifier.</p>
 </section>
 <section id="leaves">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-23"></span><span id="index-22"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-23"></span><span id="index-22"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading"></a></h4>
 <p>Collects the leaves below a logical node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ leaves</strong> <em>?id?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1618,7 +1734,7 @@ Inserting beside the root raises an error; split the root first.</p>
 <p>A list of leaf identifiers in depth-first pane order.</p>
 </section>
 <section id="locate">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-25"></span><span id="index-24"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-25"></span><span id="index-24"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading"></a></h4>
 <p>Finds the leaf containing an application widget.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ locate</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -1634,7 +1750,7 @@ A split panedwindow does not identify a leaf.</p>
 <p>The containing leaf identifier, or empty for a missing or unrelated widget.</p>
 </section>
 <section id="minsize">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aminsize"></span><span id="index-27"></span><span id="index-26"></span><h4><code class="docutils literal notranslate"><span class="pre">minsize</span></code><a class="headerlink" href="#minsize" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aminsize"></span><span id="index-27"></span><span id="index-26"></span><h4><code class="docutils literal notranslate"><span class="pre">minsize</span></code><a class="headerlink" href="#minsize" title="Link to this heading"></a></h4>
 <p>Gets or sets the minimum content-area dimensions of a leaf or floating window.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ minsize</strong> <em>id ?width height?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1656,7 +1772,7 @@ Header and border space is added by requiredsize. Validation is atomic; setting 
 <p>The content minimum as {width height}.</p>
 </section>
 <section id="move">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amove"></span><span id="index-29"></span><span id="index-28"></span><h4><code class="docutils literal notranslate"><span class="pre">move</span></code><a class="headerlink" href="#move" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amove"></span><span id="index-29"></span><span id="index-28"></span><h4><code class="docutils literal notranslate"><span class="pre">move</span></code><a class="headerlink" href="#move" title="Link to this heading"></a></h4>
 <p>Moves an existing leaf to an edge or sibling position without destroying its content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ move</strong> <em>leaf -left|-right|-top|-bottom|-before|-after target</em></pre>
 <p class="rubric">Parameters</p>
@@ -1699,7 +1815,7 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 <p>The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.</p>
 </section>
 <section id="node">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-31"></span><span id="index-30"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-31"></span><span id="index-30"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading"></a></h4>
 <p>Finds the logical node associated with an exact widget pathname.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ node</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -1714,7 +1830,7 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 <p>The node identifier, or an empty string when no node matches.</p>
 </section>
 <section id="panedwindow">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3apanedwindow"></span><span id="index-33"></span><span id="index-32"></span><h4><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code><a class="headerlink" href="#panedwindow" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3apanedwindow"></span><span id="index-33"></span><span id="index-32"></span><h4><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code><a class="headerlink" href="#panedwindow" title="Link to this heading"></a></h4>
 <p>Returns the native panedwindow of a split, independently of structure visibility.
 The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ panedwindow</strong> <em>id</em></pre>
@@ -1729,7 +1845,7 @@ The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 </section>
 <section id="parent">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-35"></span><span id="index-34"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-35"></span><span id="index-34"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading"></a></h4>
 <p>Returns the logical parent of a node.
 The parent node identifier, or an empty string for the root.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ parent</strong> <em>id</em></pre>
@@ -1746,7 +1862,7 @@ The parent node identifier, or an empty string for the root.</p>
 The parent node identifier, or an empty string for the root.</p>
 </section>
 <section id="proportions">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading"></a></h4>
 <p>Queries or sets all pane proportions of a split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ proportions</strong> <em>node ?weights?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1766,7 +1882,7 @@ pending; otherwise it returns the stored proportions.</p>
 <p>The normalized list of pane proportions.</p>
 </section>
 <section id="ratio">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading"></a></h4>
 <p>Queries or sets the first pane fraction of a two-child split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ ratio</strong> <em>node ?value?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1786,7 +1902,7 @@ using the same conditions as proportions.</p>
 <p>The stored first pane fraction.</p>
 </section>
 <section id="remove">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading"></a></h4>
 <p>Removes a docked subtree or destroys owned floating content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ remove</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -1802,7 +1918,7 @@ weights. If only one child remains, that child replaces the parent split. Surviv
 <p>The surviving parent split, its promoted child, or new root; empty for floating removal.</p>
 </section>
 <section id="requiredsize">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3arequiredsize"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code><a class="headerlink" href="#requiredsize" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3arequiredsize"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code><a class="headerlink" href="#requiredsize" title="Link to this heading"></a></h4>
 <p>Calculates a node’s minimum outer size, including manager-owned decoration.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ requiredsize</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -1819,7 +1935,7 @@ native window decorations, or application widget requests. This query does not r
 <p>A two-element {width height} list in pixels.</p>
 </section>
 <section id="retain">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading"></a></h4>
 <p>Keeps a node while removing its siblings and collapsing its parent.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ retain</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -1835,7 +1951,7 @@ parent. Only that parent level is collapsed. Retaining the root makes no changes
 <p>The retained node identifier.</p>
 </section>
 <section id="root">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-47"></span><span id="index-46"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-47"></span><span id="index-46"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading"></a></h4>
 <p>Returns the current logical root node.
 The root node identifier.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ root</strong></pre>
@@ -1844,7 +1960,7 @@ The root node identifier.</p>
 The root node identifier.</p>
 </section>
 <section id="split">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-49"></span><span id="index-48"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-49"></span><span id="index-48"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading"></a></h4>
 <p>Replaces a leaf with a split containing two new leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ split</strong> <em>node ?-orient orientation? ?-ratio fraction? ?-keep child?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1870,7 +1986,7 @@ child starts with an empty frame. Existing pane proportions are captured before 
 <p>The two new leaf identifiers in pane order.</p>
 </section>
 <section id="swap">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-51"></span><span id="index-50"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-51"></span><span id="index-50"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading"></a></h4>
 <p>Exchanges the content frames assigned to two leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ swap</strong> <em>a b</em></pre>
 <p class="rubric">Parameters</p>
@@ -1890,7 +2006,7 @@ widget pathnames remain unchanged. Equal identifiers do nothing.</p>
 <p>Nothing.</p>
 </section>
 <section id="title">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atitle"></span><span id="index-53"></span><span id="index-52"></span><h4><code class="docutils literal notranslate"><span class="pre">title</span></code><a class="headerlink" href="#title" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atitle"></span><span id="index-53"></span><span id="index-52"></span><h4><code class="docutils literal notranslate"><span class="pre">title</span></code><a class="headerlink" href="#title" title="Link to this heading"></a></h4>
 <p>Gets or sets the optional header title belonging to managed content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ title</strong> <em>id ?text?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1910,7 +2026,7 @@ long headings to keep the buttons unobscured; the stored string is returned unch
 <p>The current title string.</p>
 </section>
 <section id="tree">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-55"></span><span id="index-54"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-55"></span><span id="index-54"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading"></a></h4>
 <p>Returns a recursive snapshot of the logical layout hierarchy.
 A nested dictionary describing the requested logical subtree.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ tree</strong> <em>?id?</em></pre>
@@ -1932,7 +2048,7 @@ the native split widget. Split children are nested node dictionaries in pane ord
 A nested dictionary describing the requested logical subtree.</p>
 </section>
 <section id="type">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-57"></span><span id="index-56"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-57"></span><span id="index-56"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading"></a></h4>
 <p>Returns the type of a logical node.
 The string leaf or split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ type</strong> <em>id</em></pre>
@@ -1947,7 +2063,7 @@ The string leaf or split.</p>
 The string leaf or split.</p>
 </section>
 <section id="undock">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aundock"></span><span id="index-59"></span><span id="index-58"></span><h4><code class="docutils literal notranslate"><span class="pre">undock</span></code><a class="headerlink" href="#undock" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aundock"></span><span id="index-59"></span><span id="index-58"></span><h4><code class="docutils literal notranslate"><span class="pre">undock</span></code><a class="headerlink" href="#undock" title="Link to this heading"></a></h4>
 <p>Removes a leaf from the layout and promotes its retained content to a floating window.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ undock</strong> <em>leaf ?-title title? ?-geometry geometry? ?-onclose action?</em></pre>
 <p class="rubric">Parameters</p>
@@ -1973,7 +2089,7 @@ The floating frame keeps its actual parent, so destroying the hull also destroys
 <p>An opaque floating token, accepted by dock, floating, frame, and remove.</p>
 </section>
 <section id="widget">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-61"></span><span id="index-60"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-61"></span><span id="index-60"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading"></a></h4>
 <p>Returns the widget associated with a logical node.
 The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
 or the content frame/native panedwindow otherwise. Use panedwindow to access a split’s native widget.</p>
@@ -1990,7 +2106,7 @@ The outer geometry widget: a leaf wrapper with drag handles, a split wrapper wit
 or the content frame/native panedwindow otherwise. Use panedwindow to access a split’s native widget.</p>
 </section>
 <section id="widgets">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-63"></span><span id="index-62"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading">¶</a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-63"></span><span id="index-62"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading"></a></h4>
 <p>Returns a recursive snapshot of the actual Tk widget hierarchy.
 A nested widget dictionary with path, parent, class, manager, container, and children.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ widgets</strong> <em>?path?</em></pre>
@@ -2014,130 +2130,33 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">splitlayout</a><ul>
-<li><a class="reference internal" href="#quick-start">Quick start</a></li>
-<li><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
-<li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
-<li><a class="reference internal" href="#minimum-content-sizes">Minimum content sizes</a></li>
-<li><a class="reference internal" href="#per-node-constraints">Per-node constraints</a><ul>
-<li><a class="reference internal" href="#lock-terminology-and-migration">Lock terminology and migration</a></li>
-<li><a class="reference internal" href="#movement-and-locked-content">Movement and locked content</a></li>
-<li><a class="reference internal" href="#destruction-and-collapse">Destruction and collapse</a></li>
-<li><a class="reference internal" href="#resize-locks">Resize locks</a></li>
-<li><a class="reference internal" href="#leaf-counts-and-depth">Leaf counts and depth</a></li>
-<li><a class="reference internal" href="#ownership-commands-and-gesture-feedback">Ownership, commands, and gesture feedback</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
-<li><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
-<li><a class="reference internal" href="#lock-button">Lock button</a></li>
-<li><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
-<li><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
-<li><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
-<li><a class="reference internal" href="#optional-tooltips">Optional tooltips</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#nested-managers">Nested managers</a></li>
-<li><a class="reference internal" href="#swapping-and-removing-content">Swapping and removing content</a></li>
-<li><a class="reference internal" href="#visual-structure">Visual structure</a></li>
-<li><a class="reference internal" href="#resizing">Resizing</a></li>
-<li><a class="reference internal" href="#options">Options</a></li>
-<li><a class="reference internal" href="#appearance-and-drag-detection">Appearance and drag detection</a></li>
-<li><a class="reference internal" href="#floating-managed-content">Floating managed content</a></li>
-<li><a class="reference internal" href="#inspecting-the-layout">Inspecting the layout</a></li>
-<li><a class="reference internal" href="#classes">Classes</a><ul>
-<li><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout"><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code></a><ul>
-<li><a class="reference internal" href="#constructor"><code class="docutils literal notranslate"><span class="pre">constructor</span></code></a></li>
-<li><a class="reference internal" href="#destructor"><code class="docutils literal notranslate"><span class="pre">destructor</span></code></a></li>
-<li><a class="reference internal" href="#children"><code class="docutils literal notranslate"><span class="pre">children</span></code></a></li>
-<li><a class="reference internal" href="#clear"><code class="docutils literal notranslate"><span class="pre">clear</span></code></a></li>
-<li><a class="reference internal" href="#constraints"><code class="docutils literal notranslate"><span class="pre">constraints</span></code></a></li>
-<li><a class="reference internal" href="#container"><code class="docutils literal notranslate"><span class="pre">container</span></code></a></li>
-<li><a class="reference internal" href="#dock"><code class="docutils literal notranslate"><span class="pre">dock</span></code></a></li>
-<li><a class="reference internal" href="#floating"><code class="docutils literal notranslate"><span class="pre">floating</span></code></a></li>
-<li><a class="reference internal" href="#frame"><code class="docutils literal notranslate"><span class="pre">frame</span></code></a></li>
-<li><a class="reference internal" href="#insert"><code class="docutils literal notranslate"><span class="pre">insert</span></code></a></li>
-<li><a class="reference internal" href="#leaves"><code class="docutils literal notranslate"><span class="pre">leaves</span></code></a></li>
-<li><a class="reference internal" href="#locate"><code class="docutils literal notranslate"><span class="pre">locate</span></code></a></li>
-<li><a class="reference internal" href="#minsize"><code class="docutils literal notranslate"><span class="pre">minsize</span></code></a></li>
-<li><a class="reference internal" href="#move"><code class="docutils literal notranslate"><span class="pre">move</span></code></a></li>
-<li><a class="reference internal" href="#node"><code class="docutils literal notranslate"><span class="pre">node</span></code></a></li>
-<li><a class="reference internal" href="#panedwindow"><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code></a></li>
-<li><a class="reference internal" href="#parent"><code class="docutils literal notranslate"><span class="pre">parent</span></code></a></li>
-<li><a class="reference internal" href="#proportions"><code class="docutils literal notranslate"><span class="pre">proportions</span></code></a></li>
-<li><a class="reference internal" href="#ratio"><code class="docutils literal notranslate"><span class="pre">ratio</span></code></a></li>
-<li><a class="reference internal" href="#remove"><code class="docutils literal notranslate"><span class="pre">remove</span></code></a></li>
-<li><a class="reference internal" href="#requiredsize"><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code></a></li>
-<li><a class="reference internal" href="#retain"><code class="docutils literal notranslate"><span class="pre">retain</span></code></a></li>
-<li><a class="reference internal" href="#root"><code class="docutils literal notranslate"><span class="pre">root</span></code></a></li>
-<li><a class="reference internal" href="#split"><code class="docutils literal notranslate"><span class="pre">split</span></code></a></li>
-<li><a class="reference internal" href="#swap"><code class="docutils literal notranslate"><span class="pre">swap</span></code></a></li>
-<li><a class="reference internal" href="#title"><code class="docutils literal notranslate"><span class="pre">title</span></code></a></li>
-<li><a class="reference internal" href="#tree"><code class="docutils literal notranslate"><span class="pre">tree</span></code></a></li>
-<li><a class="reference internal" href="#type"><code class="docutils literal notranslate"><span class="pre">type</span></code></a></li>
-<li><a class="reference internal" href="#undock"><code class="docutils literal notranslate"><span class="pre">undock</span></code></a></li>
-<li><a class="reference internal" href="#widget"><code class="docutils literal notranslate"><span class="pre">widget</span></code></a></li>
-<li><a class="reference internal" href="#widgets"><code class="docutils literal notranslate"><span class="pre">widgets</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="splitlayout.html" class="btn btn-neutral float-left" title="splitlayout — Dynamic pane layouts for Tcl/Tk" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright George Yashin.</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="splitlayout.html"
-                          title="previous chapter">splitlayout — Dynamic pane layouts for Tcl/Tk</a></p>
-  </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/splitlayout-splitlayout.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="splitlayout.html" title="splitlayout — Dynamic pane layouts for Tcl/Tk"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">splitlayout</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-    &#169; Copyright George Yashin.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.2.0.
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>

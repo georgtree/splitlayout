@@ -1,52 +1,165 @@
+
+
 <!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<html lang="en" data-content_root="./">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>splitlayout — Dynamic pane layouts for Tcl/Tk &mdash; splitlayout  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/manual.css?v=00cdc845" />
 
-    <title>splitlayout — Dynamic pane layouts for Tcl/Tk &#8212; splitlayout  documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/classic.css?v=f11ead97" />
-    
-    <script src="_static/documentation_options.js?v=5929fcd5"></script>
-    <script src="_static/doctools.js?v=fd6eb6e6"></script>
-    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-    
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="splitlayout" href="splitlayout-splitlayout.html" />
     <link rel="prev" title="&lt;no title&gt;" href="index.html" /> 
-  </head><body>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="splitlayout-splitlayout.html" title="splitlayout"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="index.html" title="&lt;no title&gt;"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">splitlayout — Dynamic pane layouts for Tcl/Tk</a></li> 
-      </ul>
-    </div>  
+</head>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
-            
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            splitlayout
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">splitlayout — Dynamic pane layouts for Tcl/Tk</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-it-gives-you-at-a-glance">What it gives you (at a glance)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#general-concept">General concept</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#two-hierarchies">Two hierarchies</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing">Installing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="splitlayout-splitlayout.html">splitlayout</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#splitting-existing-content">Splitting existing content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#minimum-content-sizes">Minimum content sizes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#per-node-constraints">Per-node constraints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#lock-terminology-and-migration">Lock terminology and migration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#movement-and-locked-content">Movement and locked content</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#destruction-and-collapse">Destruction and collapse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#resize-locks">Resize locks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#leaf-counts-and-depth">Leaf counts and depth</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#ownership-commands-and-gesture-feedback">Ownership, commands, and gesture feedback</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#moving-panes">Moving panes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#dragging-panes">Dragging panes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#lock-button">Lock button</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#leaf-outlines">Leaf outlines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#header-appearance-and-titles">Header appearance and titles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#optional-tooltips">Optional tooltips</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#nested-managers">Nested managers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#swapping-and-removing-content">Swapping and removing content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#visual-structure">Visual structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#resizing">Resizing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#options">Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#appearance-and-drag-detection">Appearance and drag detection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#floating-managed-content">Floating managed content</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#inspecting-the-layout">Inspecting the layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#classes">Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#r-symbolqz3a3asplitlayout3a3asplitlayout"><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#constructor"><code class="docutils literal notranslate"><span class="pre">constructor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#destructor"><code class="docutils literal notranslate"><span class="pre">destructor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#children"><code class="docutils literal notranslate"><span class="pre">children</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#clear"><code class="docutils literal notranslate"><span class="pre">clear</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#constraints"><code class="docutils literal notranslate"><span class="pre">constraints</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#container"><code class="docutils literal notranslate"><span class="pre">container</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#dock"><code class="docutils literal notranslate"><span class="pre">dock</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#floating"><code class="docutils literal notranslate"><span class="pre">floating</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#frame"><code class="docutils literal notranslate"><span class="pre">frame</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#insert"><code class="docutils literal notranslate"><span class="pre">insert</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#leaves"><code class="docutils literal notranslate"><span class="pre">leaves</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#locate"><code class="docutils literal notranslate"><span class="pre">locate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#minsize"><code class="docutils literal notranslate"><span class="pre">minsize</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#move"><code class="docutils literal notranslate"><span class="pre">move</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#node"><code class="docutils literal notranslate"><span class="pre">node</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#panedwindow"><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#parent"><code class="docutils literal notranslate"><span class="pre">parent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#proportions"><code class="docutils literal notranslate"><span class="pre">proportions</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#ratio"><code class="docutils literal notranslate"><span class="pre">ratio</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#remove"><code class="docutils literal notranslate"><span class="pre">remove</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#requiredsize"><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#retain"><code class="docutils literal notranslate"><span class="pre">retain</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#root"><code class="docutils literal notranslate"><span class="pre">root</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#split"><code class="docutils literal notranslate"><span class="pre">split</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#swap"><code class="docutils literal notranslate"><span class="pre">swap</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#title"><code class="docutils literal notranslate"><span class="pre">title</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#tree"><code class="docutils literal notranslate"><span class="pre">tree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#type"><code class="docutils literal notranslate"><span class="pre">type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#undock"><code class="docutils literal notranslate"><span class="pre">undock</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#widget"><code class="docutils literal notranslate"><span class="pre">widget</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="splitlayout-splitlayout.html#widgets"><code class="docutils literal notranslate"><span class="pre">widgets</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="genindex.html">Index</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">splitlayout</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">splitlayout — Dynamic pane layouts for Tcl/Tk</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/splitlayout.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
   <section id="splitlayout-dynamic-pane-layouts-for-tcl-tk">
-<span id="r-splitlayout-dynamic-pane-layouts-for-tcl-tk"></span><span id="r-splitlayout20201420dynamic20pane20layouts20for20tcl2ftk"></span><h1>splitlayout — Dynamic pane layouts for Tcl/Tk<a class="headerlink" href="#splitlayout-dynamic-pane-layouts-for-tcl-tk" title="Link to this heading">¶</a></h1>
+<span id="r-splitlayout-dynamic-pane-layouts-for-tcl-tk"></span><span id="r-splitlayout20201420dynamic20pane20layouts20for20tcl2ftk"></span><h1>splitlayout — Dynamic pane layouts for Tcl/Tk<a class="headerlink" href="#splitlayout-dynamic-pane-layouts-for-tcl-tk" title="Link to this heading"></a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">splitlayout</span></code> is a pure Tcl megawidget for creating dynamically resizable layouts from nested <code class="docutils literal notranslate"><span class="pre">ttk::panedwindow</span></code>
 widgets. Split a content area, add panes beside existing ones, remove subtrees, or exchange content between panes
 without recreating the surviving application widgets.</p>
 <section id="what-it-gives-you-at-a-glance">
-<span id="r-what-it-gives-you-at-a-glance"></span><span id="r-what20it20gives20you2028at20a20glance29"></span><h2>What it gives you (at a glance)<a class="headerlink" href="#what-it-gives-you-at-a-glance" title="Link to this heading">¶</a></h2>
+<span id="r-what-it-gives-you-at-a-glance"></span><span id="r-what20it20gives20you2028at20a20glance29"></span><h2>What it gives you (at a glance)<a class="headerlink" href="#what-it-gives-you-at-a-glance" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Horizontal and vertical splits, combined at any nesting depth.</p></li>
 <li><p>Two or more panes in each split, with ordered insertion of new siblings.</p></li>
@@ -62,7 +175,7 @@ without recreating the surviving application widgets.</p>
 </ul>
 </section>
 <section id="general-concept">
-<span id="r-general-concept"></span><span id="r-general20concept"></span><h2>General concept<a class="headerlink" href="#general-concept" title="Link to this heading">¶</a></h2>
+<span id="r-general-concept"></span><span id="r-general20concept"></span><h2>General concept<a class="headerlink" href="#general-concept" title="Link to this heading"></a></h2>
 <p>A layout starts with one empty <strong>leaf</strong>. Each leaf owns a content frame into which the application places its widgets.
 Splitting a leaf converts its node into a <strong>split</strong> and creates two new leaf nodes. A split owns a panedwindow and
 has an ordered list of children. Each child can itself be a leaf or another split.</p>
@@ -73,26 +186,26 @@ height or width beside a more deeply subdivided region, producing arrangements s
 There are no grid coordinates or <code class="docutils literal notranslate"><span class="pre">-rowspan</span></code>/<code class="docutils literal notranslate"><span class="pre">-columnspan</span></code> options, and arbitrary overlapping grid arrangements are
 not supported.</p>
 <section id="two-hierarchies">
-<span id="r-two-hierarchies"></span><span id="r-two20hierarchies"></span><h3>Two hierarchies<a class="headerlink" href="#two-hierarchies" title="Link to this heading">¶</a></h3>
+<span id="r-two-hierarchies"></span><span id="r-two20hierarchies"></span><h3>Two hierarchies<a class="headerlink" href="#two-hierarchies" title="Link to this heading"></a></h3>
 <p>The <strong>logical tree</strong> describes pane order, split orientation, and geometry relationships. The <strong>Tk widget tree</strong>
 describes actual widget ownership and pathnames.</p>
-<p>All managed content frames, optional leaf and split wrappers, and split panedwindows are immediate Tk children of the layout hull.
-Grip canvases are children of their wrappers. Application widgets
-are descendants of their content frame. Splitting, promoting, or swapping content changes its logical placement and
-geometry container, while its actual Tk parent and widget pathnames stay the same.</p>
+<p>All managed content frames, optional leaf and split wrappers, and split panedwindows are immediate Tk children of the
+layout hull.  Grip canvases are children of their wrappers. Application widgets are descendants of their content
+frame. Splitting, promoting, or swapping content changes its logical placement and geometry container, while its actual
+Tk parent and widget pathnames stay the same.</p>
 <p>Removing a content frame destroys that frame and its application widgets. Destroying the layout destroys all its
 content, including floating windows. Surviving frames retain their widgets and state.</p>
 </section>
 </section>
 <section id="requirements">
-<span id="r-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
+<span id="r-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Tcl and Tk 9.0 or newer.</p></li>
 <li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, available to the selected Tcl interpreter.</p></li>
 </ul>
 </section>
 <section id="installing">
-<span id="r-installing"></span><h2>Installing<a class="headerlink" href="#installing" title="Link to this heading">¶</a></h2>
+<span id="r-installing"></span><h2>Installing<a class="headerlink" href="#installing" title="Link to this heading"></a></h2>
 <p>From the source directory, run:</p>
 <div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./configure
 make
@@ -136,7 +249,7 @@ available to the selected interpreter. Tests require a graphical display.</p>
 <p>Omit <code class="docutils literal notranslate"><span class="pre">sudo</span></code> for a user-writable prefix. For a staged installation, use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">uninstall</span> <span class="pre">DESTDIR=/path/to/staging</span></code>.</p>
 </section>
 <section id="documentation">
-<span id="r-documentation"></span><h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h2>
+<span id="r-documentation"></span><h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading"></a></h2>
 <p>The generated HTML documentation is available online:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://georgtree.github.io/splitlayout/">Documentation home</a></p></li>
@@ -149,79 +262,34 @@ browse the local HTML documentation.</p>
 </section>
 
 
-            <div class="clearer"></div>
+           </div>
           </div>
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-  <div>
-    <h3><a href="index.html">Table of Contents</a></h3>
-    <ul>
-<li><a class="reference internal" href="#">splitlayout — Dynamic pane layouts for Tcl/Tk</a><ul>
-<li><a class="reference internal" href="#what-it-gives-you-at-a-glance">What it gives you (at a glance)</a></li>
-<li><a class="reference internal" href="#general-concept">General concept</a><ul>
-<li><a class="reference internal" href="#two-hierarchies">Two hierarchies</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#requirements">Requirements</a></li>
-<li><a class="reference internal" href="#installing">Installing</a></li>
-<li><a class="reference internal" href="#documentation">Documentation</a></li>
-</ul>
-</li>
-</ul>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="splitlayout-splitlayout.html" class="btn btn-neutral float-right" title="splitlayout" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
 
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright George Yashin.</p>
   </div>
-  <div>
-    <h4>Previous topic</h4>
-    <p class="topless"><a href="index.html"
-                          title="previous chapter">&lt;no title&gt;</a></p>
-  </div>
-  <div>
-    <h4>Next topic</h4>
-    <p class="topless"><a href="splitlayout-splitlayout.html"
-                          title="next chapter">splitlayout</a></p>
-  </div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/splitlayout.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<search id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="Related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="splitlayout-splitlayout.html" title="splitlayout"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="index.html" title="&lt;no title&gt;"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">splitlayout  documentation</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">splitlayout — Dynamic pane layouts for Tcl/Tk</a></li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-    &#169; Copyright George Yashin.
-      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.2.0.
-    </div>
-  </body>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
 </html>
