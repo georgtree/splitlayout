@@ -150,7 +150,7 @@ application.</p>
 <span class="pre">id</span> <span class="pre">option</span> <span class="pre">value</span> <span class="pre">...</span></code> to change several settings atomically. A floating token is accepted for content
 flags. Constraints are independent between manager instances, including nested managers.</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">root</span><span class="k">]]</span><span class="w"> </span>editor<span class="w"> </span>output
-<span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>pinned<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>nodestroy<span class="w"> </span>true
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>locked<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>nodestroy<span class="w"> </span>true
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">root</span><span class="k">]</span><span class="w"> </span><span class="o">-</span>minleaves<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>maxleaves<span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="o">-</span>maxdepth<span class="w"> </span><span class="mi">3</span>
 <span class="nb">puts</span><span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>nomove<span class="k">]</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$output</span><span class="w"> </span><span class="o">-</span>noresize<span class="w"> </span>true
@@ -191,15 +191,15 @@ flags. Constraints are independent between manager instances, including nested m
 <td><p>Any node / floating content</p></td>
 <td><p>Lock sash-driven allocation changes; this is not a fixed pixel size.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinned</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-locked</span></code></p></td>
 <td><p>false</p></td>
 <td><p>Leaf / floating content</p></td>
 <td><p>Set movement flags and block adjacent move/dock destinations.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-lockedside</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code></p></td>
 <td><p>Leaf / floating content</p></td>
-<td><p>Edges blocking incoming move/dock placement while pinned.</p></td>
+<td><p>Edges blocking incoming move/dock placement while locked.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-minleaves</span></code></p></td>
 <td><p>1</p></td>
@@ -218,8 +218,43 @@ flags. Constraints are independent between manager instances, including nested m
 </tr>
 </tbody>
 </table>
-<section id="movement-and-pinned-content">
-<span id="r-splitlayout-movement-and-pinned-content"></span><span id="r-3a3asplitlayoutqzmovement20and20pinned20content"></span><h3>Movement and pinned content<a class="headerlink" href="#movement-and-pinned-content" title="Link to this heading">¶</a></h3>
+<section id="lock-terminology-and-migration">
+<span id="r-splitlayout-lock-terminology-and-migration"></span><span id="r-3a3asplitlayoutqzlock20terminology20and20migration"></span><h3>Lock terminology and migration<a class="headerlink" href="#lock-terminology-and-migration" title="Link to this heading">¶</a></h3>
+<p>Locking replaces the former pin terminology throughout the API and user interface. Update existing scripts
+and custom image dictionaries using these names; the former names are not retained as aliases:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Former name</p></th>
+<th class="head"><p>Current name</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinned</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-locked</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-lockedside</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Image key <code class="docutils literal notranslate"><span class="pre">pin</span></code></p></td>
+<td><p>Image key <code class="docutils literal notranslate"><span class="pre">lock</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Image key <code class="docutils literal notranslate"><span class="pre">unpin</span></code></p></td>
+<td><p>Image key <code class="docutils literal notranslate"><span class="pre">unlock</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>The <code class="docutils literal notranslate"><span class="pre">all</span></code>/<code class="docutils literal notranslate"><span class="pre">outer</span></code> modes, side lists, constraint behavior, root-edge propagation, and interaction with
+<code class="docutils literal notranslate"><span class="pre">-nomove</span></code> and <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> are unchanged. Constraint errors now identify <code class="docutils literal notranslate"><span class="pre">-locked</span></code> when locking blocks placement.</p>
+</section>
+<section id="movement-and-locked-content">
+<span id="r-splitlayout-movement-and-locked-content"></span><span id="r-3a3asplitlayoutqzmovement20and20locked20content"></span><h3>Movement and locked content<a class="headerlink" href="#movement-and-locked-content" title="Link to this heading">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-nomove</span></code> checks only the directly moved leaf. It is not imposed on ancestors. In a swap, both existing flags
 are checked because both contents would move; no flag is added to the destination. Moving another leaf beside
 protected content is allowed, including converting its current leaf position into a split. Moving or wrapping
@@ -229,46 +264,46 @@ position.</p>
 on screen. <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> is the separate restriction on leaving the docked tree. It does not prohibit returning
 floating content with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, or moving and swapping it while docked. The current public <code class="docutils literal notranslate"><span class="pre">move</span></code>, <code class="docutils literal notranslate"><span class="pre">swap</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">undock</span></code> commands accept leaves, not complete split subtrees; movement flags cannot be assigned to split nodes.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> sets both movement flags and protects adjacent placement boundaries. <code class="docutils literal notranslate"><span class="pre">move</span></code> and <code class="docutils literal notranslate"><span class="pre">dock</span></code>,
-including gestures, reject placing content against the edges selected by <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code>. Shared slots check both
-neighbors: naming the unpinned neighbor with <code class="docutils literal notranslate"><span class="pre">-before</span></code> or <code class="docutils literal notranslate"><span class="pre">-after</span></code> cannot bypass the restriction. Sash and
+<p><code class="docutils literal notranslate"><span class="pre">-locked</span> <span class="pre">true</span></code> sets both movement flags and protects adjacent placement boundaries. <code class="docutils literal notranslate"><span class="pre">move</span></code> and <code class="docutils literal notranslate"><span class="pre">dock</span></code>,
+including gestures, reject placing content against the edges selected by <code class="docutils literal notranslate"><span class="pre">-lockedside</span></code>. Shared slots check both
+neighbors: naming the unlocked neighbor with <code class="docutils literal notranslate"><span class="pre">-before</span></code> or <code class="docutils literal notranslate"><span class="pre">-after</span></code> cannot bypass the restriction. Sash and
 outer-rim drop zones use the same validation. Internal ancestor sashes check only their direct leaf
-neighbors: pinning the bottom leaf of a vertical middle split does not block the outer vertical sashes beside
+neighbors: locking the bottom leaf of a vertical middle split does not block the outer vertical sashes beside
 that split. Its own selected edges and adjacent sibling slots remain protected, and a directly neighboring
-pinned leaf can still block an internal slot.</p>
+locked leaf can still block an internal slot.</p>
 <p>There is one exception: an insertion boundary coinciding with an outer root edge also checks descendants
 touching that edge. For example, a nested bottom leaf blocking <code class="docutils literal notranslate"><span class="pre">bottom</span></code> blocks placement below the whole
 root, or below its containing split when that split reaches the root’s bottom edge. Its left/right settings
 do not block internal ancestor sashes. Descendants that do not touch the selected root edge do not restrict
 it. The rule uses the proposed tree after removing a moving source, works before mapping, and applies to
 commands, gestures, outer-rim drops, and remembered docking alike. It never changes stored flags or side lists.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> is a list of blocked physical edges: <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">right</span></code>, <code class="docutils literal notranslate"><span class="pre">top</span></code>, and <code class="docutils literal notranslate"><span class="pre">bottom</span></code>. The default is
+<p><code class="docutils literal notranslate"><span class="pre">-lockedside</span></code> is a list of blocked physical edges: <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">right</span></code>, <code class="docutils literal notranslate"><span class="pre">top</span></code>, and <code class="docutils literal notranslate"><span class="pre">bottom</span></code>. The default is
 <code class="docutils literal notranslate"><span class="pre">{left</span> <span class="pre">right</span> <span class="pre">top</span> <span class="pre">bottom}</span></code>. For example, leave the right edge available so other floating windows can return
 even when this is the only remaining docked leaf:</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>pinned<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>pinnedside<span class="w"> </span><span class="k">{</span><span class="nv">left</span><span class="w"> </span>top<span class="w"> </span>bottom<span class="k">}</span>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">constraints</span><span class="w"> </span><span class="nv">$editor</span><span class="w"> </span><span class="o">-</span>locked<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>lockedside<span class="w"> </span><span class="k">{</span><span class="nv">left</span><span class="w"> </span>top<span class="w"> </span>bottom<span class="k">}</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">dock</span><span class="w"> </span><span class="nv">$floatingToken</span><span class="w"> </span><span class="o">-</span>right<span class="w"> </span><span class="nv">$editor</span>
 </pre></div>
 </div>
 <p>Both sides of a shared slot are checked against each neighbor’s own physical edge: inserting after a leaf
 checks its <code class="docutils literal notranslate"><span class="pre">right</span></code> edge in a horizontal parent and its <code class="docutils literal notranslate"><span class="pre">bottom</span></code> edge in a vertical parent. The opposite
-neighbor’s <code class="docutils literal notranslate"><span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">top</span></code> edge is checked too. Before/after are destination commands, not valid pinnedside
-values. Split neighbors are searched for pinned descendants only at coincident outer root edges.</p>
-<p>An empty list allows incoming placement on every edge while keeping the pinned leaf’s movement and undocking
-restrictions. Setting <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> alone does not enable pinning; it can be configured in advance, and it is
-preserved when pinning is switched off and on. Queries return a unique list in left/right/top/bottom order.
+neighbor’s <code class="docutils literal notranslate"><span class="pre">left</span></code> or <code class="docutils literal notranslate"><span class="pre">top</span></code> edge is checked too. Before/after are destination commands, not valid lockedside
+values. Split neighbors are searched for locked descendants only at coincident outer root edges.</p>
+<p>An empty list allows incoming placement on every edge while keeping the locked leaf’s movement and undocking
+restrictions. Setting <code class="docutils literal notranslate"><span class="pre">-lockedside</span></code> alone does not enable locking; it can be configured in advance, and it is
+preserved when locking is switched off and on. Queries return a unique list in left/right/top/bottom order.
 The setting belongs to leaf/floating content, follows retained splits and docking, and cannot be set on a split.
 Invalid lists reject the whole update without changing settings or cancelling active gestures.</p>
 <p>Default docking still tries its remembered destination (or the existing fallback); it does not search for
 an unblocked edge. If that destination is blocked, use an explicit open edge such as <code class="docutils literal notranslate"><span class="pre">dock</span> <span class="pre">-right</span></code>, or drag
 to that edge. Buttons and native close requests use the same default-destination validation as before.</p>
-<p>Pinned is stored explicitly. Setting <code class="docutils literal notranslate"><span class="pre">-nomove</span> <span class="pre">true</span> <span class="pre">-noundock</span> <span class="pre">true</span></code> separately does not pin destinations.
-<code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">false</span></code> clears pinning and both movement flags without changing other restrictions. Clearing either
-movement flag individually also clears pinning, leaving the other flag unchanged. Set <code class="docutils literal notranslate"><span class="pre">-pinned</span></code> in a separate
+<p>Locked is stored explicitly. Setting <code class="docutils literal notranslate"><span class="pre">-nomove</span> <span class="pre">true</span> <span class="pre">-noundock</span> <span class="pre">true</span></code> separately does not lock destinations.
+<code class="docutils literal notranslate"><span class="pre">-locked</span> <span class="pre">false</span></code> clears locking and both movement flags without changing other restrictions. Clearing either
+movement flag individually also clears locking, leaving the other flag unchanged. Set <code class="docutils literal notranslate"><span class="pre">-locked</span></code> in a separate
 call from <code class="docutils literal notranslate"><span class="pre">-nomove</span></code> or <code class="docutils literal notranslate"><span class="pre">-noundock</span></code>; mixing them in one update remains an error. Existing no-op moves are
 allowed.</p>
-<p>Pinning does not block explicit creation through <code class="docutils literal notranslate"><span class="pre">split</span></code> or <code class="docutils literal notranslate"><span class="pre">insert</span></code>, deletion, sash resizing, or ordinary
+<p>Locking does not block explicit creation through <code class="docutils literal notranslate"><span class="pre">split</span></code> or <code class="docutils literal notranslate"><span class="pre">insert</span></code>, deletion, sash resizing, or ordinary
 geometry changes. Use <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code>, <code class="docutils literal notranslate"><span class="pre">-noresize</span></code>, and subtree limits for those separate restrictions. The flag
-follows retained content through splitting and docking just like the other leaf flags. A floating pinned
+follows retained content through splitting and docking just like the other leaf flags. A floating locked
 frame may be docked at an allowed destination; once docked, its adjacent boundaries are protected.</p>
 </section>
 <section id="destruction-and-collapse">
@@ -526,9 +561,9 @@ window; it does not initiate docking.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p>Pin</p></td>
-<td><p>Toggle pinning</p></td>
-<td><p>Toggle pinning</p></td>
+<tr class="row-even"><td><p>Lock</p></td>
+<td><p>Toggle locking</p></td>
+<td><p>Toggle locking</p></td>
 </tr>
 <tr class="row-odd"><td><p>Arrow</p></td>
 <td><p>Undock</p></td>
@@ -550,28 +585,29 @@ construction or with <code class="docutils literal notranslate"><span class="pre
 alignment is controlled independently by <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>. Changing alignment cancels an active drag without
 moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
 follows the theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> and its option-database resources.</p>
-<section id="pin-button">
-<span id="r-splitlayout-pin-button"></span><span id="r-3a3asplitlayoutqzpin20button"></span><h3>Pin button<a class="headerlink" href="#pin-button" title="Link to this heading">¶</a></h3>
-<p>The pin button uses the <code class="docutils literal notranslate"><span class="pre">pin</span></code> image while unpinned and the <code class="docutils literal notranslate"><span class="pre">unpin</span></code> image while pinned, with a dynamic
-tooltip describing the action and current constraints. It remains available when movement, undocking, or
-deletion is blocked, so the user can release a pin.
+<section id="lock-button">
+<span id="r-splitlayout-lock-button"></span><span id="r-3a3asplitlayoutqzlock20button"></span><h3>Lock button<a class="headerlink" href="#lock-button" title="Link to this heading">¶</a></h3>
+<p>The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image
+keys describe the next action: <code class="docutils literal notranslate"><span class="pre">lock</span></code> is displayed while unlocked, and <code class="docutils literal notranslate"><span class="pre">unlock</span></code> while locked. A dynamic
+tooltip describes the action and current constraints. The button remains available when movement, undocking, or
+deletion is blocked, so the user can release a lock.
 Programmatic constraint changes update its image and tooltip. Like the other buttons it supports keyboard
 activation, never starts a drag, and disappears when <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> is false.</p>
-<p>The pin tooltip reports layout movement and undocking as locked/unlocked from the explicit <code class="docutils literal notranslate"><span class="pre">-nomove</span></code>
-and <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> flags, and lists the docking sides blocked by pinning. It shows <code class="docutils literal notranslate"><span class="pre">none</span></code> when pinning is off
+<p>The lock tooltip reports layout movement and undocking as locked/unlocked from the explicit <code class="docutils literal notranslate"><span class="pre">-nomove</span></code>
+and <code class="docutils literal notranslate"><span class="pre">-noundock</span></code> flags, and lists the docking sides blocked by locking. It shows <code class="docutils literal notranslate"><span class="pre">none</span></code> when locking is off
 or its side list is empty, even if an inactive side list is still stored. For example:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Unpin pane
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Unlock pane
 Layout movement: locked
 Undocking: locked
-Docking sides blocked by pinning: left, top and bottom
+Docking sides blocked by locking: left, top and bottom
 </pre></div>
 </div>
 <p>These are current local restrictions, not predictions of the next click or a summary of every ancestor
 limit. An unlocked movement flag does not override other constraints. Direct constraint updates and button
 clicks refresh the tooltip in docked and floating headers. <code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">false</span></code> and missing Tklib disable it
 exactly like the other header tooltips; no custom fallback is created.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span> <span class="pre">all|outer</span></code> is a manager-wide property, accepted at construction and by <code class="docutils literal notranslate"><span class="pre">configure</span></code>, defaulting
-to <code class="docutils literal notranslate"><span class="pre">all</span></code>. It controls only a button click that changes unpinned content to pinned content:</p>
+<p><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span> <span class="pre">all|outer</span></code> is a manager-wide property, accepted at construction and by <code class="docutils literal notranslate"><span class="pre">configure</span></code>, defaulting
+to <code class="docutils literal notranslate"><span class="pre">all</span></code>. It controls only a button click that changes unlocked content to locked content:</p>
 <table class="docutils align-default">
 <colgroup>
 <col style="width: 50.0%" />
@@ -579,7 +615,7 @@ to <code class="docutils literal notranslate"><span class="pre">all</span></code
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Mode</p></th>
-<th class="head"><p>Sides assigned to <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> when pinning</p></th>
+<th class="head"><p>Sides assigned to <code class="docutils literal notranslate"><span class="pre">-lockedside</span></code> when locking</p></th>
 </tr>
 </thead>
 <tbody>
@@ -595,13 +631,13 @@ to <code class="docutils literal notranslate"><span class="pre">all</span></code
 also touches right. For a vertical split, every child touches left and right; the first also touches top and
 the last also touches bottom. Nested leaves use their own immediate parent split, even where that split’s
 boundary is internal to the manager. Root leaves and floating content have no parent split and use all sides.</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>pinbuttonmode<span class="w"> </span>outer
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>draghandles<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>lockbuttonmode<span class="w"> </span>outer
 </pre></div>
 </div>
-<p>Clicking to pin sets <code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">true</span></code> and the computed <code class="docutils literal notranslate"><span class="pre">-pinnedside</span></code> together, replacing any previously stored
-side selection. Clicking again uses <code class="docutils literal notranslate"><span class="pre">-pinned</span> <span class="pre">false</span></code>, clearing both movement flags while retaining the side
+<p>Clicking to lock sets <code class="docutils literal notranslate"><span class="pre">-locked</span> <span class="pre">true</span></code> and the computed <code class="docutils literal notranslate"><span class="pre">-lockedside</span></code> together, replacing any previously stored
+side selection. Clicking again uses <code class="docutils literal notranslate"><span class="pre">-locked</span> <span class="pre">false</span></code>, clearing both movement flags while retaining the side
 list. Sides are captured at click time: later insertion, collapse, docking, or mode changes do not recompute
-them. To recalculate, unpin and pin again. Changing the mode does not change direct <code class="docutils literal notranslate"><span class="pre">constraints</span></code> semantics,
+them. To recalculate, unlock and lock again. Changing the mode does not change direct <code class="docutils literal notranslate"><span class="pre">constraints</span></code> semantics,
 existing flags, or an active drag. The mode belongs to each manager independently, including nested managers.</p>
 </section>
 <section id="leaf-outlines">
@@ -652,8 +688,8 @@ Centering reserves equal space at both ends for either button alignment, keeping
 <p><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">left|center|right</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">center</span></code> and is independent of <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>. Left and right titles
 use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
 header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.</p>
-<p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code> is a dictionary with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, <code class="docutils literal notranslate"><span class="pre">undock</span></code>, <code class="docutils literal notranslate"><span class="pre">delete</span></code>, <code class="docutils literal notranslate"><span class="pre">pin</span></code>, and <code class="docutils literal notranslate"><span class="pre">unpin</span></code> keys. Values are existing Tk image names,
-not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:</p>
+<p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code> is a dictionary with <code class="docutils literal notranslate"><span class="pre">dock</span></code>, <code class="docutils literal notranslate"><span class="pre">undock</span></code>, <code class="docutils literal notranslate"><span class="pre">delete</span></code>, <code class="docutils literal notranslate"><span class="pre">lock</span></code>, and <code class="docutils literal notranslate"><span class="pre">unlock</span></code> keys. Values are existing
+Tk image names, not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>undockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>undock.png<span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>dockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>dock.svg<span class="w"> </span><span class="o">-</span>format<span class="w"> </span>svg<span class="k">]</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>titlealign<span class="w"> </span>left<span class="w"> </span><span class="o">-</span>buttonimages<span class="w"> </span><span class="k">[</span><span class="nb">dict</span><span class="w"> </span>create<span class="w"> </span>undock<span class="w"> </span><span class="nv">$undockImage</span><span class="w"> </span>dock<span class="w"> </span><span class="nv">$dockImage</span><span class="k">]</span>
@@ -663,7 +699,7 @@ not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk phot
 <p>Overrides apply globally to existing and future docked and floating headers. Partial dictionaries preserve
 other entries; an empty value restores that action’s built-in bitmap. An empty dictionary changes nothing.
 Invalid keys or missing image names reject the whole update. The toggle uses <code class="docutils literal notranslate"><span class="pre">undock</span></code> while docked and <code class="docutils literal notranslate"><span class="pre">dock</span></code>
-while floating. The pin button uses <code class="docutils literal notranslate"><span class="pre">pin</span></code> or <code class="docutils literal notranslate"><span class="pre">unpin</span></code> according to the current constraint state. Button widths
+while floating. The lock button uses <code class="docutils literal notranslate"><span class="pre">lock</span></code> or <code class="docutils literal notranslate"><span class="pre">unlock</span></code> according to the current constraint state. Button widths
 and header height accommodate the images at their native pixel size; images
 are not scaled or recolored. Supply appropriately sized icons and retain them while used. The manager never
 deletes supplied images. To delete one, clear/replace its override first. If an image is deleted externally,
@@ -827,9 +863,9 @@ widgets.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
 <td><p>Deferred preview mode: <code class="docutils literal notranslate"><span class="pre">window</span></code>, <code class="docutils literal notranslate"><span class="pre">inline</span></code>, or <code class="docutils literal notranslate"><span class="pre">none</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
-<td><p>Pin-button side policy: all edges or immediate parent split boundaries.</p></td>
+<td><p>Lock-button side policy: all edges or immediate parent split boundaries.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">right</span></code></p></td>
@@ -841,7 +877,7 @@ widgets.</p>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
 <td><p>Empty values</p></td>
-<td><p>Optional dock, undock, delete, pin, and unpin Tk image overrides.</p></td>
+<td><p>Optional dock, undock, delete, lock, and unlock Tk image overrides.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
@@ -1224,7 +1260,7 @@ database; see the namespace resource reference.</p>
 <dd class="field-odd"><p>Readable, writable. Hull border width, delegated to the ttk frame.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Dictionary mapping dock, undock, delete, pin, and unpin to existing Tk image names. Empty values select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one default. Supplied images are application-owned. Buttons and header height accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.</p>
+<dd class="field-even"><p>Readable, writable. Dictionary mapping dock, undock, delete, lock, and unlock to existing Tk image names. Empty values select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one default. Supplied images are application-owned. Buttons and header height accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.</p>
 </dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Readable, writable. Side of the grip strip containing the action buttons: left or right; default right. Applies immediately to docked and floating headers. Title alignment is controlled independently by titlealign. Changing the value cancels an active content drag. Button appearance remains controlled by ttk.</p>
@@ -1262,14 +1298,14 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Lock-button policy: all or outer; default all. All blocks all four edges. Outer computes edges on the immediate parent split boundary when clicked. Root leaves and floating content use all four edges. Changing the mode does not rewrite existing constraints or affect direct commands.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Pin-button policy: all or outer; default all. All blocks all four edges. Outer computes edges on the immediate parent split boundary when clicked. Root leaves and floating content use all four edges. Changing the mode does not rewrite existing constraints or affect direct commands.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
@@ -1305,12 +1341,12 @@ database; see the namespace resource reference.</p>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading">¶</a></h4>
 <p>Creates a split layout with one empty root leaf.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?</em>
-<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-pinbuttonmode mode?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em>
+<strong>splitlayout new</strong> <em>path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Optional dock, undock, delete, pin, and unpin images; default built-in bitmaps.</p>
+<dd class="field-odd"><p>Optional dock, undock, delete, lock, and unlock images; default built-in bitmaps.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">side</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Align header buttons left or right in docked and floating content; default right.</p>
@@ -1342,11 +1378,11 @@ database; see the namespace resource reference.</p>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span> <span class="pre">relief</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Leaf border relief; default solid.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Enable live sash resizing; default true.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Lock-button side policy all or outer; default all.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-pinbuttonmode</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Pin-button side policy all or outer; default all.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Enable live sash resizing; default true.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Deferred preview mode: window, inline, or none; default window.</p>
@@ -1415,7 +1451,7 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 <section id="constraints">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstraints"></span><span id="index-11"></span><span id="index-10"></span><h4><code class="docutils literal notranslate"><span class="pre">constraints</span></code><a class="headerlink" href="#constraints" title="Link to this heading">¶</a></h4>
 <p>Queries or atomically updates restrictions for one node or floating content.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ constraints</strong> <em>id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-pinned boolean? ?-pinnedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?</em></pre>
+<pre class="literal-block"><strong>SPLITLAYOUTOBJ constraints</strong> <em>id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">id</span></code><span class="colon">:</span></dt>
@@ -1427,10 +1463,10 @@ Child identifiers in pane order, or an empty list for a leaf.</p>
 </dl>
 <p class="rubric">Description</p>
 <p>Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and
-pinned are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
-settings, not restrictions inherited by an operation from protected descendants. Pinned also protects
-adjacent move/dock destinations on pinnedside edges, in addition to setting the two movement flags.
-Pinnedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection.</p>
+locked are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
+settings, not restrictions inherited by an operation from protected descendants. Locked also protects
+adjacent move/dock destinations on lockedside edges, in addition to setting the two movement flags.
+Lockedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection.</p>
 <p class="rubric">Return value</p>
 <p>One queried value, or the complete explicit settings dictionary.</p>
 </section>
@@ -1973,7 +2009,8 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 <li><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
 <li><a class="reference internal" href="#minimum-content-sizes">Minimum content sizes</a></li>
 <li><a class="reference internal" href="#per-node-constraints">Per-node constraints</a><ul>
-<li><a class="reference internal" href="#movement-and-pinned-content">Movement and pinned content</a></li>
+<li><a class="reference internal" href="#lock-terminology-and-migration">Lock terminology and migration</a></li>
+<li><a class="reference internal" href="#movement-and-locked-content">Movement and locked content</a></li>
 <li><a class="reference internal" href="#destruction-and-collapse">Destruction and collapse</a></li>
 <li><a class="reference internal" href="#resize-locks">Resize locks</a></li>
 <li><a class="reference internal" href="#leaf-counts-and-depth">Leaf counts and depth</a></li>
@@ -1982,7 +2019,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 </li>
 <li><a class="reference internal" href="#moving-panes">Moving panes</a></li>
 <li><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
-<li><a class="reference internal" href="#pin-button">Pin button</a></li>
+<li><a class="reference internal" href="#lock-button">Lock button</a></li>
 <li><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
 <li><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
 <li><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
