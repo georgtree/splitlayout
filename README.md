@@ -37,10 +37,10 @@ not supported.
 The **logical tree** describes pane order, split orientation, and geometry relationships. The **Tk widget tree**
 describes actual widget ownership and pathnames.
 
-All managed content frames, optional leaf and split wrappers, and split panedwindows are immediate Tk children of the layout hull.
-Grip canvases are children of their wrappers. Application widgets
-are descendants of their content frame. Splitting, promoting, or swapping content changes its logical placement and
-geometry container, while its actual Tk parent and widget pathnames stay the same.
+All managed content frames, optional leaf and split wrappers, and split panedwindows are immediate Tk children of the
+layout hull.  Grip canvases are children of their wrappers. Application widgets are descendants of their content
+frame. Splitting, promoting, or swapping content changes its logical placement and geometry container, while its actual
+Tk parent and widget pathnames stay the same.
 
 Removing a content frame destroys that frame and its application widgets. Destroying the layout destroys all its
 content, including floating windows. Surviving frames retain their widgets and state.

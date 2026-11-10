@@ -585,6 +585,26 @@ construction or with <code class="docutils literal notranslate"><span class="pre
 alignment is controlled independently by <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>. Changing alignment cancels an active drag without
 moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
 follows the theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> and its option-database resources.</p>
+<p>A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
+drag-area tooltip, and does not take a grab on press. Button tooltips remain available. If either operation
+remains possible, the hover cursor is an open hand; destination constraints still apply to each drop.  An
+accepted mouse press immediately closes the hand. Crossing the drag threshold changes it to a closed hand
+holding a small window, which remains visible until release or cancellation, including over invalid
+destinations. Returning the pointer near its starting position does not deactivate the drag. A simple click or
+small motion below the threshold makes no layout change and shows no placement preview. Header buttons always
+use the ordinary arrow cursor, including disabled buttons, rather than inheriting the hand cursor. Floating
+headers remain draggable on the desktop independently of layout movement flags. Cursor feedback does not
+require Tklib tooltip.</p>
+<p>Hand artwork and platform handling are embedded in <code class="docutils literal notranslate"><span class="pre">splitlayout.tcl</span></code>; no additional asset files need
+installation. Windows uses embedded monochrome <code class="docutils literal notranslate"><span class="pre">.cur</span></code> assets; X11 uses embedded XBM source and mask assets;
+macOS uses native <code class="docutils literal notranslate"><span class="pre">openhand</span></code> and <code class="docutils literal notranslate"><span class="pre">closedhand</span></code> cursors, and loads the embedded CUR for active dragging.
+The custom assets share a 32-by-32 canvas and a fixed hotspot, so changing state does not shift the pointer.
+They are original package artwork.</p>
+<p>Files are created lazily in the system temporary directory, shared across managers in the interpreter,
+and removed when the last manager using them is destroyed. No files are written into the installation
+directory. Abrupt process termination may leave temporary files behind. If creation or loading fails,
+hover, pressed, and active dragging fall back to <code class="docutils literal notranslate"><span class="pre">fleur</span></code>, <code class="docutils literal notranslate"><span class="pre">exchange</span></code>, and <code class="docutils literal notranslate"><span class="pre">icon</span></code>, respectively.
+No extra package or C extension is required.</p>
 <section id="lock-button">
 <span id="r-splitlayout-lock-button"></span><span id="r-3a3asplitlayoutqzlock20button"></span><h3>Lock button<a class="headerlink" href="#lock-button" title="Link to this heading">¶</a></h3>
 <p>The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image

@@ -3,6 +3,260 @@ package require Tcl 9.0-
 package require Tk 9.0-
 package require argparse
 
+# Private hand cursors: embedded artwork, platform loading, and shared temporary-file lifetime.
+namespace eval ::splitlayout::cursors {
+    variable Owners {}
+    variable Cache {}
+    variable Files {}
+    variable Assets {}
+    dict set Assets open xbm {#define hand_width 32
+#define hand_height 32
+#define hand_x_hot 15
+#define hand_y_hot 16
+static unsigned char hand_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00,
+    0x00, 0x80, 0x78, 0x00, 0x00, 0xf0, 0x88, 0x00, 0x00, 0x88, 0x88, 0x00,
+    0x00, 0x88, 0x88, 0x03, 0x00, 0x88, 0x88, 0x04, 0x00, 0x88, 0x88, 0x04,
+    0x80, 0x89, 0x88, 0x04, 0x40, 0x8a, 0x88, 0x04, 0x40, 0x8c, 0x88, 0x04,
+    0x40, 0x0c, 0x80, 0x04, 0x80, 0x00, 0x00, 0x04, 0x80, 0x00, 0x00, 0x04,
+    0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x02,
+    0x00, 0x04, 0x00, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x08, 0x00, 0x01,
+    0x00, 0x08, 0x00, 0x01, 0x00, 0x10, 0x00, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets open mask {#define mask_width 32
+#define mask_height 32
+#define mask_x_hot 15
+#define mask_y_hot 16
+static unsigned char mask_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00,
+    0x00, 0x80, 0x7f, 0x00, 0x00, 0xf0, 0xff, 0x00, 0x00, 0xf8, 0xff, 0x00,
+    0x00, 0xf8, 0xff, 0x03, 0x00, 0xf8, 0xff, 0x07, 0x00, 0xf8, 0xff, 0x07,
+    0x80, 0xf9, 0xff, 0x07, 0xc0, 0xfb, 0xff, 0x07, 0xc0, 0xfb, 0xff, 0x07,
+    0xc0, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07,
+    0x00, 0xff, 0xff, 0x07, 0x00, 0xff, 0xff, 0x07, 0x00, 0xfe, 0xff, 0x03,
+    0x00, 0xfc, 0xff, 0x03, 0x00, 0xfc, 0xff, 0x03, 0x00, 0xf8, 0xff, 0x01,
+    0x00, 0xf8, 0xff, 0x01, 0x00, 0xf0, 0xff, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets open cur {
+        AAACAAEAICACAA8AEAAwAQAAFgAAACgAAAAgAAAAQAAAAAEAAQAAAAAAAAEAAAAAAAAAAAAAAgAAAAIAAAAAAAAA////AAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAH/wAAD/8AAA//AAAf/4AAH/+AAD//gAB//8AAf//AAP//wAD//8ABz/7AAc7uwAGO7sAADu7A
+        AA7uwAAO7sAADu4AAA7uAAAA7gAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////////////////////////8AB///AA
+        f//gAH//4AB//8AAP//AAD//gAA//wAAH/8AAB/+AAAf/gAAH/wAAB/8IAAf/CAAH/5gAB//4AAf/+AAH//gAD//4AD///AA///+
+        Af///x////////////////////////////8=
+    }
+    dict set Assets closed xbm {#define hand_width 32
+#define hand_height 32
+#define hand_x_hot 15
+#define hand_y_hot 16
+static unsigned char hand_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x07, 0x00, 0x00, 0xf0, 0x78, 0x00, 0x00, 0x88, 0x88, 0x00,
+    0x00, 0x88, 0x88, 0x00, 0x00, 0x88, 0x88, 0x03, 0x00, 0x8f, 0x88, 0x04,
+    0x80, 0x88, 0x88, 0x04, 0x80, 0x88, 0x88, 0x04, 0x80, 0x08, 0x80, 0x04,
+    0x00, 0x09, 0x00, 0x04, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x04,
+    0x00, 0x04, 0x00, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x08, 0x00, 0x02,
+    0x00, 0x08, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets closed mask {#define mask_width 32
+#define mask_height 32
+#define mask_x_hot 15
+#define mask_y_hot 16
+static unsigned char mask_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x07, 0x00, 0x00, 0xf0, 0x7f, 0x00, 0x00, 0xf8, 0xff, 0x00,
+    0x00, 0xf8, 0xff, 0x00, 0x00, 0xf8, 0xff, 0x03, 0x00, 0xff, 0xff, 0x07,
+    0x80, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07,
+    0x00, 0xff, 0xff, 0x07, 0x00, 0xff, 0xff, 0x07, 0x00, 0xfe, 0xff, 0x07,
+    0x00, 0xfc, 0xff, 0x03, 0x00, 0xfc, 0xff, 0x03, 0x00, 0xf8, 0xff, 0x03,
+    0x00, 0xf8, 0xff, 0x03, 0x00, 0xf0, 0xff, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets closed cur {
+        AAACAAEAICACAA8AEAAwAQAAFgAAACgAAAAgAAAAQAAAAAEAAQAAAAAAAAEAAAAAAAAAAAAAAgAAAAIAAAAAAAAA////AAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAH/wAAD/+AAA//gAAf/4AAH/+AAD//wAB//8AAb//AAO/+wADu7sAA7u7AAA7uwAAO7gAADu4A
+        AA7uAAAA4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////////////////////////8AB///AA
+        f//gAD//4AA//8AAP//AAD//gAAf/wAAH/8AAB/+AAAf/gAAH/4AAB//AAAf/+AAP//gAP//4AD///AB////H///////////////
+        //////////////////////////////////8=
+    }
+    dict set Assets drag xbm {#define hand_width 32
+#define hand_height 32
+#define hand_x_hot 15
+#define hand_y_hot 16
+static unsigned char hand_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xfc, 0x7f, 0x00, 0x00, 0x04, 0x50, 0x00, 0x00, 0x04, 0x40, 0x00, 0x00,
+    0xfc, 0x7f, 0x00, 0x00, 0x04, 0x40, 0x00, 0x00, 0x04, 0x40, 0x00, 0x00,
+    0x04, 0x40, 0x07, 0x00, 0x04, 0xf0, 0x78, 0x00, 0x04, 0x88, 0x88, 0x00,
+    0x04, 0x88, 0x88, 0x00, 0x04, 0x88, 0x88, 0x03, 0xfc, 0x8f, 0x88, 0x04,
+    0x80, 0x88, 0x88, 0x04, 0x80, 0x88, 0x88, 0x04, 0x80, 0x08, 0x80, 0x04,
+    0x00, 0x09, 0x00, 0x04, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x04,
+    0x00, 0x04, 0x00, 0x02, 0x00, 0x04, 0x00, 0x02, 0x00, 0x08, 0x00, 0x02,
+    0x00, 0x08, 0x00, 0x02, 0x00, 0x10, 0x00, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets drag mask {#define mask_width 32
+#define mask_height 32
+#define mask_x_hot 15
+#define mask_y_hot 16
+static unsigned char mask_bits[] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0xfc, 0x7f, 0x00, 0x00, 0xfc, 0x7f, 0x00, 0x00, 0xfc, 0x7f, 0x00, 0x00,
+    0xfc, 0x7f, 0x00, 0x00, 0xfc, 0x7f, 0x00, 0x00, 0xfc, 0x7f, 0x00, 0x00,
+    0xfc, 0x7f, 0x07, 0x00, 0xfc, 0xff, 0x7f, 0x00, 0xfc, 0xff, 0xff, 0x00,
+    0xfc, 0xff, 0xff, 0x00, 0xfc, 0xff, 0xff, 0x03, 0xfc, 0xff, 0xff, 0x07,
+    0x80, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07, 0x80, 0xff, 0xff, 0x07,
+    0x00, 0xff, 0xff, 0x07, 0x00, 0xff, 0xff, 0x07, 0x00, 0xfe, 0xff, 0x07,
+    0x00, 0xfc, 0xff, 0x03, 0x00, 0xfc, 0xff, 0x03, 0x00, 0xf8, 0xff, 0x03,
+    0x00, 0xf8, 0xff, 0x03, 0x00, 0xf0, 0xff, 0x01, 0x00, 0xf0, 0xff, 0x01,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+}
+    dict set Assets drag cur {
+        AAACAAEAICACAA8AEAAwAQAAFgAAACgAAAAgAAAAQAAAAAEAAQAAAAAAAAEAAAAAAAAAAAAAAgAAAAIAAAAAAAAA////AAAAAAAA
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAH/wAAD/+AAA//gAAf/4AAH/+AAD//wAB//8AAb//AAO/+wADu7sAA7u7AAA7uwB/u7gAf7u4A
+        H+7uAB/w4AAf/AAAH/wAAB/8AAAAAAAAH/wAAB/0AAAAAAAAAAAAAAAAAAAAAAAA////////////////////////////8AB///AA
+        f//gAD//4AA//8AAP//AAD//gAAf/wAAH/8AAB/+AAAf/gAAH/4AAB/AAAAfwAAAP8AAAP/AAAD/wAAB/8ABH//AAf//wAH//8AB
+        ///AAf//wAH//8AB//////////////////8=
+    }
+
+}
+
+proc ::splitlayout::cursors::Write {data suffix} {
+    # Writes one embedded asset to a private temporary file.
+    #  data - Bytes to write without encoding or newline translation.
+    #  suffix - File extension required by the platform loader.
+    # Returns: Absolute filename. Failed writes remove their partial file.
+    set channel [file tempfile path splitlayout-cursor$suffix]
+    try {
+        fconfigure $channel -translation binary
+        puts -nonewline $channel $data
+        close $channel
+    } on error {message options} {
+        catch {close $channel}
+        catch {file delete $path}
+        return -options $options $message
+    }
+    return [file normalize $path]
+}
+
+proc ::splitlayout::cursors::Create {platform state} {
+    # Materializes a cursor for the selected Tk backend.
+    #  platform - Tk windowing system: win32, x11, or aqua.
+    #  state - open (hover), closed (pressed), or drag (active movement).
+    # Returns: A Tk cursor specification. Partial files are removed on failure.
+    variable Assets
+    variable Files
+    set created {}
+    try {
+        switch -- $platform {
+            aqua {
+                if {$state ne {drag}} {
+                    return ${state}hand
+                }
+                # Tk Aqua reads the image and hotspot from a Windows CUR file.
+                set path [Write [binary decode base64 [dict get $Assets $state cur]] .cur]
+                lappend created $path
+                set cursor [list @$path]
+            }
+            win32 {
+                set path [Write [binary decode base64 [dict get $Assets $state cur]] .cur]
+                lappend created $path
+                set cursor [list @$path]
+            }
+            x11 {
+                set source [Write [dict get $Assets $state xbm] .xbm]
+                lappend created $source
+                set mask [Write [dict get $Assets $state mask] .xbm]
+                lappend created $mask
+                set cursor [list @$source $mask black white]
+            }
+            default {
+                error "unsupported windowing system '$platform'"
+            }
+        }
+    } on error {message options} {
+        foreach path $created {
+            catch {file delete $path}
+        }
+        return -options $options $message
+    }
+    lappend Files {*}$created
+    return $cursor
+}
+
+proc ::splitlayout::cursors::Fallback {state} {
+    # Returns a portable fallback when custom cursors cannot be loaded.
+    #  state - open (hover), closed (pressed), or drag (active movement).
+    # Returns: Distinct built-in cursors for hover, pressed, and active-drag states.
+    return [dict get {open fleur closed exchange drag icon} $state]
+}
+
+proc ::splitlayout::cursors::Get {owner state} {
+    # Acquires a shared cursor lazily for a manager.
+    #  owner - Stable manager object namespace, released from its destructor.
+    #  state - open (hover), closed (pressed), or drag (active movement).
+    # Returns: A cursor specification; filesystem failures fall back to built-in cursors.
+    variable Owners
+    variable Cache
+    if {$state ni {open closed drag}} {
+        return -code error {expected cursor state open, closed, or drag}
+    }
+    dict set Owners $owner 1
+    if {![dict exists $Cache $state]} {
+        if {[catch {Create [tk windowingsystem] $state} cursor]} {
+            set cursor [Fallback $state]
+        }
+        dict set Cache $state $cursor
+    }
+    return [dict get $Cache $state]
+}
+
+proc ::splitlayout::cursors::Apply {owner widget state} {
+    # Assigns a shared hand cursor, falling back if the platform loader rejects it.
+    #  owner - Stable manager object namespace.
+    #  widget - Existing header widget.
+    #  state - open (hover), closed (pressed), or drag (active movement).
+    # Returns: Nothing. Does not change application images or global cursor settings.
+    variable Cache
+    set cursor [Get $owner $state]
+    if {[catch {$widget configure -cursor $cursor}]} {
+        set cursor [Fallback $state]
+        dict set Cache $state $cursor
+        $widget configure -cursor $cursor
+    }
+}
+
+proc ::splitlayout::cursors::Release {owner} {
+    # Releases a manager's claim and removes files after the last manager is destroyed.
+    #  owner - Stable manager object namespace; unknown owners are harmless.
+    # Returns: Nothing. The next manager can recreate the assets on demand.
+    variable Owners
+    variable Cache
+    variable Files
+    dict unset Owners $owner
+    if {[dict size $Owners]} {
+        return
+    }
+    foreach path $Files {catch {file delete $path}}
+    set Files {}
+    set Cache {}
+}
+
+
 package provide splitlayout 0.1
 
 namespace eval ::splitlayout {
@@ -451,6 +705,29 @@ namespace eval ::splitlayout {
         alignment is controlled independently by `-titlealign`. Changing alignment cancels an active drag without
         moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
         follows the theme. Preview styling and hit areas continue to use `-dockopts` and its option-database resources.
+
+        A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
+        drag-area tooltip, and does not take a grab on press. Button tooltips remain available. If either operation
+        remains possible, the hover cursor is an open hand; destination constraints still apply to each drop.  An
+        accepted mouse press immediately closes the hand. Crossing the drag threshold changes it to a closed hand
+        holding a small window, which remains visible until release or cancellation, including over invalid
+        destinations. Returning the pointer near its starting position does not deactivate the drag. A simple click or
+        small motion below the threshold makes no layout change and shows no placement preview. Header buttons always
+        use the ordinary arrow cursor, including disabled buttons, rather than inheriting the hand cursor. Floating
+        headers remain draggable on the desktop independently of layout movement flags. Cursor feedback does not
+        require Tklib tooltip.
+
+        Hand artwork and platform handling are embedded in `splitlayout.tcl`; no additional asset files need
+        installation. Windows uses embedded monochrome `.cur` assets; X11 uses embedded XBM source and mask assets;
+        macOS uses native `openhand` and `closedhand` cursors, and loads the embedded CUR for active dragging.
+        The custom assets share a 32-by-32 canvas and a fixed hotspot, so changing state does not shift the pointer.
+        They are original package artwork.
+
+        Files are created lazily in the system temporary directory, shared across managers in the interpreter,
+        and removed when the last manager using them is destroyed. No files are written into the installation
+        directory. Abrupt process termination may leave temporary files behind. If creation or loading fails,
+        hover, pressed, and active dragging fall back to `fleur`, `exchange`, and `icon`, respectively.
+        No extra package or C extension is required.
 
         ### Lock button
         The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image
@@ -1585,6 +1862,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[info exists Owned] && $Owned && [winfo exists $W]} {
             destroy $W
         }
+        ::splitlayout::cursors::Release [info object namespace [self]]
     }
     method HullDestroyed {path} {
         # Destroys the object when its hull window is destroyed.
@@ -4011,12 +4289,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: The grip pathname.
         set height [expr {[my HeaderHeight]-2*$HeaderBorder}]
         canvas $grip -width 84 -height $height -borderwidth $HeaderBorder -relief $HeaderRelief -highlightthickness 0\
-                -takefocus 0 -cursor fleur
+                -takefocus 0 -cursor {}
         set action [expr {$floating ? {dock} : {undock}}]
         set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
         foreach name {lock toggle delete} kind [list $lockAction $action delete] {
             set image [my ButtonImage $kind]
-            ttk::button $grip.$name -image [list $image disabled $image] -width 0 -padding 1 -takefocus 1\
+            ttk::button $grip.$name -image [list $image disabled $image] -width 0 -padding 1 -takefocus 1 -cursor arrow\
                     -command [namespace code [list my GripAction $id $kind]]
         }
         dict set Headers $grip $id
@@ -4240,16 +4518,45 @@ oo::configurable create ::splitlayout::splitlayout {
         return [join [list $action "Layout movement: $movement" "Undocking: $undocking"\
                               "Docking sides blocked by locking: $sides"] \n]
     }
+    method HandleDragAllowed {id} {
+        # Tests whether a header can start a content gesture.
+        #  id - Docked leaf or floating token.
+        #
+        # Floating windows can still be moved on the desktop. For docked content, either layout movement or
+        # an allowed undock is sufficient. Destination-specific constraints are checked when hovering a target.
+        # Returns: Boolean.
+        return [expr {$Handles && ([dict exists $Floating $id] || ![my constraints $id -nomove] ||\
+                                           [my ActionAllowed $id undock])}]
+    }
+    method SyncHandleCursor {grip id} {
+        # Updates the header cursor from its permission and gesture state.
+        #  grip - Existing header canvas.
+        #  id - Docked leaf or floating token.
+        #
+        # Empty inherits the normal parent cursor. An accepted press closes the hand even before drag activation.
+        # The separator inherits from this canvas; action buttons explicitly use the ordinary arrow.
+        # Returns: Nothing.
+        if {![my HandleDragAllowed $id]} {
+            $grip configure -cursor {}
+            return
+        }
+        set state open
+        if {($Dock ne {}) && ([dict get $Dock grip] eq $grip)} {
+            set state [expr {[dict get $Dock active] ? {drag} : {closed}}]
+        }
+        ::splitlayout::cursors::Apply [info object namespace [self]] $grip $state
+    }
     method SyncHeaderTips {} {
-        # Applies the per-manager tooltip preference to headers and buttons using the optional Tklib package.
+        # Synchronizes handle cursors and applies the tooltip preference using the optional Tklib package.
         #
         # Missing or incompatible tooltip packages leave headers operational without tooltips.
         # Returns: Nothing.
-        if {!$TooltipReady} {
-            return
-        }
         dict for {grip id} $Headers {
             if {![winfo exists $grip]} {
+                continue
+            }
+            my SyncHandleCursor $grip $id
+            if {!$TooltipReady} {
                 continue
             }
             my ClearHeaderTips $grip
@@ -4258,7 +4565,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 set hint [expr {[dict exists $Floating $id] ?\
                                         {Drag to move this window or dock it in the layout} :\
                                         {Drag to rearrange this pane or move it outside the layout to undock}}]
-                ::tooltip::tooltip $grip $hint
+                if {[my HandleDragAllowed $id]} {
+                    ::tooltip::tooltip $grip $hint
+                }
                 ::tooltip::tooltip $grip.lock [my LockTooltip $id]
                 ::tooltip::tooltip $grip.toggle $action
                 ::tooltip::tooltip $grip.delete {Delete content}
@@ -4373,8 +4682,8 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         if {![winfo exists $clip]} {
-            ::frame $clip -borderwidth 0 -highlightthickness 0 -takefocus 0 -cursor fleur
-            ::frame $clip.edge -highlightthickness 0 -takefocus 0 -cursor fleur
+            ::frame $clip -borderwidth 0 -highlightthickness 0 -takefocus 0 -cursor {}
+            ::frame $clip.edge -highlightthickness 0 -takefocus 0 -cursor {}
             foreach path [list $clip $clip.edge] {
                 foreach event {<ButtonPress-1> <B1-Motion> <ButtonRelease-1>} {
                     bind $path $event [bind $grip $event]
@@ -4524,7 +4833,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Tcl break completion for an accepted press; nothing otherwise.
         my SyncOwner
         if {!$Handles || (![dict exists $Panels $id] && ![dict exists $Floating $id grip]) ||\
-                    ([grab current $W] ne {})} {
+                    ([grab current $W] ne {}) || ![my HandleDragAllowed $id]} {
             return
         }
         my CancelDrag
@@ -4543,6 +4852,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Finish preparing state before taking the grab, so a setup error cannot leave a partial gesture.
         grab $grip
         set Dock $state
+        my SyncHandleCursor $grip $id
         focus $grip
         return -code break
     }
@@ -4816,6 +5126,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 return -code break
             }
             dict set Dock active 1
+            my SyncHandleCursor [dict get $Dock grip] [dict get $Dock source]
         }
         set source [dict get $Dock source]
         if {[dict exists $Floating $source]} {

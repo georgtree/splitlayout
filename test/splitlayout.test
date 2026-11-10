@@ -4616,6 +4616,284 @@ test splitlayout-locknames-37.2 {former pin names are rejected without changing 
     set result
 } -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1 0}
 
+proc ::sltest::handstate {m grip} {
+    set actual [$grip cget -cursor]
+    if {$actual eq {}} {return {}}
+    foreach state {open closed drag} {
+        if {$actual eq [::splitlayout::cursors::Get [info object namespace $m] $state]} {return $state}
+    }
+    return unexpected
+}
+
+test splitlayout-cursor-38.1 {blocked headers inherit cursor and refuse grabs including separator} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -headerrelief ridge
+    set g [::sltest::grip $m $a]
+    update
+} -body {
+    $m constraints $a -locked true
+    set result [list [::sltest::handstate $m $g] [$g.separator cget -cursor] [$g.separator.edge cget -cursor]]
+    ::sltest::dockevent $g.separator <ButtonPress-1> [::sltest::point $g]
+    lappend result [::sltest::dockstate $m] [grab current $m]
+    $m constraints $a -locked false
+    lappend result [::sltest::handstate $m $g]
+} -cleanup {::sltest::cleanup} -result {{} {} {} {} {} open}
+
+foreach finish {release escape constraints} {
+    test splitlayout-cursor-38.2-$finish {accepted presses close the hand and every exit resets it} -setup {
+        lassign [::sltest::docksetup] m root a b
+        set g [::sltest::grip $m $a]
+    } -body {
+        set start [::sltest::point $g]
+        ::sltest::dockevent $g <ButtonPress-1> $start
+        ::sltest::dockevent $g <B1-Motion> $start
+        set result [list [::sltest::handstate $m $g]]
+        ::sltest::dockevent $g <B1-Motion> [::sltest::point [$m widget $b]]
+        lappend result [::sltest::handstate $m $g]
+        switch $finish {
+            release {::sltest::dockevent $g <ButtonRelease-1> {-100 -100}}
+            escape {event generate $g <Escape>}
+            constraints {$m constraints $a -locked true}
+        }
+        lappend result [expr {[::sltest::handstate $m $g] eq ($finish eq {constraints} ? {} : {open})}]\
+                [::sltest::dockstate $m] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {closed drag 1 {} {}}
+}
+
+test splitlayout-cursor-38.3 {handle tooltip follows permissions while button tips remain} -constraints slTooltip -setup {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+} -body {
+    $m constraints $a -locked true
+    set result [list [::tooltip::tooltip $g] [expr {[::tooltip::tooltip $g.lock] ne {}}]]
+    $m constraints $a -noundock false
+    lappend result [::sltest::handstate $m $g] [expr {[::tooltip::tooltip $g] ne {}}]
+    $m constraints $a -noundock true
+    $m constraints $a -nomove false
+    lappend result [::sltest::handstate $m $g] [expr {[::tooltip::tooltip $g] ne {}}]
+} -cleanup {::sltest::cleanup} -result {{} 1 open 1 open 1}
+
+test splitlayout-cursor-38.4 {cursor feedback works without optional tooltip package} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+    set ns [info object namespace $m]
+    set saved [set ${ns}::TooltipReady]
+    set ${ns}::TooltipReady 0
+} -body {
+    $m constraints $a -locked true
+    set blocked [::sltest::handstate $m $g]
+    $m constraints $a -locked false
+    ::sltest::dockstart $m $a [::sltest::point [$m widget $b]]
+    set active [::sltest::handstate $m $g]
+    event generate $g <Escape>
+    list $blocked $active [::sltest::handstate $m $g]
+} -cleanup {
+    set ${ns}::TooltipReady $saved
+    ::sltest::cleanup
+} -result {{} drag open}
+
+test splitlayout-cursor-38.5 {floating desktop dragging retains feedback despite layout locks} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set token [$m undock $a]
+    $m constraints $token -locked true
+    set ns [info object namespace $m]
+    set g [dict get [set ${ns}::Floating] $token grip]
+    ::sltest::settle [$m frame $token]
+} -body {
+    set start [::sltest::point $g]
+    set before [::sltest::handstate $m $g]
+    ::sltest::dockevent $g <ButtonPress-1> $start
+    lassign $start x y
+    ::sltest::dockevent $g <B1-Motion> [list [expr {$x+30}] $y]
+    set active [::sltest::handstate $m $g]
+    event generate $g <Escape>
+    list $before $active [::sltest::handstate $m $g] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {open drag open {}}
+
+test splitlayout-handassets-39.1 {native backend loads all three states without fallback} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+} -body {
+    set result {}
+    foreach state {open closed drag} {
+        set cursor [::splitlayout::cursors::Get [info object namespace $m] $state]
+        ::splitlayout::cursors::Apply [info object namespace $m] $g $state
+        lappend result [expr {$cursor ne [::splitlayout::cursors::Fallback $state]}]\
+                [expr {[$g cget -cursor] eq $cursor}]
+    }
+    set result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1}
+
+test splitlayout-handassets-39.2 {files are shared and survive until last owner destruction} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    set other [splitlayout .sltest.other -draghandles true]
+} -body {
+    set first [::splitlayout::cursors::Get [info object namespace $m] closed]
+    set second [::splitlayout::cursors::Get [info object namespace $other] closed]
+    set paths $::splitlayout::cursors::Files
+    $m destroy
+    set kept 1
+    foreach path $paths {if {![file exists $path]} {set kept 0}}
+    set count [dict size $::splitlayout::cursors::Owners]
+    $other destroy
+    set removed 1
+    foreach path $paths {if {[file exists $path]} {set removed 0}}
+    list [expr {$first eq $second}] $kept $count $removed\
+            $::splitlayout::cursors::Files $::splitlayout::cursors::Cache
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 {} {}}
+
+test splitlayout-handassets-39.3 {no files before handles enabled and files can be recreated} -setup {
+    set m [::sltest::setup]
+} -body {
+    set empty [expr {$::splitlayout::cursors::Files eq {} && $::splitlayout::cursors::Cache eq {}}]
+    $m configure -draghandles true
+    set first [::splitlayout::cursors::Get [info object namespace $m] open]
+    $m destroy
+    set m [splitlayout .sltest.again -draghandles true]
+    set second [::splitlayout::cursors::Get [info object namespace $m] open]
+    set g [::sltest::grip $m [$m root]]
+    list $empty [expr {[$g cget -cursor] eq $second}]\
+            [expr {$second ne [::splitlayout::cursors::Fallback open]}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-handassets-39.4 {failed creation falls back without disabling the handle} -setup {
+    rename ::splitlayout::cursors::Create ::splitlayout::cursors::SavedCreate
+    proc ::splitlayout::cursors::Create {platform state} {error {simulated unwritable temporary directory}}
+} -body {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+    set before [$g cget -cursor]
+    ::sltest::dockstart $m $a [::sltest::point [$m widget $b]]
+    set active [$g cget -cursor]
+    event generate $g <Escape>
+    list $before $active [$g cget -cursor] $::splitlayout::cursors::Files
+} -cleanup {
+    ::sltest::cleanup
+    rename ::splitlayout::cursors::Create {}
+    rename ::splitlayout::cursors::SavedCreate ::splitlayout::cursors::Create
+} -result {fleur icon fleur {}}
+
+test splitlayout-handassets-39.5 {loader rejection falls back and partial X11 creation removes files} -setup {
+    set made {}
+    rename ::splitlayout::cursors::Write ::splitlayout::cursors::SavedWrite
+    proc ::splitlayout::cursors::Write {data suffix} {
+        if {[llength $::made]} {error {simulated second write failure}}
+        set path [SavedWrite $data $suffix]
+        lappend ::made $path
+        return $path
+    }
+} -body {
+    set failed [catch {::splitlayout::cursors::Create x11 open}]
+    set removed [expr {![file exists [lindex $made 0]]}]
+    rename ::splitlayout::cursors::Write {}
+    rename ::splitlayout::cursors::SavedWrite ::splitlayout::cursors::Write
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    set g [::sltest::grip $m [$m root]]
+    dict set ::splitlayout::cursors::Cache closed definitely_invalid_cursor
+    ::splitlayout::cursors::Apply [info object namespace $m] $g closed
+    list $failed $removed [$g cget -cursor]
+} -cleanup {
+    if {[info commands ::splitlayout::cursors::SavedWrite] ne {}} {
+        rename ::splitlayout::cursors::Write {}
+        rename ::splitlayout::cursors::SavedWrite ::splitlayout::cursors::Write
+    }
+    ::sltest::cleanup
+} -result {1 1 exchange}
+
+test splitlayout-handassets-39.6 {Windows files preserve embedded CUR bytes and macOS needs no files} -body {
+    set result {}
+    foreach state {open closed drag} {
+        set spec [::splitlayout::cursors::Create win32 $state]
+        set path [string range [lindex $spec 0] 1 end]
+        set channel [open $path rb]
+        set data [read $channel]
+        close $channel
+        binary scan [string range $data 0 13] cu* header
+        lappend result [expr {$header eq {0 0 2 0 1 0 32 32 2 0 15 0 16 0}}]\
+                [expr {$data eq [binary decode base64 [dict get $::splitlayout::cursors::Assets $state cur]]}]
+    }
+    set files $::splitlayout::cursors::Files
+    lappend result [::splitlayout::cursors::Create aqua open] [::splitlayout::cursors::Create aqua closed]\
+            [expr {$files eq $::splitlayout::cursors::Files}]
+    set result
+} -cleanup {::splitlayout::cursors::Release unused-test-owner} -result {1 1 1 1 1 1 openhand closedhand 1}
+
+test splitlayout-cursorpress-40.1 {press feedback precedes activation and a click leaves the layout unchanged} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+    set before [$m tree]
+} -body {
+    set point [::sltest::point $g]
+    ::sltest::dockevent $g <ButtonPress-1> $point
+    set result [list [::sltest::handstate $m $g] [dict get [::sltest::dockstate $m] active]]
+    lassign $point x y
+    ::sltest::dockevent $g <B1-Motion> [list [expr {$x+1}] $y]
+    lappend result [dict get [::sltest::dockstate $m] active] [dict get [::sltest::dockstate $m] overlays]
+    ::sltest::dockevent $g <ButtonRelease-1> $point
+    lappend result [::sltest::handstate $m $g] [expr {[$m tree] eq $before}] [grab current $m]
+} -cleanup {::sltest::cleanup} -result {closed 0 0 {} open 1 {}}
+
+foreach floating {0 1} {
+    test splitlayout-cursorpress-40.2-$floating {header buttons use arrows in all handle states} -setup {
+        lassign [::sltest::docksetup] m root a b
+        if {$floating} {
+            set a [$m undock $a]
+            set g [::sltest::floatgrip $m $a]
+            ::sltest::settle [$m frame $a]
+        } else {
+            set g [::sltest::grip $m $a]
+        }
+    } -body {
+        set ok 1
+        foreach state {hover pressed dragging locked} {
+            switch $state {
+                pressed {::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]}
+                dragging {::sltest::dockevent $g <B1-Motion> [::sltest::point [$m widget $b]]}
+                locked {
+                    event generate $g <Escape>
+                    $m constraints $a -locked true -nodestroy true
+                }
+            }
+            foreach name {lock toggle delete} {
+                if {[$g.$name cget -cursor] ne {arrow}} {set ok 0}
+            }
+        }
+        set ok
+    } -cleanup {::sltest::cleanup} -result 1
+}
+
+test splitlayout-cursordrag-41.1 {active icon persists near the origin and over invalid targets} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set g [::sltest::grip $m $a]
+} -body {
+    set start [::sltest::point $g]
+    set result [list [::sltest::handstate $m $g]]
+    ::sltest::dockevent $g <ButtonPress-1> $start
+    lappend result [::sltest::handstate $m $g]
+    ::sltest::dockevent $g <B1-Motion> [::sltest::point [$m widget $b]]
+    lappend result [::sltest::handstate $m $g]
+    ::sltest::dockevent $g <B1-Motion> $start
+    lappend result [::sltest::handstate $m $g] [dict get [::sltest::dockstate $m] active]
+    ::sltest::dockevent $g <B1-Motion> {-100 -100}
+    lappend result [::sltest::handstate $m $g] [dict get [::sltest::dockstate $m] target]
+    ::sltest::dockevent $g <ButtonRelease-1> {-100 -100}
+    lappend result [::sltest::handstate $m $g]
+} -cleanup {::sltest::cleanup} -result {open closed drag drag 1 drag {} open}
+
+test splitlayout-cursordrag-41.2 {Aqua active-drag CUR is materialized and tracked for cleanup} -body {
+    set cursor [::splitlayout::cursors::Create aqua drag]
+    set path [string range [lindex $cursor 0] 1 end]
+    set channel [open $path rb]
+    set bytes [read $channel]
+    close $channel
+    set result [list [expr {$path in $::splitlayout::cursors::Files}]\
+            [expr {$bytes eq [binary decode base64 [dict get $::splitlayout::cursors::Assets drag cur]]}]]
+    ::splitlayout::cursors::Release test-owner
+    lappend result [file exists $path]
+} -cleanup {::splitlayout::cursors::Release test-owner} -result {1 1 0}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

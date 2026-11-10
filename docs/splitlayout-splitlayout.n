@@ -574,6 +574,29 @@ construction or with configure to align buttons globally\&. Both docked and floa
 alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
 moving content\&. It is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground
 follows the theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+.PP
+A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
+drag-area tooltip, and does not take a grab on press\&. Button tooltips remain available\&. If either operation
+remains possible, the hover cursor is an open hand; destination constraints still apply to each drop\&.  An
+accepted mouse press immediately closes the hand\&. Crossing the drag threshold changes it to a closed hand
+holding a small window, which remains visible until release or cancellation, including over invalid
+destinations\&. Returning the pointer near its starting position does not deactivate the drag\&. A simple click or
+small motion below the threshold makes no layout change and shows no placement preview\&. Header buttons always
+use the ordinary arrow cursor, including disabled buttons, rather than inheriting the hand cursor\&. Floating
+headers remain draggable on the desktop independently of layout movement flags\&. Cursor feedback does not
+require Tklib tooltip\&.
+.PP
+Hand artwork and platform handling are embedded in splitlayout\&.tcl; no additional asset files need
+installation\&. Windows uses embedded monochrome \&.cur assets; X11 uses embedded XBM source and mask assets;
+macOS uses native openhand and closedhand cursors, and loads the embedded CUR for active dragging\&.
+The custom assets share a 32-by-32 canvas and a fixed hotspot, so changing state does not shift the pointer\&.
+They are original package artwork\&.
+.PP
+Files are created lazily in the system temporary directory, shared across managers in the interpreter,
+and removed when the last manager using them is destroyed\&. No files are written into the installation
+directory\&. Abrupt process termination may leave temporary files behind\&. If creation or loading fails,
+hover, pressed, and active dragging fall back to fleur, exchange, and icon, respectively\&.
+No extra package or C extension is required\&.
 .SS "LOCK BUTTON"
 .PP
 The lock button shows an open padlock while unlocked and a closed padlock while locked\&. Custom image
