@@ -1862,120 +1862,279 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         ::splitlayout::cursors::Release [info object namespace [self]]
     }
-    method HullDestroyed {path} {
-        # Destroys the object when its hull window is destroyed.
-        #  path - Widget pathname reported by the Destroy event.
+
+    ### Public methods
+    method root {args} {
+        # Returns the current logical root node.
         #
-        # Events for other widgets and recursive teardown are ignored.
-        #
-        # Returns: Nothing.
-        if {($path eq $W) && !$Closing} {
-            my destroy
-        }
+        # Returns: The root node identifier.
+        # Synopsis:
+        argparse -pfirst -help {Return the current logical root node identifier} {}
+        return $Root
     }
-    method SetAppearance {group value} {
-        # Validates and applies an appearance dictionary without creating option instances.
-        #  group - Resource group: dockopts, structureopts, leafopts, or sashpreviewopts.
-        #  value - Dictionary of keys to override; unspecified keys retain current values.
+    method type {args} {
+        # Returns the type of a logical node.
+        #  id - Existing logical node identifier.
         #
-        # On first assignment, query the hull's option database using package-specific resource names and classes.
-        # Explicit keys override database defaults before validation. Built-in defaults also survive option clear.
-        # Validation completes before cancellation or mutation. Successful changes cancel gestures; structure changes
-        # rebuild geometry with retained proportions. Setting unchanged values has no effect.
-        # Returns: Nothing.
-        set schema [dict get $::splitlayout::appearanceResources $group]
-        set candidate {}
-        if {[dict exists $Settings $group]} {
-            set candidate [dict get $Settings $group]
-        } else {
-            dict for {key spec} $schema {
-                lassign $spec resource type fallback
-                set initial [option get $W $resource [string toupper $resource 0 0]]
-                if {$initial eq {}} {
-                    set initial $fallback
-                }
-                dict set candidate $key $initial
-            }
+        # Returns: The string leaf or split.
+        # Synopsis: id
+        argparse -pfirst -help {Return the type of a logical node: leaf or split} {
+            {id -help {Existing logical node identifier}}
         }
-        dict for {key setting} $value {
-            if {![dict exists $schema $key]} {
-                return -code error "unknown -$group key '$key'"
-            }
-            dict set candidate $key $setting
+        my Check $id
+        return [dict get $Nodes $id type]
+    }
+    method parent {args} {
+        # Returns the logical parent of a node.
+        #  id - Existing logical node identifier.
+        #
+        # This relationship is independent of the actual Tk widget parent.
+        #
+        # Returns: The parent node identifier, or an empty string for the root.
+        # Synopsis: id
+        argparse -pfirst -help {Return the logical parent identifier, or empty for the root} {
+            {id -help {Existing logical node identifier}}
         }
-        dict for {key setting} $candidate {
-            set type [lindex [dict get $schema $key] 1]
-            if {$type eq {color}} {
-                if {[catch {winfo rgb $W $setting}]} {
-                    return -code error "invalid color for -$group $key: '$setting'"
-                }
-            } else {
-                set minimum [expr {$type eq {positive} ? 1 : 0}]
-                if {![string is entier -strict $setting] || ($setting < $minimum) ||( $setting > 2147483647)} {
-                    return -code error "expected integer pixels from $minimum to 2147483647 for -$group $key"
-                }
-                dict set candidate $key [expr {$setting + 0}]
-            }
+        my Check $id
+        return [dict get $Nodes $id parent]
+    }
+    method widget {args} {
+        # Returns the widget associated with a logical node.
+        #  id - Existing logical node identifier.
+        #
+        # Returns: The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
+        # or the content frame/native panedwindow otherwise. Use panedwindow to access a split's native widget.
+        # Synopsis: id
+        argparse -pfirst -help {Return the outer geometry widget associated with a logical node} {
+            {id -help {Existing logical node identifier}}
         }
-        if {[dict exists $Settings $group] && ($candidate eq [dict get $Settings $group])} {
+        my Check $id
+        if {[dict exists $Borders $id]} {
+            return [dict get $Borders $id]
+        }
+        if {([my type $id] eq {leaf}) && [dict exists $Panels $id]} {
+            return [dict get $Panels $id pane]
+        }
+        return [dict get $Nodes $id widget]
+    }
+    method panedwindow {args} {
+        # Returns the native panedwindow of a split, independently of structure visibility.
+        #  id - Existing split identifier.
+        #
+        # Returns: The native ttk panedwindow pathname. Leaf identifiers raise an error.
+        # Synopsis: id
+        argparse -pfirst -help {Return the native ttk panedwindow of a split} {
+            {id -help {Existing split node identifier}}
+        }
+        my Check $id split
+        return [dict get $Nodes $id widget]
+    }
+    method frame {args} {
+        # Returns the retained content frame of a docked leaf or floating window.
+        #  id - Existing leaf identifier or floating token.
+        #
+        # Raises an error if the node is unknown or is a split.
+        #
+        # Returns: The content frame pathname, unchanged across docking transitions.
+        # Synopsis: id
+        argparse -pfirst -help {Return the retained content frame of a docked leaf or floating window} {
+            {id -help {Existing leaf identifier or owned floating token}}
+        }
+        if {[dict exists $Floating $id]} {
+            return [my FloatingFrame $id]
+        }
+        my Check $id leaf
+        return [dict get $Nodes $id widget]
+    }
+    method children {args} {
+        # Returns the immediate logical children of a node.
+        #  id - Existing logical node identifier.
+        #
+        # Returns: Child identifiers in pane order, or an empty list for a leaf.
+        # Synopsis: id
+        argparse -pfirst -help {Return immediate child identifiers in pane order; leaves have no children} {
+            {id -help {Existing logical node identifier}}
+        }
+        my Check $id
+        if {[my type $id] eq {leaf}} {
             return
         }
-        my CancelDrag
-        if {($group in {structureopts leafopts}) && [info exists Root]} {
-            my CaptureAll
+        return [dict get $Nodes $id children]
+    }
+    method leaves {args} {
+        # Collects the leaves below a logical node.
+        #  id - Subtree root identifier; empty selects the layout root.
+        #
+        # Traversal follows pane order recursively. A leaf includes itself.
+        #
+        # Returns: A list of leaf identifiers in depth-first pane order.
+        # Synopsis: ?id?
+        argparse -pfirst -help {Return leaf identifiers in depth-first pane order, including the node itself when\
+                it is a leaf} {
+            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
         }
-        dict set Settings $group $candidate
-        if {($group in {structureopts leafopts}) && [info exists Root]} {
-            my Rebuild
+        if {$id eq {}} {
+            set id $Root
+        }
+        my Check $id
+        if {[my type $id] eq {leaf}} {
+            return [list $id]
+        }
+        set result {}
+        foreach child [my children $id] {
+            lappend result {*}[my leaves $child]
+        }
+        return $result
+    }
+    method node {args} {
+        # Finds the logical node associated with an exact widget pathname.
+        #  path - Managed content frame, pane wrapper, or panedwindow pathname.
+        #
+        # This method does not search ancestors; use locate for application widgets inside a content frame.
+        #
+        # Returns: The node identifier, or an empty string when no node matches.
+        # Synopsis: path
+        argparse -pfirst -help {Find a logical node by its exact managed widget pathname; does not search ancestors} {
+            {path -help {Managed content frame, pane wrapper, split wrapper, or native panedwindow}}
+        }
+        dict for {id border} $Borders {
+            if {$border eq $path} {
+                return $id
+            }
+        }
+        dict for {id panel} $Panels {
+            if {[dict get $panel pane] eq $path} {
+                return $id
+            }
+        }
+        dict for {id data} $Nodes {
+            if {[dict get $data widget] eq $path} {
+                return $id
+            }
         }
         return
     }
-    method Check {id {kind {}}} {
-        # Validates a logical node identifier and optional node type.
-        #  id - Logical node identifier.
-        #  kind - Required type, leaf or split; empty disables the type check.
+    method locate {args} {
+        # Finds the leaf containing an application widget.
+        #  path - Widget pathname to locate.
         #
-        # Raises an error for an unknown identifier or a mismatched type.
+        # Walks the actual Tk parent chain looking for a managed content frame.
+        # A split panedwindow does not identify a leaf.
         #
-        # Returns: The validated node identifier.
-        if {![dict exists $Nodes $id]} {
-            return -code error "unknown layout node '$id'"
+        # Returns: The containing leaf identifier, or empty for a missing or unrelated widget.
+        # Synopsis: path
+        argparse -pfirst -help {Find the docked leaf containing an application widget by walking its Tk parents} {
+            {path -help {Widget pathname; missing or unrelated widgets return empty}}
         }
-        if {($kind ne {}) && ([dict get $Nodes $id type] ne $kind)} {
-            return -code error "node '$id' is not a $kind"
+        if {![winfo exists $path]} {
+            return
         }
-        return $id
+        while {($path ne {}) && ($path ne $W)} {
+            set id [my node $path]
+            if {($id ne {}) && ([my type $id] eq {leaf})} {
+                return $id
+            }
+            set path [winfo parent $path]
+        }
+        return
     }
-    method Fraction {value} {
-        # Validates a two-pane split fraction.
-        #  value - Numeric fraction strictly between zero and one.
+    method container {args} {
+        # Returns the geometry container for a managed node.
+        #  value - Logical node identifier or exact managed widget pathname.
         #
-        # Non-numeric, non-finite, and out-of-range values raise an error.
+        # The container can differ from the actual Tk parent. Unknown identifiers and unmanaged paths raise an error.
         #
-        # Returns: The fraction converted to a double.
-        if {![string is double -strict $value] || [catch {expr {$value > 0.0 && $value < 1.0}} valid] || !$valid} {
-            return -code error {ratio must be a finite number strictly between 0 and 1}
+        # A node identifier or wrapper path resolves to the outer geometry container. A content frame pathname
+        # resolves to its pane wrapper when handles are enabled. A native panedwindow path resolves to its
+        # enclosing split wrapper when showstructure is enabled.
+        # Returns: The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate.
+        # Synopsis: value
+        argparse -pfirst -help {Return the geometry container of a managed node or exact managed widget} {
+            {value -help {Logical node identifier or exact managed widget pathname}}
         }
-        return [expr {double($value)}]
+        if {[dict exists $Nodes $value]} {
+            set id $value
+        } else {
+            set id [my node $value]
+            if {$id eq {}} {
+                return -code error "not a managed node or widget: '$value'"
+            }
+        }
+        if {[dict exists $Panels $id] && $value eq [my frame $id]} {
+            return [my widget $id]
+        }
+        if {[dict exists $Borders $id] && $value eq [my panedwindow $id]} {
+            return [my widget $id]
+        }
+        set parent [my parent $id]
+        if {$parent eq {}} {
+            return $W
+        }
+        return [my panedwindow $parent]
     }
-    method NewLeaf {parent {frame {}}} {
-        # Allocates a leaf record and optionally creates its content frame.
-        #  parent - Logical parent identifier, or empty for a root.
-        #  frame - Existing content frame to reuse; empty creates a borderless labelframe with class Frame that supports
-        #  wm manage.
+    method tree {args} {
+        # Returns a recursive snapshot of the logical layout hierarchy.
+        #  id - Subtree root identifier; empty selects the layout root.
         #
-        # A newly created frame is an immediate Tk child of the hull. This helper does not attach the leaf to its parent
-        # or rebuild the layout.
+        # Each node dictionary contains id, type, parent, widget, and children. With handles enabled, widget is the
+        # wrapper for a leaf. Leaf dictionaries also contain the application content frame as frame,
+        # with an empty children list. Split dictionaries contain orient and proportions; two-child splits also contain
+        # ratio. With showstructure, widget is the enclosing split wrapper. The panedwindow field always names
+        # the native split widget. Split children are nested node dictionaries in pane order.
         #
-        # Returns: The new leaf identifier.
-        set id n[incr Serial]
-        if {$frame eq {}} {
-            set frame [::labelframe $W.content$Serial -class Frame -relief flat -borderwidth 0 -highlightthickness 0]
-            bind $frame <Map> [namespace code [list my ContentMapped $frame]]
-            bind $frame <Destroy> [namespace code [list my ContentTitleDestroyed $frame %W]]
+        # Proportions are refreshed from usable geometry unless application is pending.
+        #
+        # Returns: A nested dictionary describing the requested logical subtree.
+        # Synopsis: ?id?
+        argparse -pfirst -help {Return a recursive dictionary snapshot of the logical layout hierarchy} {
+            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
         }
-        dict set Nodes $id [dict create type leaf parent $parent widget $frame]
-        return $id
+        if {$id eq {}} {
+            set id $Root
+        }
+        my Check $id
+        set result [dict merge [dict create id $id] [dict get $Nodes $id]]
+        dict set result widget [my widget $id]
+        if {[my type $id] eq {leaf}} {
+            dict set result frame [my frame $id]
+            dict set result children {}
+        } else {
+            dict set result panedwindow [my panedwindow $id]
+            dict set result proportions [my proportions $id]
+            if {[llength [my children $id]] == 2} {
+                dict set result ratio [lindex [dict get $result proportions] 0]
+            }
+            dict set result children [lmap child [my children $id] {my tree $child}]
+        }
+        return $result
+    }
+    method widgets {args} {
+        # Returns a recursive snapshot of the actual Tk widget hierarchy.
+        #  path - Widget subtree root; empty selects the layout hull.
+        #
+        # The pathname must exist and be the hull or one of its Tk descendants. This hierarchy includes application
+        # widgets and is independent of the logical tree returned by tree.
+        #
+        # Returns: A nested widget dictionary with path, parent, class, manager, container, and children.
+        # Synopsis: ?path?
+        argparse -pfirst -help {Return a recursive dictionary snapshot of the actual Tk widget hierarchy} {
+            {path -optional -default {} -help {Widget subtree root within this manager; omit or pass empty to use its\
+                                                       hull}}
+        }
+        if {$path eq {}} {
+            set path $W
+        }
+        if {![winfo exists $path]} {
+            error "bad window path name '$path'"
+        }
+        set ancestor $path
+        while {($ancestor ne {}) && ($ancestor ne $W)} {
+            set ancestor [winfo parent $ancestor]
+        }
+        if {$ancestor ne $W} {
+            return -code error "window '$path' is outside $W"
+        }
+        return [my WidgetTree $path]
     }
     method constraints {args} {
         # Queries or atomically updates restrictions for one node or floating content.
@@ -2017,7 +2176,6 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[dict exists $parsed option] && [dict size $opts]} {
             return -code error {cannot combine a constraint query with updates}
         }
-
         classvariable ConstraintDefaults
         set floating [dict exists $Floating $id]
         set leaf [expr {$floating || ([my type $id] eq {leaf})}]
@@ -2031,7 +2189,6 @@ oo::configurable create ::splitlayout::splitlayout {
                 set current [dict merge $current [dict get $ContentRules $frame]]
             }
         }
-
         if {[dict exists $parsed option]} {
             set option [dict get $parsed option]
             if {![dict exists $current $option]} {
@@ -2042,7 +2199,6 @@ oo::configurable create ::splitlayout::splitlayout {
         if {![dict size $opts]} {
             return $current
         }
-
         if {[dict exists $opts locked]} {
             if {[dict exists $opts nomove] || [dict exists $opts noundock]} {
                 return -code error {use -locked separately from -nomove and -noundock}
@@ -2050,7 +2206,6 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set opts nomove [dict get $opts locked]
             dict set opts noundock [dict get $opts locked]
         }
-
         set nodes $NodeRules
         set contents $ContentRules
         dict for {key value} $opts {
@@ -2108,6 +2263,1218 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return [my constraints $id]
     }
+    method minsize {args} {
+        # Gets or sets the minimum content-area dimensions of a leaf or floating window.
+        #  id - Leaf identifier or owned floating token; splits cannot own content minima.
+        #  width - Optional nonnegative integer minimum content width in pixels.
+        #  height - Optional nonnegative integer minimum content height; must accompany width.
+        #
+        # Defaults to {0 0}. The values follow content through retained splits, swaps, moves, and docking.
+        # Header and border space is added by requiredsize. Validation is atomic; setting cancels active gestures.
+        # Returns: The content minimum as {width height}.
+        # Synopsis: id ?width height?
+        set opts [argparse -inline -pfirst -help {Query or set content minimum size; width and height must be\
+                                                          supplied together} {
+            {id -help {Docked leaf or owned floating token; splits cannot own content minima}}
+            {width -optional -help {Minimum content width in pixels, from 0 to 2147483647; omit to query}}
+            {height -optional -help {Minimum content height in pixels, from 0 to 2147483647; required with width}}
+        }]
+        set frame [my frame [dict get $opts id]]
+        if {[dict exists $opts width] != [dict exists $opts height]} {
+            return -code error {minsize requires both width and height}
+        }
+        if {[dict exists $opts width]} {
+            set size {}
+            foreach key {width height} {
+                set value [dict get $opts $key]
+                if {![string is entier -strict $value] || ($value < 0) || ($value > 2147483647)} {
+                    return -code error {minimum dimensions must be integers from 0 to 2147483647}
+                }
+                lappend size [expr {$value+0}]
+            }
+            my CancelDrag
+            dict set Minimums $frame $size
+            my RefreshMinimums
+        }
+        if {[dict exists $Minimums $frame]} {
+            return [dict get $Minimums $frame]
+        }
+        return {0 0}
+    }
+    method requiredsize {args} {
+        # Calculates a node's minimum outer size, including manager-owned decoration.
+        #  id - Leaf, split, or owned floating token.
+        #
+        # Splits sum child minima and themed sashes along their orientation, and take the maximum across it.
+        # Includes header/button space, leaf borders, and split outlines/padding. Does not include hull padding,
+        # native window decorations, or application widget requests. This query does not resize the owner window.
+        # Returns: A two-element {width height} list in pixels.
+        # Synopsis: id
+        set opts [argparse -inline -pfirst -help {Return minimum outer width and height, including managed\
+                    decoration, without resizing the owner window} {
+            {id -help {Leaf, split, or owned floating token}}
+        }]
+        set id [dict get $opts id]
+        if {![dict exists $Floating $id] && ([my type $id] eq {split})} {
+            set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
+            set along 0
+            set across 0
+            foreach child [my children $id] {
+                lassign [my requiredsize $child] w h
+                incr along [expr {$horizontal ? $w : $h}]
+                set across [expr {max($across,$horizontal ? $h : $w)}]
+            }
+            incr along [expr {([llength [my children $id]]-1)*[my SashThickness $id]}]
+            set inset [expr {$Structure ? 2*([dict get $Settings structureopts -borderwidth]+\
+                                                     [dict get $Settings structureopts -padding]) : 0}]
+            return [expr {$horizontal ? [list [expr {$along+$inset}] [expr {$across+$inset}]] :\
+                                  [list [expr {$across+$inset}] [expr {$along+$inset}]]}]
+        }
+        lassign [my minsize $id] w h
+        set inset [expr {$LeafBorder ? 2*$LeafWidth : 0}]
+        if {$Handles} {
+            set buttons 0
+            set grip {}
+            set action undock
+            if {[dict exists $Floating $id]} {
+                set action dock
+                if {[dict exists $Floating $id grip]} {
+                    set grip [dict get $Floating $id grip]
+                }
+            } elseif {[dict exists $Panels $id]} {
+                set grip [dict get $Panels $id grip]
+            }
+            set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
+            foreach kind [list $lockAction $action delete] name {lock toggle delete} {
+                set width [expr {max(22,[image width [my ButtonImage $kind]]+6)}]
+                if {($grip ne {}) && [winfo exists $grip.$name]} {
+                    set width [expr {max($width,[winfo reqwidth $grip.$name])}]
+                }
+                incr buttons $width
+            }
+            set w [expr {max($w,$buttons+8+($LeafBorder ? 0 : 2*$HeaderBorder))}]
+            incr h [my HeaderHeight]
+        }
+        return [list [expr {$w+$inset}] [expr {$h+$inset}]]
+    }
+    method title {args} {
+        # Gets or sets the optional header title belonging to managed content.
+        #  id - Docked leaf identifier or owned floating token.
+        #  text - Optional title; an empty string removes the heading.
+        #
+        # Titles follow content through swaps, moves, splitting with retained content, and floating transitions.
+        # They do not change the native window title set by undock -title. Rendering uses one line and truncates
+        # long headings to keep the buttons unobscured; the stored string is returned unchanged.
+        # Returns: The current title string.
+        # Synopsis: id ?text?
+        set opts [argparse -inline -pfirst -help {Query or set the title of managed content; the title follows\
+                    content through moves and docking} {
+            {id -help {Docked leaf or owned floating token}}
+            {text -optional -help {Header title; empty clears it, omit to query; does not change the native window\
+                                           title}}
+        }]
+        set frame [my frame [dict get $opts id]]
+        if {[dict exists $opts text]} {
+            dict set Titles $frame [dict get $opts text]
+            my RefreshHeaders
+        }
+        if {[dict exists $Titles $frame]} {
+            return [dict get $Titles $frame]
+        }
+        return
+    }
+    method floating {args} {
+        # Lists floating content or describes one floating window owned by this manager.
+        #  id - Floating token returned by undock; omit to list tokens.
+        #
+        # Floating content is absent from tree, leaves, node, and locate. Its actual widgets remain visible in widgets.
+        # The snapshot contains id, frame, title, geometry, state, and onclose. Tokens expire on docking or removal.
+        # Returns: A list of floating tokens, or a dictionary describing one floating window.
+        # Synopsis: ?id?
+        argparse -pfirst -help {List floating tokens, or describe one owned floating window} {
+            {id -optional -default {} -help {Floating token; omit or pass empty to list all}}
+        }
+        if {$id eq {}} {
+            return [dict keys $Floating]
+        }
+        set frame [my FloatingFrame $id]
+        return [dict create id $id frame $frame title [wm title $frame] geometry [wm geometry $frame]\
+                        state [wm state $frame] onclose [dict get $Floating $id onclose]]
+    }
+    method split {args} {
+        # Replaces a leaf with a split containing two new leaves.
+        #  node - Identifier of the existing leaf to split.
+        #  -orient orientation - Split orientation: horizontal or vertical; default horizontal.
+        #  -ratio fraction - First child fraction, strictly between zero and one; default 0.5.
+        #  -keep child - Child receiving the existing content: first or second; default first.
+        #
+        # The original leaf identifier becomes the split identifier, and both child leaves receive new identifiers.
+        # The retained content frame and its widget descendants are reused without reparenting or recreation. The other
+        # child starts with an empty frame. Existing pane proportions are captured before rebuilding the layout.
+        #
+        # Returns: The two new leaf identifiers in pane order.
+        # Synopsis: node ?-orient orientation? ?-ratio fraction? ?-keep child?
+        set opts [argparse -inline -pfirst -help {Turn a leaf into a two-child split, retaining its content in one\
+                                                          child; return both new leaf IDs} {
+            {node -help {Existing leaf to split}}
+            {-orient= -default horizontal -enum {horizontal vertical} -help {Arrange children horizontally or\
+                                                                                     vertically}}
+            {-ratio= -default 0.5 -help {First child fraction, strictly between 0 and 1}}
+            {-keep= -default first -enum {first second} -help {Child retaining the existing content frame}}
+        }]
+        set id [my Check [dict get $opts node] leaf]
+        set fraction [my Fraction [dict get $opts ratio]]
+        my ValidateOperation split $id [dict get $opts orient] [dict get $opts keep]
+        my CaptureAll
+        set old [my frame $id]
+        set pw [my NewSplitWidget $id [dict get $opts orient]]
+        if {[dict get $opts keep] eq {first}} {
+            set first [my NewLeaf $id $old]
+            set second [my NewLeaf $id]
+        } else {
+            set first [my NewLeaf $id]
+            set second [my NewLeaf $id $old]
+        }
+        # Detach the old content before replacing its node record.
+        my Detach $old
+        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw orient [dict get $opts orient]\
+                                    proportions [list $fraction [expr {1.0-$fraction}]] children [list $first $second]]
+        my Rebuild
+        return [list $first $second]
+    }
+    method insert {args} {
+        # Inserts an empty leaf beside an existing non-root node.
+        #  node - Identifier of the leaf or split beside which to insert a sibling.
+        #  -side side - Position of the new leaf relative to node: before or after; default after.
+        #
+        # The new leaf shares the target parent, and the target pane share is divided equally between the two siblings.
+        # Inserting beside the root raises an error; split the root first.
+        #
+        # Returns: The new leaf identifier.
+        # Synopsis: node ?-side side?
+        set opts [argparse -inline -pfirst -help {Insert an empty leaf beside a non-root node, sharing its parent\
+                    and dividing its pane share} {
+            {node -help {Non-root leaf or split serving as the insertion reference}}
+            {-side= -default after -enum {before after} -help {Insert before or after the reference node}}
+        }]
+        set id [my Check [dict get $opts node]]
+        set parent [my parent $id]
+        if {$parent eq {}} {
+            return -code error {cannot insert beside root; split it first}
+        }
+        my ValidateOperation insert $id [dict get $opts side]
+        my CaptureAll
+        set children [my children $parent]
+        set index [lsearch -exact $children $id]
+        set weights [dict get $Nodes $parent proportions]
+        set half [expr {[lindex $weights $index]/2.0}]
+        set weights [lreplace $weights $index $index $half $half]
+        set new [my NewLeaf $parent]
+        if {[dict get $opts side] eq {after}} {
+            incr index
+        }
+        dict set Nodes $parent children [linsert $children $index $new]
+        dict set Nodes $parent proportions $weights
+        my Rebuild
+        return $new
+    }
+    method move {args} {
+        # Moves an existing leaf to an edge or sibling position without destroying its content.
+        #  leaf - Existing source leaf identifier, retained by the move.
+        #  -left target - Place before a target leaf or split in a horizontal split.
+        #  -right target - Place after a target leaf or split in a horizontal split.
+        #  -top target - Place before a target leaf or split in a vertical split.
+        #  -bottom target - Place after a target leaf or split in a vertical split.
+        #  -before target - Insert before a non-root leaf or split in its existing parent.
+        #  -after target - Insert after a non-root leaf or split in its existing parent.
+        #
+        # Exactly one destination option is required. Edge destinations reuse the target parent when its orientation
+        # matches. Otherwise the target leaf becomes a split, and its existing frame moves to a newly identified leaf,
+        # following split's identifier semantics. A split target is instead wrapped in a newly identified split,
+        # preserving the target subtree; normal collapse may subsequently promote its sole remaining child. A split
+        # target may contain the source, including the root. The source identifier, frame, widget paths, and state
+        # survive.
+        #
+        # Within one parent and orientation, panes are reordered with their existing weights. Other moves divide the
+        # target share equally between the source and target; remaining source siblings retain relative proportions.
+        # A source parent left with one child is collapsed after insertion. Moving to oneself or to an already adjacent
+        # position does nothing. Argument errors are detected before changing layout or cancelling a deferred drag.
+        # A successful structural move cancels deferred dragging and rebuilds geometry once, without nested updates.
+        #
+        # Returns: The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.
+        # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
+        set opts [argparse -inline -pfirst -help {Move an existing leaf without recreating its content; specify\
+                                                          exactly one destination} {
+            {leaf -help {Docked leaf identifier}}
+            {-left= -help {Place to the left of the target leaf or split}}
+            {-right= -help {Place to the right of the target leaf or split}}
+            {-top= -help {Place above the target leaf or split}}
+            {-bottom= -help {Place below the target leaf or split}}
+            {-before= -help {Place before a non-root target in its current parent}}
+            {-after= -help {Place after a non-root target in its current parent}}
+        }]
+        set source [my Check [dict get $opts leaf] leaf]
+        set destinations {}
+        foreach key {left right top bottom before after} {
+            if {[dict exists $opts $key]} {
+                lappend destinations $key
+            }
+        }
+        if {[llength $destinations] != 1} {
+            return -code error {move requires exactly one destination: -left, -right, -top, -bottom, -before, or -after}
+        }
+        set where [lindex $destinations 0]
+        set target [my Check [dict get $opts $where]]
+        set edge [expr {$where in {left right top bottom}}]
+        # A self-drop is a no-op even for the sole root leaf.
+        if {$source eq $target} {
+            return $source
+        }
+        set destination [my parent $target]
+        if {!$edge && ($destination eq {})} {
+            return -code error {cannot move beside root; use an edge destination}
+        }
+        set before [expr {$where in {left top before}}]
+        set orient [expr {$where in {left right} ? {horizontal} : {vertical}}]
+        set wrap [expr {$edge && (($destination eq {}) || ([dict get $Nodes $destination orient] ne $orient))}]
+        set oldParent [my parent $source]
+        # Reordering siblings requires neither removal nor parent collapse. Preserve weights by node.
+        if {!$wrap && $oldParent eq $destination} {
+            set children [my children $oldParent]
+            set from [lsearch -exact $children $source]
+            set reordered [lreplace $children $from $from]
+            set at [lsearch -exact $reordered $target]
+            if {!$before} {
+                incr at
+            }
+            set reordered [linsert $reordered $at $source]
+            if {$reordered eq $children} {
+                return $source
+            }
+            my ValidateOperation move $source $where $target
+            my CancelDrag
+            my CaptureAll
+            set weights [dict get $Nodes $oldParent proportions]
+            set share [lindex $weights $from]
+            set weights [linsert [lreplace $weights $from $from] $at $share]
+            dict set Nodes $oldParent children $reordered
+            dict set Nodes $oldParent proportions $weights
+            my Rebuild
+            return $source
+        }
+        my ValidateOperation move $source $where $target
+        # Allocate any new native widget before detaching the source.
+        set wrapSplit [expr {$wrap && ([my type $target] eq {split})}]
+        if {$wrap} {
+            set wrapper $target
+            if {$wrapSplit} {
+                set wrapper n[incr Serial]
+            }
+            set pw [my NewSplitWidget $wrapper $orient]
+        }
+        my CancelDrag
+        my CaptureAll
+        my Detach [my frame $source]
+        set children [my children $oldParent]
+        set from [lsearch -exact $children $source]
+        set remaining [lreplace $children $from $from]
+        set weights [lreplace [dict get $Nodes $oldParent proportions] $from $from]
+        dict set Nodes $oldParent children $remaining
+        dict set Nodes $oldParent proportions [my Normalize $weights [llength $remaining]]
+        if {$wrapSplit} {
+            # A subtree keeps its identifier; add a new split around it and the source leaf.
+            my Detach [my widget $target]
+            set children [expr {$before ? [list $source $target] : [list $target $source]}]
+            dict set Nodes $wrapper [dict create type split parent $destination widget $pw orient $orient\
+                                             proportions {0.5 0.5} children $children]
+            dict set Nodes $source parent $wrapper
+            dict set Nodes $target parent $wrapper
+            if {$destination eq {}} {
+                set Root $wrapper
+            } else {
+                set children [my children $destination]
+                set at [lsearch -exact $children $target]
+                dict set Nodes $destination children [lreplace $children $at $at $wrapper]
+            }
+        } elseif {$wrap} {
+            set frame [my frame $target]
+            my Detach $frame
+            set retained [my NewLeaf $target $frame]
+            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+            dict set Nodes $target [dict create type split parent $destination widget $pw orient $orient\
+                                            proportions {0.5 0.5} children $children]
+            dict set Nodes $source parent $target
+        } else {
+            set children [my children $destination]
+            set at [lsearch -exact $children $target]
+            set weights [dict get $Nodes $destination proportions]
+            set half [expr {[lindex $weights $at]/2.0}]
+            set weights [lreplace $weights $at $at $half $half]
+            if {!$before} {
+                incr at
+            }
+            dict set Nodes $destination children [linsert $children $at $source]
+            dict set Nodes $destination proportions $weights
+            dict set Nodes $source parent $destination
+        }
+        # Delay collapse until destination links are installed, including moves beside an ancestor.
+        set remaining [my children $oldParent]
+        if {[llength $remaining] == 1} {
+            my Promote $oldParent [lindex $remaining 0]
+        }
+        my Rebuild
+        return $source
+    }
+    method proportions {args} {
+        # Queries or sets all pane proportions of a split.
+        #  node - Identifier of an existing split.
+        #  weights - Optional list containing one finite positive weight per child, in pane order. Omit to query.
+        #
+        # Weights are normalized before storage. Setting cancels any active deferred drag and schedules geometry
+        # application at idle. A query captures current sash positions when geometry is usable and no application is
+        # pending; otherwise it returns the stored proportions.
+        #
+        # Returns: The normalized list of pane proportions.
+        # Synopsis: node ?weights?
+        set opts [argparse -inline -pfirst -help {Query or set normalized child proportions of a split} {
+            {node -help {Split node identifier}}
+            {weights -optional -help {One finite positive weight per child in pane order; omit to query}}
+        }]
+        set id [my Check [dict get $opts node] split]
+        if {[dict exists $opts weights]} {
+            set values [my Normalize [dict get $opts weights] [llength [my children $id]]]
+            my ValidateResize $id $values
+            my CancelDrag
+            dict set Nodes $id proportions $values
+            my Schedule $id
+        } else {
+            my Capture $id
+        }
+        return [dict get $Nodes $id proportions]
+    }
+    method ratio {args} {
+        # Queries or sets the first pane fraction of a two-child split.
+        #  node - Identifier of a split with exactly two children.
+        #  value - Optional finite first-pane fraction strictly between zero and one. Omit to query.
+        #
+        # Use proportions for splits with more children. Setting stores the fraction and its complement, cancels a
+        # deferred drag, and schedules idle geometry application. Querying captures current geometry when possible,
+        # using the same conditions as proportions.
+        #
+        # Returns: The stored first pane fraction.
+        # Synopsis: node ?value?
+        set opts [argparse -inline -pfirst -help {Query or set the first-child fraction of a two-child split; use\
+                                                          proportions for larger splits} {
+            {node -help {Split node with exactly two children}}
+            {value -optional -help {First child fraction, strictly between 0 and 1; omit to query}}
+        }]
+        set id [my Check [dict get $opts node] split]
+        if {[llength [my children $id]] != 2} {
+            return -code error {ratio requires two children; use proportions for this split}
+        }
+        if {[dict exists $opts value]} {
+            set fraction [my Fraction [dict get $opts value]]
+            my ValidateResize $id [list $fraction [expr {1.0-$fraction}]]
+            my CancelDrag
+            dict set Nodes $id proportions [list $fraction [expr {1.0-$fraction}]]
+            my Schedule $id
+        } else {
+            my Capture $id
+        }
+        return [lindex [dict get $Nodes $id proportions] 0]
+    }
+    method swap {args} {
+        # Exchanges the content frames assigned to two leaves.
+        #  a - First leaf identifier.
+        #  b - Second leaf identifier.
+        #
+        # The leaves can belong to different splits and nesting levels. Their logical positions remain unchanged, while
+        # complete content frames and their existing widget state move between those positions. Actual Tk parentage and
+        # widget pathnames remain unchanged. Equal identifiers do nothing.
+        #
+        # Returns: Nothing.
+        # Synopsis: a b
+        argparse -pfirst -help {Exchange two leaves content frames without changing their logical positions} {
+            {a -help {First docked leaf identifier}}
+            {b -help {Second docked leaf identifier; equal identifiers make no changes}}
+        }
+        my Check $a leaf
+        my Check $b leaf
+        if {$a eq $b} {
+            return
+        }
+        my ValidateOperation swap $a $b
+        my CaptureAll
+        set fa [my frame $a]
+        set fb [my frame $b]
+        dict set Nodes $a widget $fb
+        dict set Nodes $b widget $fa
+        my Rebuild
+        return
+    }
+    method remove {args} {
+        # Removes a docked subtree or destroys owned floating content.
+        #  id - Existing node identifier or floating token to remove.
+        #
+        # Removing the root behaves like clear. Otherwise, the parent retains its remaining children with normalized
+        # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
+        #
+        # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
+        # Synopsis: id
+        argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
+            {id -help {Node identifier or floating token to remove}}
+        }
+        if {[dict exists $Floating $id]} {
+            my ValidateOperation remove $id
+            set frame [my FloatingFrame $id]
+            dict unset Floating $id
+            destroy $frame
+            return
+        }
+        my Check $id
+        my ValidateOperation remove $id
+        if {$id eq $Root} {
+            return [my clear]
+        }
+        my CaptureAll
+        set parent [my parent $id]
+        set children [my children $parent]
+        set index [lsearch -exact $children $id]
+        set children [lreplace $children $index $index]
+        set weights [lreplace [dict get $Nodes $parent proportions] $index $index]
+        my Drop $id
+        dict set Nodes $parent children $children
+        if {[llength $children] >= 2} {
+            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
+            my Rebuild
+            return $parent
+        }
+        set survivor [lindex $children 0]
+        my Promote $parent $survivor
+        my Rebuild
+        return $survivor
+    }
+    method retain {args} {
+        # Keeps a node while removing its siblings and collapsing its parent.
+        #  id - Existing node identifier to retain.
+        #
+        # Destroys all sibling subtrees and their content, then promotes the retained node in place of its immediate
+        # parent. Only that parent level is collapsed. Retaining the root makes no changes.
+        #
+        # Returns: The retained node identifier.
+        # Synopsis: id
+        argparse -pfirst -help {Keep one node, remove its sibling subtrees, and collapse its immediate parent} {
+            {id -help {Existing node to retain; retaining the root makes no changes}}
+        }
+        my Check $id
+        set parent [my parent $id]
+        if {$parent eq {}} {
+            return $id
+        }
+        my ValidateOperation retain $id
+        my CaptureAll
+        foreach sibling [my children $parent] {
+            if {$sibling ne $id} {
+                my Drop $sibling
+            }
+        }
+        my Promote $parent $id
+        my Rebuild
+        return $id
+    }
+    method clear {args} {
+        # Destroys the docked tree and creates one empty root leaf; floating content is retained.
+        #
+        # Returns: The new root leaf identifier.
+        # Synopsis:
+        argparse -pfirst -help {Destroy the docked tree and create an empty root leaf; retain floating content} {}
+        my ValidateOperation clear
+        my Drop $Root
+        set Root [my NewLeaf {}]
+        my Rebuild
+        return $Root
+    }
+    method undock {args} {
+        # Removes a leaf from the layout and promotes its retained content to a floating window.
+        #  leaf - Existing docked leaf identifier.
+        #  -title title - Window title; default splitlayout.
+        #  -geometry geometry - Optional Tk window geometry; defaults to the current content size and screen position.
+        #  -onclose action - Window close action: dock or destroy; default dock.
+        #
+        # Content widgets and their pathnames survive. The former leaf identifier expires and single-child parents
+        # collapse. Undocking the sole root leaves an empty placeholder leaf. Only this manager's content is accepted.
+        # The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows.
+        # Returns: An opaque floating token, accepted by dock, floating, frame, and remove.
+        # Synopsis: leaf ?-title title? ?-geometry geometry? ?-onclose action?
+        set opts [argparse -inline -pfirst -help {Move managed leaf content into a floating window and return its\
+                                                          floating token} {
+            {leaf -help {Docked leaf identifier}}
+            {-title= -default splitlayout -help {Native floating-window title}}
+            {-geometry= -help {Tk window geometry; omit to use the current content size and position}}
+            {-onclose= -default dock -enum {dock destroy} -help {Action for native window close; the header delete\
+                                                                         button always requests deletion}}
+        }]
+        set id [my Check [dict get $opts leaf] leaf]
+        set frame [my frame $id]
+        set parent [my parent $id]
+        my ValidateOperation undock $id
+        set placement [my RememberPlacement $id]
+        set top [winfo toplevel $frame]
+        set tags [my BindingSnapshot $frame]
+        set width [expr {max(1,[winfo width $frame])}]
+        set height [expr {max(1,[winfo height $frame])}]
+        set geometry ${width}x${height}+[winfo rootx $frame]+[winfo rooty $frame]
+        if {[dict exists $opts geometry]} {
+            set geometry [dict get $opts geometry]
+        }
+        my CancelDrag
+        my CaptureAll
+        my Detach $frame
+        # Do not mutate the tree until the platform has accepted promotion and the window options.
+        if {[catch {
+            wm manage $frame
+            wm title $frame [dict get $opts title]
+            wm geometry $frame $geometry
+        } message options]} {
+            if {[winfo exists $frame] && ([winfo toplevel $frame] eq $frame)} {
+                wm forget $frame
+            }
+            my Rebuild
+            return -options $options $message
+        }
+        set token ${W}#f[incr Serial]
+        set changed [my RetargetBindings $tags $top $frame]
+        dict set Floating $token [dict create frame $frame onclose [dict get $opts onclose] bindings $changed\
+                                          placement $placement]
+        bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
+        wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
+        dict unset Nodes $id
+        if {$parent eq {}} {
+            set Root [my NewLeaf {}]
+            set VacantRoot $Root
+        } else {
+            set children [my children $parent]
+            set at [lsearch -exact $children $id]
+            set children [lreplace $children $at $at]
+            set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
+            dict set Nodes $parent children $children
+            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
+            if {[llength $children] == 1} {
+                my Promote $parent [lindex $children 0]
+            }
+        }
+        my Rebuild
+        my RefreshMinimums
+        wm deiconify $frame
+        raise $frame
+        my RefreshNestedOwners $frame
+        return $token
+    }
+    method dock {args} {
+        # Returns owned floating content to a new leaf in the docked layout.
+        #  floating - Token returned by this manager's undock command.
+        #  -left target - Dock to the left of a leaf or split.
+        #  -right target - Dock to the right of a leaf or split.
+        #  -top target - Dock above a leaf or split.
+        #  -bottom target - Dock below a leaf or split.
+        #  -before target - Dock before a non-root node in its existing parent.
+        #  -after target - Dock after a non-root node in its existing parent.
+        #
+        # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
+        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Explicit
+        # destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
+        # target in a new split.
+        # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
+        # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
+        # Returns: The new docked leaf identifier.
+        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
+        set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
+                                                          destination to restore the remembered position} {
+            {floating -help {Owned floating token returned by undock}}
+            {-left= -help {Place to the left of the target leaf or split}}
+            {-right= -help {Place to the right of the target leaf or split}}
+            {-top= -help {Place above the target leaf or split}}
+            {-bottom= -help {Place below the target leaf or split}}
+            {-before= -help {Place before a non-root target in its current parent}}
+            {-after= -help {Place after a non-root target in its current parent}}
+        }]
+        set token [dict get $opts floating]
+        set frame [my FloatingFrame $token]
+        lassign [my DockDestination $token $opts] side target replace
+        my ValidateOperation dock $token $side $target $replace
+        set parent [my parent $target]
+        set edge [expr {$side in {left right top bottom}}]
+        if {!$edge && ($parent eq {})} {
+            return -code error {cannot dock beside root; use an edge destination}
+        }
+        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
+        set before [expr {$side in {left top before}}]
+        set wrap [expr {!$replace && $edge && (($parent eq {}) || ([dict get $Nodes $parent orient] ne $orient))}]
+        set wrapper {}
+        if {$wrap} {
+            set wrapper $target
+            if {[my type $target] eq {split}} {
+                set wrapper n[incr Serial]
+            }
+            set pw [my NewSplitWidget $wrapper $orient]
+        }
+        my CancelDrag
+        my CaptureAll
+        # Remove only our watcher; application binding tags remain intact.
+        set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
+        set watched [bindtags $frame]
+        if {$watcher >= 0} {
+            bindtags $frame [lreplace $watched $watcher $watcher]
+        }
+        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {
+            bindtags $frame {}
+        }
+        my RemoveFloatingGrip $token
+        set tags [my BindingSnapshot $frame]
+        if {[catch {wm forget $frame} message options]} {
+            bindtags $frame $watched
+            my SyncFloatingGrips
+            if {$wrap} {
+                destroy $pw
+            }
+            return -options $options $message
+        }
+        my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
+        if {[dict exists $Floating $token leafbackground]} {
+            $frame configure -background [dict get $Floating $token leafbackground]
+        }
+        dict unset Floating $token
+        set source [my NewLeaf $parent $frame]
+        if {$replace} {
+            my Drop $Root
+            set Root $source
+            set VacantRoot {}
+        } elseif {$wrap} {
+            if {$wrapper eq $target} {
+                set retained [my NewLeaf $wrapper [my frame $target]]
+            } else {
+                set retained $target
+                dict set Nodes $target parent $wrapper
+                if {$parent eq {}} {
+                    set Root $wrapper
+                } else {
+                    set children [my children $parent]
+                    set at [lsearch -exact $children $target]
+                    dict set Nodes $parent children [lreplace $children $at $at $wrapper]
+                }
+            }
+            dict set Nodes $source parent $wrapper
+            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+            dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
+                                             proportions {0.5 0.5} children $children]
+        } else {
+            set children [my children $parent]
+            set at [lsearch -exact $children $target]
+            set weights [dict get $Nodes $parent proportions]
+            set half [expr {[lindex $weights $at]/2.0}]
+            dict set Nodes $parent proportions [lreplace $weights $at $at $half $half]
+            if {!$before} {
+                incr at
+            }
+            dict set Nodes $parent children [linsert $children $at $source]
+        }
+        my Rebuild
+        my RefreshNestedOwners $frame
+        return $source
+    }
+
+    ### Common private methods
+    method Check {id {kind {}}} {
+        # Validates a logical node identifier and optional node type.
+        #  id - Logical node identifier.
+        #  kind - Required type, leaf or split; empty disables the type check.
+        #
+        # Raises an error for an unknown identifier or a mismatched type.
+        #
+        # Returns: The validated node identifier.
+        if {![dict exists $Nodes $id]} {
+            return -code error "unknown layout node '$id'"
+        }
+        if {($kind ne {}) && ([dict get $Nodes $id type] ne $kind)} {
+            return -code error "node '$id' is not a $kind"
+        }
+        return $id
+    }
+    method Fraction {value} {
+        # Validates a two-pane split fraction.
+        #  value - Numeric fraction strictly between zero and one.
+        #
+        # Non-numeric, non-finite, and out-of-range values raise an error.
+        #
+        # Returns: The fraction converted to a double.
+        if {![string is double -strict $value] || [catch {expr {$value > 0.0 && $value < 1.0}} valid] || !$valid} {
+            return -code error {ratio must be a finite number strictly between 0 and 1}
+        }
+        return [expr {double($value)}]
+    }
+    method Normalize {weights count} {
+        # Normalizes a list of positive pane weights.
+        #  weights - List of finite positive numeric weights.
+        #  count - Required number of weights.
+        #
+        # Scales before summation to avoid overflow. An incorrect count, invalid weight, or range that underflows a
+        # normalized weight to zero raises an error.
+        #
+        # Returns: Positive normalized weights whose sum is approximately one.
+        if {[llength $weights]!=$count} {
+            return -code error "expected $count positive weights"
+        }
+        set largest 0.0
+        foreach value $weights {
+            if {![string is double -strict $value] || [catch {expr {$value > 0.0 && $value < Inf}} valid] || !$valid} {
+                return -code error {weights must be finite positive numbers}
+            }
+            set largest [expr {max($largest,double($value))}]
+        }
+        # Scale before summation to avoid overflow for large valid weights.
+        set scaled [lmap value $weights {expr {double($value)/$largest}}]
+        set sum 0.0
+        foreach value $scaled {
+            set sum [expr {$sum+$value}]
+        }
+        set result [lmap value $scaled {expr {$value/$sum}}]
+        if {0.0 in $result} {
+            return -code error  {weight range is too large to normalize}
+        }
+        return $result
+    }
+    method WidgetTree {path} {
+        # Builds a recursive Tk widget dictionary.
+        #  path - Existing widget pathname to inspect.
+        #
+        # For managed layout nodes, container is resolved through the logical tree. For other widgets managed by pack,
+        # grid, or place, it is their -in target. For other geometry managers it is empty. Children are nested
+        # dictionaries in the order returned by winfo children.
+        #
+        # Returns: A dictionary containing path, parent, class, manager, container, and children.
+        set manager [winfo manager $path]
+        set container {}
+        set id [my node $path]
+        if {$id ne {}} {
+            set container [my container $path]
+        } elseif {$manager in {pack grid place}} {
+            set container [dict get [$manager info $path] -in]
+        }
+        set result [dict create path $path parent [winfo parent $path] class [winfo class $path] manager $manager\
+                            container $container]
+        dict set result children [lmap child [winfo children $path] {my WidgetTree $child}]
+        return $result
+    }
+    method HullDestroyed {path} {
+        # Destroys the object when its hull window is destroyed.
+        #  path - Widget pathname reported by the Destroy event.
+        #
+        # Events for other widgets and recursive teardown are ignored.
+        #
+        # Returns: Nothing.
+        if {($path eq $W) && !$Closing} {
+            my destroy
+        }
+    }
+
+    ### Tree and geometry methods
+    method NewLeaf {parent {frame {}}} {
+        # Allocates a leaf record and optionally creates its content frame.
+        #  parent - Logical parent identifier, or empty for a root.
+        #  frame - Existing content frame to reuse; empty creates a borderless labelframe with class Frame that supports
+        #  wm manage.
+        #
+        # A newly created frame is an immediate Tk child of the hull. This helper does not attach the leaf to its parent
+        # or rebuild the layout.
+        #
+        # Returns: The new leaf identifier.
+        set id n[incr Serial]
+        if {$frame eq {}} {
+            set frame [::labelframe $W.content$Serial -class Frame -relief flat -borderwidth 0 -highlightthickness 0]
+            bind $frame <Map> [namespace code [list my ContentMapped $frame]]
+            bind $frame <Destroy> [namespace code [list my ContentTitleDestroyed $frame %W]]
+        }
+        dict set Nodes $id [dict create type leaf parent $parent widget $frame]
+        return $id
+    }
+    method NewSplitWidget {id orient} {
+        # Creates a panedwindow with the layout sash and lifecycle bindings.
+        #  id - Logical split identifier used by geometry callbacks.
+        #  orient - Panedwindow orientation: horizontal or vertical.
+        #
+        # Does not modify node records or attach panes. Used by split and move.
+        #
+        # Returns: The new panedwindow pathname.
+        set pw [ttk::panedwindow $W.split[incr Serial] -orient $orient]
+        # A dedicated tag AFTER the class tag captures the position after Tk's
+        # sash bindings have moved it. It cannot affect application bindings.
+        set motionTag ${Tag}Sash
+        bind $motionTag <B1-Motion> [namespace code {my SashMoved %W}]
+        bind $motionTag <ButtonRelease-1> [namespace code {my SashMoved %W}]
+        set tags [bindtags $pw]
+        bindtags $pw [linsert $tags 2 $motionTag]
+        set deferredTag ${Tag}Deferred
+        bind $deferredTag <ButtonPress-1> [namespace code {my DeferredPress %W %X %Y %x %y}]
+        bind $deferredTag <B1-Motion> [namespace code {my DeferredMotion %W %X %Y}]
+        bind $deferredTag <ButtonRelease-1> [namespace code {my DeferredRelease %W %X %Y}]
+        bind $deferredTag <Escape> [namespace code {my DeferredEscape}]
+        bind $deferredTag <Unmap> [namespace code {my CancelDrag}]
+        bindtags $pw [linsert [bindtags $pw] 0 $deferredTag]
+        bind $pw <Configure> [namespace code [list my SplitConfigure $id]]
+        bind $pw <<ThemeChanged>> [namespace code {my RefreshMinimums}]
+        return $pw
+    }
+    method Detach {path} {
+        # Removes a managed widget from its current geometry manager.
+        #  path - Widget pathname to detach.
+        #
+        # Handles pack, grid, place, and the layout panedwindows. The widget and its descendants are neither destroyed
+        # nor reparented.
+        #
+        # Returns: Nothing.
+        set manager [winfo manager $path]
+        switch -- $manager {
+            pack {
+                pack forget $path
+            }
+            grid {
+                grid forget $path
+            }
+            place {
+                place forget $path
+            }
+            default {
+                # Native classic and themed panedwindows may use different
+                # manager names across Tk versions. Query known split widgets.
+                dict for {id data} $Nodes {
+                    if {[dict get $data type] eq {split}} {
+                        set pw [dict get $data widget]
+                        if {[winfo exists $pw] && ($path in [$pw panes])} {
+                            $pw forget $path
+                        }
+                    }
+                }
+            }
+        }
+    }
+    method Rebuild {} {
+        # Reattaches the logical tree and restores widget stacking.
+        #
+        # Cancels an active deferred drag, detaches all managed widgets, attaches the split hierarchy, and packs the
+        # root into the hull. Content widgets are retained, and split geometry is scheduled for idle application.
+        #
+        # Returns: Nothing.
+        my CancelDrag
+        dict for {id settings} $NodeRules {
+            if {![dict exists $Nodes $id]} {dict unset NodeRules $id}
+        }
+        # Detach all known windows before adding any: this also handles swaps
+        # where both frames were originally in the same panedwindow.
+        dict for {id data} $Nodes {
+            my Detach [dict get $data widget]
+        }
+        dict for {id border} $Borders {
+            my Detach $border
+        }
+        dict for {id panel} $Panels {
+            my Detach [dict get $panel pane]
+        }
+        my SyncPanels
+        my SyncBorders
+        my Attach $Root
+        pack [my widget $Root] -in $W -fill both -expand 1
+        my Stack $Root
+        my RefreshHeaders
+    }
+    method Attach {id} {
+        # Recursively attaches a subtree to its panedwindows.
+        #  id - Existing subtree root identifier.
+        #
+        # A leaf content frame is packed into its optional pane wrapper. Split children are added in logical order with
+        # integer weights derived from stored proportions. Sash placement is scheduled at idle.
+        #
+        # Returns: Nothing.
+        if {[my type $id] eq {leaf}} {
+            if {[dict exists $Panels $id]} {
+                pack [my frame $id] -in [my widget $id] -side top -fill both -expand 1
+            }
+            return
+        }
+        set pw [my panedwindow $id]
+        if {[dict exists $Borders $id]} {
+            pack $pw -in [my widget $id] -fill both -expand 1 -padx [dict get $Settings structureopts -padding]\
+                    -pady [dict get $Settings structureopts -padding]
+        }
+        foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
+            my Attach $child
+            $pw add [my widget $child] -weight [expr {max(1,round(10000*$fraction))}]
+        }
+        my Schedule $id
+    }
+    method Stack {id} {
+        # Raises managed widgets in logical ancestor-before-child order.
+        #  id - Existing subtree root identifier.
+        #
+        # The widgets are actual Tk siblings. Raising logical children after their containers keeps content visible
+        # above the panedwindows that manage it.
+        #
+        # Returns: Nothing.
+
+        # Sibling windows must be above their geometry containers, including
+        # content created before a later split. All are children of W.
+        raise [my widget $id]
+        if {[dict exists $Borders $id]} {
+            raise [my panedwindow $id]
+        }
+        if {[dict exists $Panels $id]} {
+            raise [my frame $id]
+        }
+        foreach child [my children $id] {
+            my Stack $child
+        }
+    }
+    method Schedule {id} {
+        # Schedules one idle geometry application for a split.
+        #  id - Split identifier to schedule.
+        #
+        # Does nothing during teardown, for a removed node, or when that node already has an idle application pending.
+        #
+        # Returns: Nothing.
+        if {$Closing || ![dict exists $Nodes $id] || [dict exists $Pending $id]} {
+            return
+        }
+        dict set Pending $id [after idle [namespace code [list my ApplyRatio $id]]]
+    }
+    method ApplyRatio {id} {
+        # Applies stored split proportions to pane weights and sash positions.
+        #  id - Split identifier whose idle callback is running.
+        #
+        # Clears the pending token and ignores removed nodes or unusable geometry. Cumulative proportions determine
+        # sash positions along the split extent, adjusted for configured recursive minima. Two passes avoid nested event
+        # processing.
+        #
+        # Returns: Nothing.
+        if {[dict exists $Pending $id]} {
+            dict unset Pending $id
+        }
+        if {$Closing || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
+            return
+        }
+        set pw [my panedwindow $id]
+        if {![winfo exists $pw] || ([llength [$pw panes]] < 2)} {
+            return
+        }
+        set size [my Extent $id]
+        if {$size <= 1} {
+            return
+        }
+        set positions {}
+        set sum 0.0
+        foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
+            $pw pane [my widget $child] -weight [expr {max(1,round(10000*$fraction))}]
+            set sum [expr {$sum+$fraction}]
+            lappend positions [expr {round($size*$sum)}]
+        }
+        if {[dict size $Minimums]} {
+            set gap [my SashThickness $id]
+            set count [llength [my children $id]]
+            set extents [my AllocateMinimums [expr {$size-($count-1)*$gap}] [dict get $Nodes $id proportions]\
+                                 [my PaneMinimums $id]]
+            set positions {}
+            set position 0
+            foreach extent $extents {
+                incr position $extent
+                lappend positions $position
+                incr position $gap
+            }
+        }
+        # Moving a sash can constrain its neighbours. Two passes establish
+        # all ordered target positions regardless of the previous positions.
+        set last [expr {[llength $positions]-2}]
+        for {set i $last} {$i>=0} {incr i -1} {
+            $pw sashpos $i [lindex $positions $i]
+        }
+        for {set i 0} {$i<=$last} {incr i} {
+            $pw sashpos $i [lindex $positions $i]
+        }
+    }
+    method Extent {id} {
+        # Returns the size of a split along its orientation.
+        #  id - Existing split identifier.
+        #
+        # Returns: The panedwindow width for a horizontal split, or height for a vertical split.
+        if {[dict get $Nodes $id orient] eq {horizontal}} {
+            return [winfo width [my panedwindow $id]]
+        }
+        return [winfo height [my panedwindow $id]]
+    }
+    method Capture {id} {
+        # Stores proportions derived from the current sash positions.
+        #  id - Existing split identifier.
+        #
+        # Capture is skipped while geometry application is pending or when the panedwindow is unmapped, too small, or
+        # has an unexpected pane count. Captured shares are bounded away from zero and normalized; this helper does not
+        # move sashes.
+        #
+        # Returns: Nothing.
+        if {[dict exists $Pending $id]} {
+            return
+        }
+        set pw [my panedwindow $id]
+        set count [llength [my children $id]]
+        if {[dict size $Minimums]} {
+            set gap [my SashThickness $id]
+            set available [expr {[my Extent $id]-($count-1)*$gap}]
+            set minimum 0
+            foreach value [my PaneMinimums $id] {
+                incr minimum $value
+            }
+            if {$available < $minimum} {
+                return
+            }
+            if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ($available > 0)} {
+                set weights {}
+                set previous 0
+                for {set i 0} {$i < $count-1} {incr i} {
+                    set position [$pw sashpos $i]
+                    lappend weights [expr {max(0.000001,$position-$previous)}]
+                    set previous [expr {$position+$gap}]
+                }
+                lappend weights [expr {max(0.000001,[my Extent $id]-$previous)}]
+                dict set Nodes $id proportions [my Normalize $weights $count]
+            }
+            return
+        }
+        if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ([my Extent $id] > 1)} {
+            set weights {}
+            set previous 0.0
+            for {set i 0} {$i<$count-1} {incr i} {
+                set position [expr {double([$pw sashpos $i])/[my Extent $id]}]
+                lappend weights [expr {max(0.000001,$position-$previous)}]
+                set previous $position
+            }
+            lappend weights [expr {max(0.000001,1.0-$previous)}]
+            dict set Nodes $id proportions [my Normalize $weights $count]
+        }
+    }
+    method CaptureAll {} {
+        # Captures usable sash proportions for every split.
+        #
+        # Each split is subject to the pending-geometry and visibility checks performed by Capture.
+        #
+        # Returns: Nothing.
+        dict for {id data} $Nodes {
+            if {[dict get $data type] eq {split}} {
+                my Capture $id
+            }
+        }
+    }
+    method SashMoved {pw} {
+        # Records pane proportions after a sash gesture.
+        #  pw - Panedwindow pathname reported by the sash binding.
+        #
+        # Ignores a pathname with no corresponding layout node. Cancels a pending geometry application before capturing
+        # the resulting sash positions.
+        #
+        # Returns: Nothing.
+        set id [my node $pw]
+        if {$id eq {}} {
+            return
+        }
+        if {[dict exists $Pending $id]} {
+            after cancel [dict get $Pending $id]
+            dict unset Pending $id
+        }
+        my Capture $id
+    }
+    method Drop {id} {
+        # Destroys a logical subtree and all of its content.
+        #  id - Existing subtree root identifier.
+        #
+        # Cancels deferred dragging and pending callbacks for removed nodes. This internal helper removes records and
+        # widgets recursively, but does not repair the parent child list or select a new root.
+        #
+        # Returns: Nothing.
+        my CancelDrag
+        foreach child [my children $id] {
+            my Drop $child
+        }
+        if {[dict exists $Pending $id]} {
+            after cancel [dict get $Pending $id]
+            dict unset Pending $id
+        }
+        set path [dict get $Nodes $id widget]
+        if {[dict exists $Panels $id]} {
+            destroy [dict get $Panels $id pane]
+            dict unset Panels $id
+        }
+        if {[dict exists $Borders $id]} {
+            destroy [dict get $Borders $id]
+            dict unset Borders $id
+        }
+        dict unset Nodes $id
+        destroy $path
+    }
+    method Promote {parent survivor} {
+        # Replaces a split with its surviving child.
+        #  parent - Split identifier to remove.
+        #  survivor - Child identifier to promote.
+        #
+        # The caller must already have removed the other children. Detaches the survivor, destroys the parent
+        # panedwindow, and updates the grandparent or root link. The grandparent pane share is retained. The caller
+        # rebuilds geometry afterward.
+        #
+        # Returns: Nothing.
+        set grand [my parent $parent]
+        my Detach [my widget $survivor]
+        if {[dict exists $Pending $parent]} {
+            after cancel [dict get $Pending $parent]
+            dict unset Pending $parent
+        }
+        set pw [my panedwindow $parent]
+        if {[dict exists $Borders $parent]} {
+            destroy [dict get $Borders $parent]
+            dict unset Borders $parent
+        }
+        dict unset Nodes $parent
+        destroy $pw
+        dict set Nodes $survivor parent $grand
+        if {$grand eq {}} {
+            set Root $survivor
+        } else {
+            set children [dict get $Nodes $grand children]
+            set pos [lsearch -exact $children $parent]
+            dict set Nodes $grand children [lreplace $children $pos $pos $survivor]
+        }
+    }
+    method SplitConfigure {id} {
+        # Handles a split geometry change.
+        #  id - Split identifier reported by the Configure binding.
+        #
+        # Cancels a deferred gesture because its saved coordinates may be stale, then schedules application of the
+        # split and ancestor proportions. Nested requests can change ancestor sashes without resizing their windows.
+        #
+        # Returns: Nothing.
+
+        my CancelDock
+        # An external resize/move invalidates preview coordinates. Cancel the
+        # preview and let the normal ratio handler process the new geometry.
+        if {$Drag ne {} && !$Opaque} {
+            my CancelDrag
+        }
+        my Schedule $id
+        # A nested split can change its parent's sash allocation through a geometry request without changing
+        # the parent's outer size. Reapply ancestor proportions even when no parent Configure event is emitted.
+        if {[dict exists $Nodes $id]} {
+            set parent [my parent $id]
+            while {$parent ne {}} {
+                my Schedule $parent
+                set parent [my parent $parent]
+            }
+        }
+    }
+
+    ### Constraint validation methods
     method ConstraintError {id option message} {
         # Raises a structured policy rejection before any layout mutation.
         #  id - Node or floating identifier causing the rejection.
@@ -2517,42 +3884,6 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my ValidateLimits $model $NodeRules $replacements
     }
-    method DockDestination {token opts} {
-        # Resolves explicit or remembered docking without changing any widgets.
-        #  token - Owned floating token.
-        #  opts - Parsed destination dictionary, with unprefixed option names.
-        # Returns: Side, target, and untouched-placeholder replacement boolean.
-        my FloatingFrame $token
-        set destinations {}
-        foreach side {left right top bottom before after} {
-            if {[dict exists $opts $side]} {
-                lappend destinations $side
-            }
-        }
-        if {[llength $destinations] > 1} {
-            return -code error {expected at most one docking destination}
-        }
-        if {![llength $destinations]} {
-            set remembered [my RestoreDestination $token]
-            if {$remembered ne {}} {
-                lassign $remembered side target
-                dict set opts $side $target
-                set destinations [list $side]
-            }
-        }
-        set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf}) &&\
-                                   ![llength [winfo children [my frame $Root]]] && ([my title $Root] eq {})}]
-        set side right
-        set target $Root
-        if {[llength $destinations]} {
-            set side [lindex $destinations 0]
-            set target [my Check [dict get $opts $side]]
-        }
-        if {($side in {before after}) && ([my parent $target] eq {})} {
-            return -code error {cannot dock beside root; use an edge destination}
-        }
-        return [list $side $target $replace]
-    }
     method ActionAllowed {id action} {
         # Tests a header or native-close action against the same command preflight.
         #  id - Leaf or floating token.
@@ -2626,100 +3957,8 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method minsize {args} {
-        # Gets or sets the minimum content-area dimensions of a leaf or floating window.
-        #  id - Leaf identifier or owned floating token; splits cannot own content minima.
-        #  width - Optional nonnegative integer minimum content width in pixels.
-        #  height - Optional nonnegative integer minimum content height; must accompany width.
-        #
-        # Defaults to {0 0}. The values follow content through retained splits, swaps, moves, and docking.
-        # Header and border space is added by requiredsize. Validation is atomic; setting cancels active gestures.
-        # Returns: The content minimum as {width height}.
-        # Synopsis: id ?width height?
-        set opts [argparse -inline -pfirst -help {Query or set content minimum size; width and height must be\
-                                                          supplied together} {
-            {id -help {Docked leaf or owned floating token; splits cannot own content minima}}
-            {width -optional -help {Minimum content width in pixels, from 0 to 2147483647; omit to query}}
-            {height -optional -help {Minimum content height in pixels, from 0 to 2147483647; required with width}}
-        }]
-        set frame [my frame [dict get $opts id]]
-        if {[dict exists $opts width] != [dict exists $opts height]} {
-            return -code error {minsize requires both width and height}
-        }
-        if {[dict exists $opts width]} {
-            set size {}
-            foreach key {width height} {
-                set value [dict get $opts $key]
-                if {![string is entier -strict $value] || ($value < 0) || ($value > 2147483647)} {
-                    return -code error {minimum dimensions must be integers from 0 to 2147483647}
-                }
-                lappend size [expr {$value+0}]
-            }
-            my CancelDrag
-            dict set Minimums $frame $size
-            my RefreshMinimums
-        }
-        if {[dict exists $Minimums $frame]} {
-            return [dict get $Minimums $frame]
-        }
-        return {0 0}
-    }
-    method requiredsize {args} {
-        # Calculates a node's minimum outer size, including manager-owned decoration.
-        #  id - Leaf, split, or owned floating token.
-        #
-        # Splits sum child minima and themed sashes along their orientation, and take the maximum across it.
-        # Includes header/button space, leaf borders, and split outlines/padding. Does not include hull padding,
-        # native window decorations, or application widget requests. This query does not resize the owner window.
-        # Returns: A two-element {width height} list in pixels.
-        # Synopsis: id
-        set opts [argparse -inline -pfirst -help {Return minimum outer width and height, including managed\
-                    decoration, without resizing the owner window} {
-            {id -help {Leaf, split, or owned floating token}}
-        }]
-        set id [dict get $opts id]
-        if {![dict exists $Floating $id] && ([my type $id] eq {split})} {
-            set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
-            set along 0
-            set across 0
-            foreach child [my children $id] {
-                lassign [my requiredsize $child] w h
-                incr along [expr {$horizontal ? $w : $h}]
-                set across [expr {max($across,$horizontal ? $h : $w)}]
-            }
-            incr along [expr {([llength [my children $id]]-1)*[my SashThickness $id]}]
-            set inset [expr {$Structure ? 2*([dict get $Settings structureopts -borderwidth]+\
-                                                     [dict get $Settings structureopts -padding]) : 0}]
-            return [expr {$horizontal ? [list [expr {$along+$inset}] [expr {$across+$inset}]] :\
-                                  [list [expr {$across+$inset}] [expr {$along+$inset}]]}]
-        }
-        lassign [my minsize $id] w h
-        set inset [expr {$LeafBorder ? 2*$LeafWidth : 0}]
-        if {$Handles} {
-            set buttons 0
-            set grip {}
-            set action undock
-            if {[dict exists $Floating $id]} {
-                set action dock
-                if {[dict exists $Floating $id grip]} {
-                    set grip [dict get $Floating $id grip]
-                }
-            } elseif {[dict exists $Panels $id]} {
-                set grip [dict get $Panels $id grip]
-            }
-            set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
-            foreach kind [list $lockAction $action delete] name {lock toggle delete} {
-                set width [expr {max(22,[image width [my ButtonImage $kind]]+6)}]
-                if {($grip ne {}) && [winfo exists $grip.$name]} {
-                    set width [expr {max($width,[winfo reqwidth $grip.$name])}]
-                }
-                incr buttons $width
-            }
-            set w [expr {max($w,$buttons+8+($LeafBorder ? 0 : 2*$HeaderBorder))}]
-            incr h [my HeaderHeight]
-        }
-        return [list [expr {$w+$inset}] [expr {$h+$inset}]]
-    }
+
+    ### Minimum size methods
     method SashThickness {id} {
         # Measures the active ttk sash layout without mapping or resizing a pane.
         #  id - Split identifier.
@@ -2867,64 +4106,43 @@ oo::configurable create ::splitlayout::splitlayout {
         set upper [expr {$end-$gap-[lindex $minima [expr {$sash+1}]]}]
         return [expr {max($lower,min($upper,$target))}]
     }
-    method title {args} {
-        # Gets or sets the optional header title belonging to managed content.
-        #  id - Docked leaf identifier or owned floating token.
-        #  text - Optional title; an empty string removes the heading.
-        #
-        # Titles follow content through swaps, moves, splitting with retained content, and floating transitions.
-        # They do not change the native window title set by undock -title. Rendering uses one line and truncates
-        # long headings to keep the buttons unobscured; the stored string is returned unchanged.
-        # Returns: The current title string.
-        # Synopsis: id ?text?
-        set opts [argparse -inline -pfirst -help {Query or set the title of managed content; the title follows\
-                    content through moves and docking} {
-            {id -help {Docked leaf or owned floating token}}
-            {text -optional -help {Header title; empty clears it, omit to query; does not change the native window\
-                                           title}}
-        }]
-        set frame [my frame [dict get $opts id]]
-        if {[dict exists $opts text]} {
-            dict set Titles $frame [dict get $opts text]
-            my RefreshHeaders
-        }
-        if {[dict exists $Titles $frame]} {
-            return [dict get $Titles $frame]
-        }
-        return
-    }
-    method ContentTitleDestroyed {frame path} {
-        # Discards title and minimum-size metadata when its content frame is destroyed.
-        #  frame - Content frame associated with this binding.
-        #  path - Widget reported by Destroy; child events are ignored.
-        #
-        # Returns: Nothing.
-        if {$frame eq $path} {
-            if {[dict exists $Titles $frame]} {
-                dict unset Titles $frame
-            }
-            if {[dict exists $Minimums $frame]} {
-                dict unset Minimums $frame
+
+    ### Docking and floating window methods
+    method DockDestination {token opts} {
+        # Resolves explicit or remembered docking without changing any widgets.
+        #  token - Owned floating token.
+        #  opts - Parsed destination dictionary, with unprefixed option names.
+        # Returns: Side, target, and untouched-placeholder replacement boolean.
+        my FloatingFrame $token
+        set destinations {}
+        foreach side {left right top bottom before after} {
+            if {[dict exists $opts $side]} {
+                lappend destinations $side
             }
         }
-    }
-    method floating {args} {
-        # Lists floating content or describes one floating window owned by this manager.
-        #  id - Floating token returned by undock; omit to list tokens.
-        #
-        # Floating content is absent from tree, leaves, node, and locate. Its actual widgets remain visible in widgets.
-        # The snapshot contains id, frame, title, geometry, state, and onclose. Tokens expire on docking or removal.
-        # Returns: A list of floating tokens, or a dictionary describing one floating window.
-        # Synopsis: ?id?
-        argparse -pfirst -help {List floating tokens, or describe one owned floating window} {
-            {id -optional -default {} -help {Floating token; omit or pass empty to list all}}
+        if {[llength $destinations] > 1} {
+            return -code error {expected at most one docking destination}
         }
-        if {$id eq {}} {
-            return [dict keys $Floating]
+        if {![llength $destinations]} {
+            set remembered [my RestoreDestination $token]
+            if {$remembered ne {}} {
+                lassign $remembered side target
+                dict set opts $side $target
+                set destinations [list $side]
+            }
         }
-        set frame [my FloatingFrame $id]
-        return [dict create id $id frame $frame title [wm title $frame] geometry [wm geometry $frame]\
-                        state [wm state $frame] onclose [dict get $Floating $id onclose]]
+        set replace [expr {![llength $destinations] && ($Root eq $VacantRoot) && ([my type $Root] eq {leaf}) &&\
+                                   ![llength [winfo children [my frame $Root]]] && ([my title $Root] eq {})}]
+        set side right
+        set target $Root
+        if {[llength $destinations]} {
+            set side [lindex $destinations 0]
+            set target [my Check [dict get $opts $side]]
+        }
+        if {($side in {before after}) && ([my parent $target] eq {})} {
+            return -code error {cannot dock beside root; use an edge destination}
+        }
+        return [list $side $target $replace]
     }
     method FloatingFrame {id} {
         # Validates a floating token and returns its retained content frame.
@@ -3034,194 +4252,6 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return {}
     }
-    method undock {args} {
-        # Removes a leaf from the layout and promotes its retained content to a floating window.
-        #  leaf - Existing docked leaf identifier.
-        #  -title title - Window title; default splitlayout.
-        #  -geometry geometry - Optional Tk window geometry; defaults to the current content size and screen position.
-        #  -onclose action - Window close action: dock or destroy; default dock.
-        #
-        # Content widgets and their pathnames survive. The former leaf identifier expires and single-child parents
-        # collapse. Undocking the sole root leaves an empty placeholder leaf. Only this manager's content is accepted.
-        # The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows.
-        # Returns: An opaque floating token, accepted by dock, floating, frame, and remove.
-        # Synopsis: leaf ?-title title? ?-geometry geometry? ?-onclose action?
-        set opts [argparse -inline -pfirst -help {Move managed leaf content into a floating window and return its\
-                                                          floating token} {
-            {leaf -help {Docked leaf identifier}}
-            {-title= -default splitlayout -help {Native floating-window title}}
-            {-geometry= -help {Tk window geometry; omit to use the current content size and position}}
-            {-onclose= -default dock -enum {dock destroy} -help {Action for native window close; the header delete\
-                                                                         button always requests deletion}}
-        }]
-        set id [my Check [dict get $opts leaf] leaf]
-        set frame [my frame $id]
-        set parent [my parent $id]
-        my ValidateOperation undock $id
-        set placement [my RememberPlacement $id]
-        set top [winfo toplevel $frame]
-        set tags [my BindingSnapshot $frame]
-        set width [expr {max(1,[winfo width $frame])}]
-        set height [expr {max(1,[winfo height $frame])}]
-        set geometry ${width}x${height}+[winfo rootx $frame]+[winfo rooty $frame]
-        if {[dict exists $opts geometry]} {
-            set geometry [dict get $opts geometry]
-        }
-        my CancelDrag
-        my CaptureAll
-        my Detach $frame
-        # Do not mutate the tree until the platform has accepted promotion and the window options.
-        if {[catch {
-            wm manage $frame
-            wm title $frame [dict get $opts title]
-            wm geometry $frame $geometry
-        } message options]} {
-            if {[winfo exists $frame] && ([winfo toplevel $frame] eq $frame)} {
-                wm forget $frame
-            }
-            my Rebuild
-            return -options $options $message
-        }
-        set token ${W}#f[incr Serial]
-        set changed [my RetargetBindings $tags $top $frame]
-        dict set Floating $token [dict create frame $frame onclose [dict get $opts onclose] bindings $changed\
-                                          placement $placement]
-        bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
-        wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
-        dict unset Nodes $id
-        if {$parent eq {}} {
-            set Root [my NewLeaf {}]
-            set VacantRoot $Root
-        } else {
-            set children [my children $parent]
-            set at [lsearch -exact $children $id]
-            set children [lreplace $children $at $at]
-            set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
-            dict set Nodes $parent children $children
-            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
-            if {[llength $children] == 1} {
-                my Promote $parent [lindex $children 0]
-            }
-        }
-        my Rebuild
-        my RefreshMinimums
-        wm deiconify $frame
-        raise $frame
-        my RefreshNestedOwners $frame
-        return $token
-    }
-    method dock {args} {
-        # Returns owned floating content to a new leaf in the docked layout.
-        #  floating - Token returned by this manager's undock command.
-        #  -left target - Dock to the left of a leaf or split.
-        #  -right target - Dock to the right of a leaf or split.
-        #  -top target - Dock above a leaf or split.
-        #  -bottom target - Dock below a leaf or split.
-        #  -before target - Dock before a non-root node in its existing parent.
-        #  -after target - Dock after a non-root node in its existing parent.
-        #
-        # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
-        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Explicit
-        # destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
-        # target in a new split.
-        # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
-        # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
-        # Returns: The new docked leaf identifier.
-        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
-        set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
-                                                          destination to restore the remembered position} {
-            {floating -help {Owned floating token returned by undock}}
-            {-left= -help {Place to the left of the target leaf or split}}
-            {-right= -help {Place to the right of the target leaf or split}}
-            {-top= -help {Place above the target leaf or split}}
-            {-bottom= -help {Place below the target leaf or split}}
-            {-before= -help {Place before a non-root target in its current parent}}
-            {-after= -help {Place after a non-root target in its current parent}}
-        }]
-        set token [dict get $opts floating]
-        set frame [my FloatingFrame $token]
-        lassign [my DockDestination $token $opts] side target replace
-        my ValidateOperation dock $token $side $target $replace
-        set parent [my parent $target]
-        set edge [expr {$side in {left right top bottom}}]
-        if {!$edge && ($parent eq {})} {
-            return -code error {cannot dock beside root; use an edge destination}
-        }
-        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
-        set before [expr {$side in {left top before}}]
-        set wrap [expr {!$replace && $edge && (($parent eq {}) || ([dict get $Nodes $parent orient] ne $orient))}]
-        set wrapper {}
-        if {$wrap} {
-            set wrapper $target
-            if {[my type $target] eq {split}} {
-                set wrapper n[incr Serial]
-            }
-            set pw [my NewSplitWidget $wrapper $orient]
-        }
-        my CancelDrag
-        my CaptureAll
-        # Remove only our watcher; application binding tags remain intact.
-        set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
-        set watched [bindtags $frame]
-        if {$watcher >= 0} {
-            bindtags $frame [lreplace $watched $watcher $watcher]
-        }
-        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {
-            bindtags $frame {}
-        }
-        my RemoveFloatingGrip $token
-        set tags [my BindingSnapshot $frame]
-        if {[catch {wm forget $frame} message options]} {
-            bindtags $frame $watched
-            my SyncFloatingGrips
-            if {$wrap} {
-                destroy $pw
-            }
-            return -options $options $message
-        }
-        my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
-        if {[dict exists $Floating $token leafbackground]} {
-            $frame configure -background [dict get $Floating $token leafbackground]
-        }
-        dict unset Floating $token
-        set source [my NewLeaf $parent $frame]
-        if {$replace} {
-            my Drop $Root
-            set Root $source
-            set VacantRoot {}
-        } elseif {$wrap} {
-            if {$wrapper eq $target} {
-                set retained [my NewLeaf $wrapper [my frame $target]]
-            } else {
-                set retained $target
-                dict set Nodes $target parent $wrapper
-                if {$parent eq {}} {
-                    set Root $wrapper
-                } else {
-                    set children [my children $parent]
-                    set at [lsearch -exact $children $target]
-                    dict set Nodes $parent children [lreplace $children $at $at $wrapper]
-                }
-            }
-            dict set Nodes $source parent $wrapper
-            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
-            dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
-                                             proportions {0.5 0.5} children $children]
-        } else {
-            set children [my children $parent]
-            set at [lsearch -exact $children $target]
-            set weights [dict get $Nodes $parent proportions]
-            set half [expr {[lindex $weights $at]/2.0}]
-            dict set Nodes $parent proportions [lreplace $weights $at $at $half $half]
-            if {!$before} {
-                incr at
-            }
-            dict set Nodes $parent children [linsert $children $at $source]
-        }
-        my Rebuild
-        my RefreshNestedOwners $frame
-        return $source
-    }
     method FloatingClose {id} {
         # Handles the native close button according to the floating record's close policy.
         #  id - Floating token, possibly already expired during teardown.
@@ -3256,1079 +4286,85 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method root {args} {
-        # Returns the current logical root node.
+    method FloatingPosition {frame geometry} {
+        # Converts a floating window's WM geometry position into absolute screen coordinates.
+        #  frame - Floating content frame.
+        #  geometry - Geometry returned by wm geometry, including size and position.
         #
-        # Returns: The root node identifier.
-        # Synopsis:
-        argparse -pfirst -help {Return the current logical root node identifier} {}
-        return $Root
+        # Each position has an anchor sign and a separately signed offset. For example, +-32 means an absolute
+        # negative coordinate, whereas -32 means an offset from the opposite screen edge. Keep these distinct.
+        # Unrecognized forms use the current client origin rather than leaving gesture state incomplete.
+        # Returns: Screen x and y coordinates for the start of a floating drag.
+        if {![regexp {^[0-9]+x[0-9]+([+-])(-?[0-9]+)([+-])(-?[0-9]+)$} $geometry -> xs x ys y]} {
+            return [list [winfo rootx $frame] [winfo rooty $frame]]
+        }
+        if {$xs eq {-}} {
+            set x [expr {[winfo screenwidth $frame]-[winfo width $frame]-$x}]
+        }
+        if {$ys eq {-}} {
+            set y [expr {[winfo screenheight $frame]-[winfo height $frame]-$y}]
+        }
+        return [list $x $y]
     }
-    method type {args} {
-        # Returns the type of a logical node.
-        #  id - Existing logical node identifier.
+
+    ### Appearance and border methods
+    method SetAppearance {group value} {
+        # Validates and applies an appearance dictionary without creating option instances.
+        #  group - Resource group: dockopts, structureopts, leafopts, or sashpreviewopts.
+        #  value - Dictionary of keys to override; unspecified keys retain current values.
         #
-        # Returns: The string leaf or split.
-        # Synopsis: id
-        argparse -pfirst -help {Return the type of a logical node: leaf or split} {
-            {id -help {Existing logical node identifier}}
-        }
-        my Check $id
-        return [dict get $Nodes $id type]
-    }
-    method parent {args} {
-        # Returns the logical parent of a node.
-        #  id - Existing logical node identifier.
-        #
-        # This relationship is independent of the actual Tk widget parent.
-        #
-        # Returns: The parent node identifier, or an empty string for the root.
-        # Synopsis: id
-        argparse -pfirst -help {Return the logical parent identifier, or empty for the root} {
-            {id -help {Existing logical node identifier}}
-        }
-        my Check $id
-        return [dict get $Nodes $id parent]
-    }
-    method widget {args} {
-        # Returns the widget associated with a logical node.
-        #  id - Existing logical node identifier.
-        #
-        # Returns: The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
-        # or the content frame/native panedwindow otherwise. Use panedwindow to access a split's native widget.
-        # Synopsis: id
-        argparse -pfirst -help {Return the outer geometry widget associated with a logical node} {
-            {id -help {Existing logical node identifier}}
-        }
-        my Check $id
-        if {[dict exists $Borders $id]} {
-            return [dict get $Borders $id]
-        }
-        if {([my type $id] eq {leaf}) && [dict exists $Panels $id]} {
-            return [dict get $Panels $id pane]
-        }
-        return [dict get $Nodes $id widget]
-    }
-    method panedwindow {args} {
-        # Returns the native panedwindow of a split, independently of structure visibility.
-        #  id - Existing split identifier.
-        #
-        # Returns: The native ttk panedwindow pathname. Leaf identifiers raise an error.
-        # Synopsis: id
-        argparse -pfirst -help {Return the native ttk panedwindow of a split} {
-            {id -help {Existing split node identifier}}
-        }
-        my Check $id split
-        return [dict get $Nodes $id widget]
-    }
-    method frame {args} {
-        # Returns the retained content frame of a docked leaf or floating window.
-        #  id - Existing leaf identifier or floating token.
-        #
-        # Raises an error if the node is unknown or is a split.
-        #
-        # Returns: The content frame pathname, unchanged across docking transitions.
-        # Synopsis: id
-        argparse -pfirst -help {Return the retained content frame of a docked leaf or floating window} {
-            {id -help {Existing leaf identifier or owned floating token}}
-        }
-        if {[dict exists $Floating $id]} {
-            return [my FloatingFrame $id]
-        }
-        my Check $id leaf
-        return [dict get $Nodes $id widget]
-    }
-    method children {args} {
-        # Returns the immediate logical children of a node.
-        #  id - Existing logical node identifier.
-        #
-        # Returns: Child identifiers in pane order, or an empty list for a leaf.
-        # Synopsis: id
-        argparse -pfirst -help {Return immediate child identifiers in pane order; leaves have no children} {
-            {id -help {Existing logical node identifier}}
-        }
-        my Check $id
-        if {[my type $id] eq {leaf}} {
-            return
-        }
-        return [dict get $Nodes $id children]
-    }
-    method leaves {args} {
-        # Collects the leaves below a logical node.
-        #  id - Subtree root identifier; empty selects the layout root.
-        #
-        # Traversal follows pane order recursively. A leaf includes itself.
-        #
-        # Returns: A list of leaf identifiers in depth-first pane order.
-        # Synopsis: ?id?
-        argparse -pfirst -help {Return leaf identifiers in depth-first pane order, including the node itself when\
-                it is a leaf} {
-            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
-        }
-        if {$id eq {}} {
-            set id $Root
-        }
-        my Check $id
-        if {[my type $id] eq {leaf}} {
-            return [list $id]
-        }
-        set result {}
-        foreach child [my children $id] {
-            lappend result {*}[my leaves $child]
-        }
-        return $result
-    }
-    method node {args} {
-        # Finds the logical node associated with an exact widget pathname.
-        #  path - Managed content frame, pane wrapper, or panedwindow pathname.
-        #
-        # This method does not search ancestors; use locate for application widgets inside a content frame.
-        #
-        # Returns: The node identifier, or an empty string when no node matches.
-        # Synopsis: path
-        argparse -pfirst -help {Find a logical node by its exact managed widget pathname; does not search ancestors} {
-            {path -help {Managed content frame, pane wrapper, split wrapper, or native panedwindow}}
-        }
-        dict for {id border} $Borders {
-            if {$border eq $path} {
-                return $id
-            }
-        }
-        dict for {id panel} $Panels {
-            if {[dict get $panel pane] eq $path} {
-                return $id
-            }
-        }
-        dict for {id data} $Nodes {
-            if {[dict get $data widget] eq $path} {
-                return $id
-            }
-        }
-        return
-    }
-    method locate {args} {
-        # Finds the leaf containing an application widget.
-        #  path - Widget pathname to locate.
-        #
-        # Walks the actual Tk parent chain looking for a managed content frame.
-        # A split panedwindow does not identify a leaf.
-        #
-        # Returns: The containing leaf identifier, or empty for a missing or unrelated widget.
-        # Synopsis: path
-        argparse -pfirst -help {Find the docked leaf containing an application widget by walking its Tk parents} {
-            {path -help {Widget pathname; missing or unrelated widgets return empty}}
-        }
-        if {![winfo exists $path]} {
-            return
-        }
-        while {($path ne {}) && ($path ne $W)} {
-            set id [my node $path]
-            if {($id ne {}) && ([my type $id] eq {leaf})} {
-                return $id
-            }
-            set path [winfo parent $path]
-        }
-        return
-    }
-    method container {args} {
-        # Returns the geometry container for a managed node.
-        #  value - Logical node identifier or exact managed widget pathname.
-        #
-        # The container can differ from the actual Tk parent. Unknown identifiers and unmanaged paths raise an error.
-        #
-        # A node identifier or wrapper path resolves to the outer geometry container. A content frame pathname
-        # resolves to its pane wrapper when handles are enabled. A native panedwindow path resolves to its
-        # enclosing split wrapper when showstructure is enabled.
-        # Returns: The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate.
-        # Synopsis: value
-        argparse -pfirst -help {Return the geometry container of a managed node or exact managed widget} {
-            {value -help {Logical node identifier or exact managed widget pathname}}
-        }
-        if {[dict exists $Nodes $value]} {
-            set id $value
+        # On first assignment, query the hull's option database using package-specific resource names and classes.
+        # Explicit keys override database defaults before validation. Built-in defaults also survive option clear.
+        # Validation completes before cancellation or mutation. Successful changes cancel gestures; structure changes
+        # rebuild geometry with retained proportions. Setting unchanged values has no effect.
+        # Returns: Nothing.
+        set schema [dict get $::splitlayout::appearanceResources $group]
+        set candidate {}
+        if {[dict exists $Settings $group]} {
+            set candidate [dict get $Settings $group]
         } else {
-            set id [my node $value]
-            if {$id eq {}} {
-                return -code error "not a managed node or widget: '$value'"
+            dict for {key spec} $schema {
+                lassign $spec resource type fallback
+                set initial [option get $W $resource [string toupper $resource 0 0]]
+                if {$initial eq {}} {
+                    set initial $fallback
+                }
+                dict set candidate $key $initial
             }
         }
-        if {[dict exists $Panels $id] && $value eq [my frame $id]} {
-            return [my widget $id]
-        }
-        if {[dict exists $Borders $id] && $value eq [my panedwindow $id]} {
-            return [my widget $id]
-        }
-        set parent [my parent $id]
-        if {$parent eq {}} {
-            return $W
-        }
-        return [my panedwindow $parent]
-    }
-    method split {args} {
-        # Replaces a leaf with a split containing two new leaves.
-        #  node - Identifier of the existing leaf to split.
-        #  -orient orientation - Split orientation: horizontal or vertical; default horizontal.
-        #  -ratio fraction - First child fraction, strictly between zero and one; default 0.5.
-        #  -keep child - Child receiving the existing content: first or second; default first.
-        #
-        # The original leaf identifier becomes the split identifier, and both child leaves receive new identifiers.
-        # The retained content frame and its widget descendants are reused without reparenting or recreation. The other
-        # child starts with an empty frame. Existing pane proportions are captured before rebuilding the layout.
-        #
-        # Returns: The two new leaf identifiers in pane order.
-        # Synopsis: node ?-orient orientation? ?-ratio fraction? ?-keep child?
-        set opts [argparse -inline -pfirst -help {Turn a leaf into a two-child split, retaining its content in one\
-                                                          child; return both new leaf IDs} {
-            {node -help {Existing leaf to split}}
-            {-orient= -default horizontal -enum {horizontal vertical} -help {Arrange children horizontally or\
-                                                                                     vertically}}
-            {-ratio= -default 0.5 -help {First child fraction, strictly between 0 and 1}}
-            {-keep= -default first -enum {first second} -help {Child retaining the existing content frame}}
-        }]
-        set id [my Check [dict get $opts node] leaf]
-        set fraction [my Fraction [dict get $opts ratio]]
-        my ValidateOperation split $id [dict get $opts orient] [dict get $opts keep]
-        my CaptureAll
-        set old [my frame $id]
-        set pw [my NewSplitWidget $id [dict get $opts orient]]
-        if {[dict get $opts keep] eq {first}} {
-            set first [my NewLeaf $id $old]
-            set second [my NewLeaf $id]
-        } else {
-            set first [my NewLeaf $id]
-            set second [my NewLeaf $id $old]
-        }
-        # Detach the old content before replacing its node record.
-        my Detach $old
-        dict set Nodes $id [dict create type split parent [my parent $id] widget $pw orient [dict get $opts orient]\
-                                    proportions [list $fraction [expr {1.0-$fraction}]] children [list $first $second]]
-        my Rebuild
-        return [list $first $second]
-    }
-    method NewSplitWidget {id orient} {
-        # Creates a panedwindow with the layout sash and lifecycle bindings.
-        #  id - Logical split identifier used by geometry callbacks.
-        #  orient - Panedwindow orientation: horizontal or vertical.
-        #
-        # Does not modify node records or attach panes. Used by split and move.
-        #
-        # Returns: The new panedwindow pathname.
-        set pw [ttk::panedwindow $W.split[incr Serial] -orient $orient]
-        # A dedicated tag AFTER the class tag captures the position after Tk's
-        # sash bindings have moved it. It cannot affect application bindings.
-        set motionTag ${Tag}Sash
-        bind $motionTag <B1-Motion> [namespace code {my SashMoved %W}]
-        bind $motionTag <ButtonRelease-1> [namespace code {my SashMoved %W}]
-        set tags [bindtags $pw]
-        bindtags $pw [linsert $tags 2 $motionTag]
-        set deferredTag ${Tag}Deferred
-        bind $deferredTag <ButtonPress-1> [namespace code {my DeferredPress %W %X %Y %x %y}]
-        bind $deferredTag <B1-Motion> [namespace code {my DeferredMotion %W %X %Y}]
-        bind $deferredTag <ButtonRelease-1> [namespace code {my DeferredRelease %W %X %Y}]
-        bind $deferredTag <Escape> [namespace code {my DeferredEscape}]
-        bind $deferredTag <Unmap> [namespace code {my CancelDrag}]
-        bindtags $pw [linsert [bindtags $pw] 0 $deferredTag]
-        bind $pw <Configure> [namespace code [list my SplitConfigure $id]]
-        bind $pw <<ThemeChanged>> [namespace code {my RefreshMinimums}]
-        return $pw
-    }
-    method move {args} {
-        # Moves an existing leaf to an edge or sibling position without destroying its content.
-        #  leaf - Existing source leaf identifier, retained by the move.
-        #  -left target - Place before a target leaf or split in a horizontal split.
-        #  -right target - Place after a target leaf or split in a horizontal split.
-        #  -top target - Place before a target leaf or split in a vertical split.
-        #  -bottom target - Place after a target leaf or split in a vertical split.
-        #  -before target - Insert before a non-root leaf or split in its existing parent.
-        #  -after target - Insert after a non-root leaf or split in its existing parent.
-        #
-        # Exactly one destination option is required. Edge destinations reuse the target parent when its orientation
-        # matches. Otherwise the target leaf becomes a split, and its existing frame moves to a newly identified leaf,
-        # following split's identifier semantics. A split target is instead wrapped in a newly identified split,
-        # preserving the target subtree; normal collapse may subsequently promote its sole remaining child. A split
-        # target may contain the source, including the root. The source identifier, frame, widget paths, and state
-        # survive.
-        #
-        # Within one parent and orientation, panes are reordered with their existing weights. Other moves divide the
-        # target share equally between the source and target; remaining source siblings retain relative proportions.
-        # A source parent left with one child is collapsed after insertion. Moving to oneself or to an already adjacent
-        # position does nothing. Argument errors are detected before changing layout or cancelling a deferred drag.
-        # A successful structural move cancels deferred dragging and rebuilds geometry once, without nested updates.
-        #
-        # Returns: The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.
-        # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
-        set opts [argparse -inline -pfirst -help {Move an existing leaf without recreating its content; specify\
-                                                          exactly one destination} {
-            {leaf -help {Docked leaf identifier}}
-            {-left= -help {Place to the left of the target leaf or split}}
-            {-right= -help {Place to the right of the target leaf or split}}
-            {-top= -help {Place above the target leaf or split}}
-            {-bottom= -help {Place below the target leaf or split}}
-            {-before= -help {Place before a non-root target in its current parent}}
-            {-after= -help {Place after a non-root target in its current parent}}
-        }]
-        set source [my Check [dict get $opts leaf] leaf]
-        set destinations {}
-        foreach key {left right top bottom before after} {
-            if {[dict exists $opts $key]} {
-                lappend destinations $key
+        dict for {key setting} $value {
+            if {![dict exists $schema $key]} {
+                return -code error "unknown -$group key '$key'"
             }
+            dict set candidate $key $setting
         }
-        if {[llength $destinations] != 1} {
-            return -code error {move requires exactly one destination: -left, -right, -top, -bottom, -before, or -after}
-        }
-        set where [lindex $destinations 0]
-        set target [my Check [dict get $opts $where]]
-        set edge [expr {$where in {left right top bottom}}]
-        # A self-drop is a no-op even for the sole root leaf.
-        if {$source eq $target} {
-            return $source
-        }
-        set destination [my parent $target]
-        if {!$edge && ($destination eq {})} {
-            return -code error {cannot move beside root; use an edge destination}
-        }
-        set before [expr {$where in {left top before}}]
-        set orient [expr {$where in {left right} ? {horizontal} : {vertical}}]
-        set wrap [expr {$edge && (($destination eq {}) || ([dict get $Nodes $destination orient] ne $orient))}]
-        set oldParent [my parent $source]
-        # Reordering siblings requires neither removal nor parent collapse. Preserve weights by node.
-        if {!$wrap && $oldParent eq $destination} {
-            set children [my children $oldParent]
-            set from [lsearch -exact $children $source]
-            set reordered [lreplace $children $from $from]
-            set at [lsearch -exact $reordered $target]
-            if {!$before} {
-                incr at
-            }
-            set reordered [linsert $reordered $at $source]
-            if {$reordered eq $children} {
-                return $source
-            }
-            my ValidateOperation move $source $where $target
-            my CancelDrag
-            my CaptureAll
-            set weights [dict get $Nodes $oldParent proportions]
-            set share [lindex $weights $from]
-            set weights [linsert [lreplace $weights $from $from] $at $share]
-            dict set Nodes $oldParent children $reordered
-            dict set Nodes $oldParent proportions $weights
-            my Rebuild
-            return $source
-        }
-        my ValidateOperation move $source $where $target
-        # Allocate any new native widget before detaching the source.
-        set wrapSplit [expr {$wrap && ([my type $target] eq {split})}]
-        if {$wrap} {
-            set wrapper $target
-            if {$wrapSplit} {
-                set wrapper n[incr Serial]
-            }
-            set pw [my NewSplitWidget $wrapper $orient]
-        }
-        my CancelDrag
-        my CaptureAll
-        my Detach [my frame $source]
-        set children [my children $oldParent]
-        set from [lsearch -exact $children $source]
-        set remaining [lreplace $children $from $from]
-        set weights [lreplace [dict get $Nodes $oldParent proportions] $from $from]
-        dict set Nodes $oldParent children $remaining
-        dict set Nodes $oldParent proportions [my Normalize $weights [llength $remaining]]
-        if {$wrapSplit} {
-            # A subtree keeps its identifier; add a new split around it and the source leaf.
-            my Detach [my widget $target]
-            set children [expr {$before ? [list $source $target] : [list $target $source]}]
-            dict set Nodes $wrapper [dict create type split parent $destination widget $pw orient $orient\
-                                             proportions {0.5 0.5} children $children]
-            dict set Nodes $source parent $wrapper
-            dict set Nodes $target parent $wrapper
-            if {$destination eq {}} {
-                set Root $wrapper
+        dict for {key setting} $candidate {
+            set type [lindex [dict get $schema $key] 1]
+            if {$type eq {color}} {
+                if {[catch {winfo rgb $W $setting}]} {
+                    return -code error "invalid color for -$group $key: '$setting'"
+                }
             } else {
-                set children [my children $destination]
-                set at [lsearch -exact $children $target]
-                dict set Nodes $destination children [lreplace $children $at $at $wrapper]
-            }
-        } elseif {$wrap} {
-            set frame [my frame $target]
-            my Detach $frame
-            set retained [my NewLeaf $target $frame]
-            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
-            dict set Nodes $target [dict create type split parent $destination widget $pw orient $orient\
-                                            proportions {0.5 0.5} children $children]
-            dict set Nodes $source parent $target
-        } else {
-            set children [my children $destination]
-            set at [lsearch -exact $children $target]
-            set weights [dict get $Nodes $destination proportions]
-            set half [expr {[lindex $weights $at]/2.0}]
-            set weights [lreplace $weights $at $at $half $half]
-            if {!$before} {
-                incr at
-            }
-            dict set Nodes $destination children [linsert $children $at $source]
-            dict set Nodes $destination proportions $weights
-            dict set Nodes $source parent $destination
-        }
-        # Delay collapse until destination links are installed, including moves beside an ancestor.
-        set remaining [my children $oldParent]
-        if {[llength $remaining] == 1} {
-            my Promote $oldParent [lindex $remaining 0]
-        }
-        my Rebuild
-        return $source
-    }
-    method insert {args} {
-        # Inserts an empty leaf beside an existing non-root node.
-        #  node - Identifier of the leaf or split beside which to insert a sibling.
-        #  -side side - Position of the new leaf relative to node: before or after; default after.
-        #
-        # The new leaf shares the target parent, and the target pane share is divided equally between the two siblings.
-        # Inserting beside the root raises an error; split the root first.
-        #
-        # Returns: The new leaf identifier.
-        # Synopsis: node ?-side side?
-        set opts [argparse -inline -pfirst -help {Insert an empty leaf beside a non-root node, sharing its parent\
-                    and dividing its pane share} {
-            {node -help {Non-root leaf or split serving as the insertion reference}}
-            {-side= -default after -enum {before after} -help {Insert before or after the reference node}}
-        }]
-        set id [my Check [dict get $opts node]]
-        set parent [my parent $id]
-        if {$parent eq {}} {
-            return -code error {cannot insert beside root; split it first}
-        }
-        my ValidateOperation insert $id [dict get $opts side]
-        my CaptureAll
-        set children [my children $parent]
-        set index [lsearch -exact $children $id]
-        set weights [dict get $Nodes $parent proportions]
-        set half [expr {[lindex $weights $index]/2.0}]
-        set weights [lreplace $weights $index $index $half $half]
-        set new [my NewLeaf $parent]
-        if {[dict get $opts side] eq {after}} {
-            incr index
-        }
-        dict set Nodes $parent children [linsert $children $index $new]
-        dict set Nodes $parent proportions $weights
-        my Rebuild
-        return $new
-    }
-    method Normalize {weights count} {
-        # Normalizes a list of positive pane weights.
-        #  weights - List of finite positive numeric weights.
-        #  count - Required number of weights.
-        #
-        # Scales before summation to avoid overflow. An incorrect count, invalid weight, or range that underflows a
-        # normalized weight to zero raises an error.
-        #
-        # Returns: Positive normalized weights whose sum is approximately one.
-        if {[llength $weights]!=$count} {
-            return -code error "expected $count positive weights"
-        }
-        set largest 0.0
-        foreach value $weights {
-            if {![string is double -strict $value] || [catch {expr {$value > 0.0 && $value < Inf}} valid] || !$valid} {
-                return -code error {weights must be finite positive numbers}
-            }
-            set largest [expr {max($largest,double($value))}]
-        }
-        # Scale before summation to avoid overflow for large valid weights.
-        set scaled [lmap value $weights {expr {double($value)/$largest}}]
-        set sum 0.0
-        foreach value $scaled {
-            set sum [expr {$sum+$value}]
-        }
-        set result [lmap value $scaled {expr {$value/$sum}}]
-        if {0.0 in $result} {
-            return -code error  {weight range is too large to normalize}
-        }
-        return $result
-    }
-    method proportions {args} {
-        # Queries or sets all pane proportions of a split.
-        #  node - Identifier of an existing split.
-        #  weights - Optional list containing one finite positive weight per child, in pane order. Omit to query.
-        #
-        # Weights are normalized before storage. Setting cancels any active deferred drag and schedules geometry
-        # application at idle. A query captures current sash positions when geometry is usable and no application is
-        # pending; otherwise it returns the stored proportions.
-        #
-        # Returns: The normalized list of pane proportions.
-        # Synopsis: node ?weights?
-        set opts [argparse -inline -pfirst -help {Query or set normalized child proportions of a split} {
-            {node -help {Split node identifier}}
-            {weights -optional -help {One finite positive weight per child in pane order; omit to query}}
-        }]
-        set id [my Check [dict get $opts node] split]
-        if {[dict exists $opts weights]} {
-            set values [my Normalize [dict get $opts weights] [llength [my children $id]]]
-            my ValidateResize $id $values
-            my CancelDrag
-            dict set Nodes $id proportions $values
-            my Schedule $id
-        } else {
-            my Capture $id
-        }
-        return [dict get $Nodes $id proportions]
-    }
-    method Detach {path} {
-        # Removes a managed widget from its current geometry manager.
-        #  path - Widget pathname to detach.
-        #
-        # Handles pack, grid, place, and the layout panedwindows. The widget and its descendants are neither destroyed
-        # nor reparented.
-        #
-        # Returns: Nothing.
-        set manager [winfo manager $path]
-        switch -- $manager {
-            pack {
-                pack forget $path
-            }
-            grid {
-                grid forget $path
-            }
-            place {
-                place forget $path
-            }
-            default {
-                # Native classic and themed panedwindows may use different
-                # manager names across Tk versions. Query known split widgets.
-                dict for {id data} $Nodes {
-                    if {[dict get $data type] eq {split}} {
-                        set pw [dict get $data widget]
-                        if {[winfo exists $pw] && ($path in [$pw panes])} {
-                            $pw forget $path
-                        }
-                    }
+                set minimum [expr {$type eq {positive} ? 1 : 0}]
+                if {![string is entier -strict $setting] || ($setting < $minimum) ||( $setting > 2147483647)} {
+                    return -code error "expected integer pixels from $minimum to 2147483647 for -$group $key"
                 }
+                dict set candidate $key [expr {$setting + 0}]
             }
         }
-    }
-    method Rebuild {} {
-        # Reattaches the logical tree and restores widget stacking.
-        #
-        # Cancels an active deferred drag, detaches all managed widgets, attaches the split hierarchy, and packs the
-        # root into the hull. Content widgets are retained, and split geometry is scheduled for idle application.
-        #
-        # Returns: Nothing.
+        if {[dict exists $Settings $group] && ($candidate eq [dict get $Settings $group])} {
+            return
+        }
         my CancelDrag
-        dict for {id settings} $NodeRules {
-            if {![dict exists $Nodes $id]} {dict unset NodeRules $id}
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
+            my CaptureAll
         }
-        # Detach all known windows before adding any: this also handles swaps
-        # where both frames were originally in the same panedwindow.
-        dict for {id data} $Nodes {
-            my Detach [dict get $data widget]
-        }
-        dict for {id border} $Borders {
-            my Detach $border
-        }
-        dict for {id panel} $Panels {
-            my Detach [dict get $panel pane]
-        }
-        my SyncPanels
-        my SyncBorders
-        my Attach $Root
-        pack [my widget $Root] -in $W -fill both -expand 1
-        my Stack $Root
-        my RefreshHeaders
-    }
-    method Attach {id} {
-        # Recursively attaches a subtree to its panedwindows.
-        #  id - Existing subtree root identifier.
-        #
-        # A leaf content frame is packed into its optional pane wrapper. Split children are added in logical order with
-        # integer weights derived from stored proportions. Sash placement is scheduled at idle.
-        #
-        # Returns: Nothing.
-        if {[my type $id] eq {leaf}} {
-            if {[dict exists $Panels $id]} {
-                pack [my frame $id] -in [my widget $id] -side top -fill both -expand 1
-            }
-            return
-        }
-        set pw [my panedwindow $id]
-        if {[dict exists $Borders $id]} {
-            pack $pw -in [my widget $id] -fill both -expand 1 -padx [dict get $Settings structureopts -padding]\
-                    -pady [dict get $Settings structureopts -padding]
-        }
-        foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
-            my Attach $child
-            $pw add [my widget $child] -weight [expr {max(1,round(10000*$fraction))}]
-        }
-        my Schedule $id
-    }
-    method Stack {id} {
-        # Raises managed widgets in logical ancestor-before-child order.
-        #  id - Existing subtree root identifier.
-        #
-        # The widgets are actual Tk siblings. Raising logical children after their containers keeps content visible
-        # above the panedwindows that manage it.
-        #
-        # Returns: Nothing.
-
-        # Sibling windows must be above their geometry containers, including
-        # content created before a later split. All are children of W.
-        raise [my widget $id]
-        if {[dict exists $Borders $id]} {
-            raise [my panedwindow $id]
-        }
-        if {[dict exists $Panels $id]} {
-            raise [my frame $id]
-        }
-        foreach child [my children $id] {
-            my Stack $child
-        }
-    }
-
-    method Schedule {id} {
-        # Schedules one idle geometry application for a split.
-        #  id - Split identifier to schedule.
-        #
-        # Does nothing during teardown, for a removed node, or when that node already has an idle application pending.
-        #
-        # Returns: Nothing.
-        if {$Closing || ![dict exists $Nodes $id] || [dict exists $Pending $id]} {
-            return
-        }
-        dict set Pending $id [after idle [namespace code [list my ApplyRatio $id]]]
-    }
-    method ApplyRatio {id} {
-        # Applies stored split proportions to pane weights and sash positions.
-        #  id - Split identifier whose idle callback is running.
-        #
-        # Clears the pending token and ignores removed nodes or unusable geometry. Cumulative proportions determine
-        # sash positions along the split extent, adjusted for configured recursive minima. Two passes avoid nested event
-        # processing.
-        #
-        # Returns: Nothing.
-        if {[dict exists $Pending $id]} {
-            dict unset Pending $id
-        }
-        if {$Closing || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
-            return
-        }
-        set pw [my panedwindow $id]
-        if {![winfo exists $pw] || ([llength [$pw panes]] < 2)} {
-            return
-        }
-        set size [my Extent $id]
-        if {$size <= 1} {
-            return
-        }
-        set positions {}
-        set sum 0.0
-        foreach child [my children $id] fraction [dict get $Nodes $id proportions] {
-            $pw pane [my widget $child] -weight [expr {max(1,round(10000*$fraction))}]
-            set sum [expr {$sum+$fraction}]
-            lappend positions [expr {round($size*$sum)}]
-        }
-        if {[dict size $Minimums]} {
-            set gap [my SashThickness $id]
-            set count [llength [my children $id]]
-            set extents [my AllocateMinimums [expr {$size-($count-1)*$gap}] [dict get $Nodes $id proportions]\
-                                 [my PaneMinimums $id]]
-            set positions {}
-            set position 0
-            foreach extent $extents {
-                incr position $extent
-                lappend positions $position
-                incr position $gap
-            }
-        }
-        # Moving a sash can constrain its neighbours. Two passes establish
-        # all ordered target positions regardless of the previous positions.
-        set last [expr {[llength $positions]-2}]
-        for {set i $last} {$i>=0} {incr i -1} {
-            $pw sashpos $i [lindex $positions $i]
-        }
-        for {set i 0} {$i<=$last} {incr i} {
-            $pw sashpos $i [lindex $positions $i]
-        }
-    }
-    method Extent {id} {
-        # Returns the size of a split along its orientation.
-        #  id - Existing split identifier.
-        #
-        # Returns: The panedwindow width for a horizontal split, or height for a vertical split.
-        if {[dict get $Nodes $id orient] eq {horizontal}} {
-            return [winfo width [my panedwindow $id]]
-        }
-        return [winfo height [my panedwindow $id]]
-    }
-    method Capture {id} {
-        # Stores proportions derived from the current sash positions.
-        #  id - Existing split identifier.
-        #
-        # Capture is skipped while geometry application is pending or when the panedwindow is unmapped, too small, or
-        # has an unexpected pane count. Captured shares are bounded away from zero and normalized; this helper does not
-        # move sashes.
-        #
-        # Returns: Nothing.
-        if {[dict exists $Pending $id]} {
-            return
-        }
-        set pw [my panedwindow $id]
-        set count [llength [my children $id]]
-        if {[dict size $Minimums]} {
-            set gap [my SashThickness $id]
-            set available [expr {[my Extent $id]-($count-1)*$gap}]
-            set minimum 0
-            foreach value [my PaneMinimums $id] {
-                incr minimum $value
-            }
-            if {$available < $minimum} {
-                return
-            }
-            if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ($available > 0)} {
-                set weights {}
-                set previous 0
-                for {set i 0} {$i < $count-1} {incr i} {
-                    set position [$pw sashpos $i]
-                    lappend weights [expr {max(0.000001,$position-$previous)}]
-                    set previous [expr {$position+$gap}]
-                }
-                lappend weights [expr {max(0.000001,[my Extent $id]-$previous)}]
-                dict set Nodes $id proportions [my Normalize $weights $count]
-            }
-            return
-        }
-        if {[winfo ismapped $pw] && ([llength [$pw panes]] == $count) && ([my Extent $id] > 1)} {
-            set weights {}
-            set previous 0.0
-            for {set i 0} {$i<$count-1} {incr i} {
-                set position [expr {double([$pw sashpos $i])/[my Extent $id]}]
-                lappend weights [expr {max(0.000001,$position-$previous)}]
-                set previous $position
-            }
-            lappend weights [expr {max(0.000001,1.0-$previous)}]
-            dict set Nodes $id proportions [my Normalize $weights $count]
-        }
-    }
-    method CaptureAll {} {
-        # Captures usable sash proportions for every split.
-        #
-        # Each split is subject to the pending-geometry and visibility checks performed by Capture.
-        #
-        # Returns: Nothing.
-        dict for {id data} $Nodes {
-            if {[dict get $data type] eq {split}} {
-                my Capture $id
-            }
-        }
-    }
-    method SashMoved {pw} {
-        # Records pane proportions after a sash gesture.
-        #  pw - Panedwindow pathname reported by the sash binding.
-        #
-        # Ignores a pathname with no corresponding layout node. Cancels a pending geometry application before capturing
-        # the resulting sash positions.
-        #
-        # Returns: Nothing.
-        set id [my node $pw]
-        if {$id eq {}} {
-            return
-        }
-        if {[dict exists $Pending $id]} {
-            after cancel [dict get $Pending $id]
-            dict unset Pending $id
-        }
-        my Capture $id
-    }
-    method ratio {args} {
-        # Queries or sets the first pane fraction of a two-child split.
-        #  node - Identifier of a split with exactly two children.
-        #  value - Optional finite first-pane fraction strictly between zero and one. Omit to query.
-        #
-        # Use proportions for splits with more children. Setting stores the fraction and its complement, cancels a
-        # deferred drag, and schedules idle geometry application. Querying captures current geometry when possible,
-        # using the same conditions as proportions.
-        #
-        # Returns: The stored first pane fraction.
-        # Synopsis: node ?value?
-        set opts [argparse -inline -pfirst -help {Query or set the first-child fraction of a two-child split; use\
-                                                          proportions for larger splits} {
-            {node -help {Split node with exactly two children}}
-            {value -optional -help {First child fraction, strictly between 0 and 1; omit to query}}
-        }]
-        set id [my Check [dict get $opts node] split]
-        if {[llength [my children $id]] != 2} {
-            return -code error {ratio requires two children; use proportions for this split}
-        }
-        if {[dict exists $opts value]} {
-            set fraction [my Fraction [dict get $opts value]]
-            my ValidateResize $id [list $fraction [expr {1.0-$fraction}]]
-            my CancelDrag
-            dict set Nodes $id proportions [list $fraction [expr {1.0-$fraction}]]
-            my Schedule $id
-        } else {
-            my Capture $id
-        }
-        return [lindex [dict get $Nodes $id proportions] 0]
-    }
-    method Drop {id} {
-        # Destroys a logical subtree and all of its content.
-        #  id - Existing subtree root identifier.
-        #
-        # Cancels deferred dragging and pending callbacks for removed nodes. This internal helper removes records and
-        # widgets recursively, but does not repair the parent child list or select a new root.
-        #
-        # Returns: Nothing.
-        my CancelDrag
-        foreach child [my children $id] {
-            my Drop $child
-        }
-        if {[dict exists $Pending $id]} {
-            after cancel [dict get $Pending $id]
-            dict unset Pending $id
-        }
-        set path [dict get $Nodes $id widget]
-        if {[dict exists $Panels $id]} {
-            destroy [dict get $Panels $id pane]
-            dict unset Panels $id
-        }
-        if {[dict exists $Borders $id]} {
-            destroy [dict get $Borders $id]
-            dict unset Borders $id
-        }
-        dict unset Nodes $id
-        destroy $path
-    }
-    method remove {args} {
-        # Removes a docked subtree or destroys owned floating content.
-        #  id - Existing node identifier or floating token to remove.
-        #
-        # Removing the root behaves like clear. Otherwise, the parent retains its remaining children with normalized
-        # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
-        #
-        # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
-        # Synopsis: id
-        argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
-            {id -help {Node identifier or floating token to remove}}
-        }
-        if {[dict exists $Floating $id]} {
-            my ValidateOperation remove $id
-            set frame [my FloatingFrame $id]
-            dict unset Floating $id
-            destroy $frame
-            return
-        }
-        my Check $id
-        my ValidateOperation remove $id
-        if {$id eq $Root} {
-            return [my clear]
-        }
-        my CaptureAll
-        set parent [my parent $id]
-        set children [my children $parent]
-        set index [lsearch -exact $children $id]
-        set children [lreplace $children $index $index]
-        set weights [lreplace [dict get $Nodes $parent proportions] $index $index]
-        my Drop $id
-        dict set Nodes $parent children $children
-        if {[llength $children] >= 2} {
-            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
+        dict set Settings $group $candidate
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
             my Rebuild
-            return $parent
         }
-        set survivor [lindex $children 0]
-        my Promote $parent $survivor
-        my Rebuild
-        return $survivor
-    }
-    method Promote {parent survivor} {
-        # Replaces a split with its surviving child.
-        #  parent - Split identifier to remove.
-        #  survivor - Child identifier to promote.
-        #
-        # The caller must already have removed the other children. Detaches the survivor, destroys the parent
-        # panedwindow, and updates the grandparent or root link. The grandparent pane share is retained. The caller
-        # rebuilds geometry afterward.
-        #
-        # Returns: Nothing.
-        set grand [my parent $parent]
-        my Detach [my widget $survivor]
-        if {[dict exists $Pending $parent]} {
-            after cancel [dict get $Pending $parent]
-            dict unset Pending $parent
-        }
-        set pw [my panedwindow $parent]
-        if {[dict exists $Borders $parent]} {
-            destroy [dict get $Borders $parent]
-            dict unset Borders $parent
-        }
-        dict unset Nodes $parent
-        destroy $pw
-        dict set Nodes $survivor parent $grand
-        if {$grand eq {}} {
-            set Root $survivor
-        } else {
-            set children [dict get $Nodes $grand children]
-            set pos [lsearch -exact $children $parent]
-            dict set Nodes $grand children [lreplace $children $pos $pos $survivor]
-        }
-    }
-    method retain {args} {
-        # Keeps a node while removing its siblings and collapsing its parent.
-        #  id - Existing node identifier to retain.
-        #
-        # Destroys all sibling subtrees and their content, then promotes the retained node in place of its immediate
-        # parent. Only that parent level is collapsed. Retaining the root makes no changes.
-        #
-        # Returns: The retained node identifier.
-        # Synopsis: id
-        argparse -pfirst -help {Keep one node, remove its sibling subtrees, and collapse its immediate parent} {
-            {id -help {Existing node to retain; retaining the root makes no changes}}
-        }
-        my Check $id
-        set parent [my parent $id]
-        if {$parent eq {}} {
-            return $id
-        }
-        my ValidateOperation retain $id
-        my CaptureAll
-        foreach sibling [my children $parent] {
-            if {$sibling ne $id} {
-                my Drop $sibling
-            }
-        }
-        my Promote $parent $id
-        my Rebuild
-        return $id
-    }
-    method clear {args} {
-        # Destroys the docked tree and creates one empty root leaf; floating content is retained.
-        #
-        # Returns: The new root leaf identifier.
-        # Synopsis:
-        argparse -pfirst -help {Destroy the docked tree and create an empty root leaf; retain floating content} {}
-        my ValidateOperation clear
-        my Drop $Root
-        set Root [my NewLeaf {}]
-        my Rebuild
-        return $Root
-    }
-    method swap {args} {
-        # Exchanges the content frames assigned to two leaves.
-        #  a - First leaf identifier.
-        #  b - Second leaf identifier.
-        #
-        # The leaves can belong to different splits and nesting levels. Their logical positions remain unchanged, while
-        # complete content frames and their existing widget state move between those positions. Actual Tk parentage and
-        # widget pathnames remain unchanged. Equal identifiers do nothing.
-        #
-        # Returns: Nothing.
-        # Synopsis: a b
-        argparse -pfirst -help {Exchange two leaves content frames without changing their logical positions} {
-            {a -help {First docked leaf identifier}}
-            {b -help {Second docked leaf identifier; equal identifiers make no changes}}
-        }
-        my Check $a leaf
-        my Check $b leaf
-        if {$a eq $b} {
-            return
-        }
-        my ValidateOperation swap $a $b
-        my CaptureAll
-        set fa [my frame $a]
-        set fb [my frame $b]
-        dict set Nodes $a widget $fb
-        dict set Nodes $b widget $fa
-        my Rebuild
         return
     }
-    method tree {args} {
-        # Returns a recursive snapshot of the logical layout hierarchy.
-        #  id - Subtree root identifier; empty selects the layout root.
-        #
-        # Each node dictionary contains id, type, parent, widget, and children. With handles enabled, widget is the
-        # wrapper for a leaf. Leaf dictionaries also contain the application content frame as frame,
-        # with an empty children list. Split dictionaries contain orient and proportions; two-child splits also contain
-        # ratio. With showstructure, widget is the enclosing split wrapper. The panedwindow field always names
-        # the native split widget. Split children are nested node dictionaries in pane order.
-        #
-        # Proportions are refreshed from usable geometry unless application is pending.
-        #
-        # Returns: A nested dictionary describing the requested logical subtree.
-        # Synopsis: ?id?
-        argparse -pfirst -help {Return a recursive dictionary snapshot of the logical layout hierarchy} {
-            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
-        }
-        if {$id eq {}} {
-            set id $Root
-        }
-        my Check $id
-        set result [dict merge [dict create id $id] [dict get $Nodes $id]]
-        dict set result widget [my widget $id]
-        if {[my type $id] eq {leaf}} {
-            dict set result frame [my frame $id]
-            dict set result children {}
-        } else {
-            dict set result panedwindow [my panedwindow $id]
-            dict set result proportions [my proportions $id]
-            if {[llength [my children $id]] == 2} {
-                dict set result ratio [lindex [dict get $result proportions] 0]
-            }
-            dict set result children [lmap child [my children $id] {my tree $child}]
-        }
-        return $result
-    }
-    method widgets {args} {
-        # Returns a recursive snapshot of the actual Tk widget hierarchy.
-        #  path - Widget subtree root; empty selects the layout hull.
-        #
-        # The pathname must exist and be the hull or one of its Tk descendants. This hierarchy includes application
-        # widgets and is independent of the logical tree returned by tree.
-        #
-        # Returns: A nested widget dictionary with path, parent, class, manager, container, and children.
-        # Synopsis: ?path?
-        argparse -pfirst -help {Return a recursive dictionary snapshot of the actual Tk widget hierarchy} {
-            {path -optional -default {} -help {Widget subtree root within this manager; omit or pass empty to use its\
-                                                       hull}}
-        }
-        if {$path eq {}} {
-            set path $W
-        }
-        if {![winfo exists $path]} {
-            error "bad window path name '$path'"
-        }
-        set ancestor $path
-        while {($ancestor ne {}) && ($ancestor ne $W)} {
-            set ancestor [winfo parent $ancestor]
-        }
-        if {$ancestor ne $W} {
-            return -code error "window '$path' is outside $W"
-        }
-        return [my WidgetTree $path]
-    }
-    method WidgetTree {path} {
-        # Builds a recursive Tk widget dictionary.
-        #  path - Existing widget pathname to inspect.
-        #
-        # For managed layout nodes, container is resolved through the logical tree. For other widgets managed by pack,
-        # grid, or place, it is their -in target. For other geometry managers it is empty. Children are nested
-        # dictionaries in the order returned by winfo children.
-        #
-        # Returns: A dictionary containing path, parent, class, manager, container, and children.
-        set manager [winfo manager $path]
-        set container {}
-        set id [my node $path]
-        if {$id ne {}} {
-            set container [my container $path]
-        } elseif {$manager in {pack grid place}} {
-            set container [dict get [$manager info $path] -in]
-        }
-        set result [dict create path $path parent [winfo parent $path] class [winfo class $path] manager $manager\
-                            container $container]
-        dict set result children [lmap child [winfo children $path] {my WidgetTree $child}]
-        return $result
-    }
-    # Deferred mode intercepts only sash gestures, before TPanedwindow bindings.
-    # Window preview uses a separate native surface. Inline preserves the old
-    # child-frame preview; none provides a diagnostic/no-overlay mode. Motion
-    # updates coalesce at idle. There are no nested update calls.
     method SyncBorders {} {
         # Synchronizes optional split outlines after all geometry widgets have been detached.
         #
@@ -4378,6 +4414,34 @@ oo::configurable create ::splitlayout::splitlayout {
             if {[winfo exists $border]} {
                 set color [dict get $Settings structureopts [expr {$id eq $receiver ? {-activecolor} : {-color}}]]
                 $border configure -highlightbackground $color -highlightcolor $color
+            }
+        }
+    }
+    method ApplyLeafBorder {path} {
+        # Applies the independent leaf outline to a pane wrapper or floating content frame.
+        #  path - Classic frame or labelframe owned by the manager.
+        #
+        # Native internal borders reserve space for application geometry without changing widget ancestry.
+        # Returns: Nothing.
+        $path configure -borderwidth [expr {$LeafBorder ? $LeafWidth : 0}] -relief $LeafRelief
+        if {$LeafBorder} {
+            $path configure -background [dict get $Settings leafopts -color]
+        }
+    }
+
+    ### Header and button methods
+    method ContentTitleDestroyed {frame path} {
+        # Discards title and minimum-size metadata when its content frame is destroyed.
+        #  frame - Content frame associated with this binding.
+        #  path - Widget reported by Destroy; child events are ignored.
+        #
+        # Returns: Nothing.
+        if {$frame eq $path} {
+            if {[dict exists $Titles $frame]} {
+                dict unset Titles $frame
+            }
+            if {[dict exists $Minimums $frame]} {
+                dict unset Minimums $frame
             }
         }
     }
@@ -4791,17 +4855,6 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method ApplyLeafBorder {path} {
-        # Applies the independent leaf outline to a pane wrapper or floating content frame.
-        #  path - Classic frame or labelframe owned by the manager.
-        #
-        # Native internal borders reserve space for application geometry without changing widget ancestry.
-        # Returns: Nothing.
-        $path configure -borderwidth [expr {$LeafBorder ? $LeafWidth : 0}] -relief $LeafRelief
-        if {$LeafBorder} {
-            $path configure -background [dict get $Settings leafopts -color]
-        }
-    }
     method ContentMapped {path} {
         # Reapplies pane proportions when a content frame maps after handles are toggled or content is moved.
         #  path - Manager-owned application content frame pathname.
@@ -4973,6 +5026,8 @@ oo::configurable create ::splitlayout::splitlayout {
         $grip create text $x [expr {($edge+[winfo height $grip]-$bottom)/2.0}] -text $text -font $font -fill $fg\
                 -anchor $anchor -tags heading
     }
+
+    ### Drag handling methods
     method DockFocusOut {grip} {
         # Cancels only a drag whose own header has actually lost focus.
         #  grip - Header receiving the FocusOut notification.
@@ -5016,26 +5071,6 @@ oo::configurable create ::splitlayout::splitlayout {
         my SyncHandleCursor $grip $id
         focus $grip
         return -code break
-    }
-    method FloatingPosition {frame geometry} {
-        # Converts a floating window's WM geometry position into absolute screen coordinates.
-        #  frame - Floating content frame.
-        #  geometry - Geometry returned by wm geometry, including size and position.
-        #
-        # Each position has an anchor sign and a separately signed offset. For example, +-32 means an absolute
-        # negative coordinate, whereas -32 means an offset from the opposite screen edge. Keep these distinct.
-        # Unrecognized forms use the current client origin rather than leaving gesture state incomplete.
-        # Returns: Screen x and y coordinates for the start of a floating drag.
-        if {![regexp {^[0-9]+x[0-9]+([+-])(-?[0-9]+)([+-])(-?[0-9]+)$} $geometry -> xs x ys y]} {
-            return [list [winfo rootx $frame] [winfo rooty $frame]]
-        }
-        if {$xs eq {-}} {
-            set x [expr {[winfo screenwidth $frame]-[winfo width $frame]-$x}]
-        }
-        if {$ys eq {-}} {
-            set y [expr {[winfo screenheight $frame]-[winfo height $frame]-$y}]
-        }
-        return [list $x $y]
     }
     method DockBounds {path} {
         # Returns a widget's screen rectangle.
@@ -5448,8 +5483,12 @@ oo::configurable create ::splitlayout::splitlayout {
             my SyncHeaderTips
         }
     }
-    # Deferred sash mode intercepts gestures before TPanedwindow bindings.
-    # Its preview mode is independent of the docking preview.
+
+    ### Deferred sash resizing methods
+    # Deferred mode intercepts only sash gestures, before TPanedwindow bindings.  Window preview uses a separate native
+    # surface. Inline preserves the old child-frame preview; none provides a diagnostic/no-overlay mode. Motion updates
+    # coalesce at idle. There are no nested update calls.  Deferred sash mode intercepts gestures before TPanedwindow
+    # bindings.  Its preview mode is independent of the docking preview.
     method DeferredPress {pw rootX rootY x y} {
         # Starts a deferred sash gesture, or a constrained live gesture when content minima are configured.
         #  pw - Panedwindow receiving the button press.
@@ -5688,32 +5727,8 @@ oo::configurable create ::splitlayout::splitlayout {
             focus $oldFocus
         }
     }
-    method SplitConfigure {id} {
-        # Handles a split geometry change.
-        #  id - Split identifier reported by the Configure binding.
-        #
-        # Cancels a deferred gesture because its saved coordinates may be stale, then schedules application of the
-        # split and ancestor proportions. Nested requests can change ancestor sashes without resizing their windows.
-        #
-        # Returns: Nothing.
 
-        my CancelDock
-        # An external resize/move invalidates preview coordinates. Cancel the
-        # preview and let the normal ratio handler process the new geometry.
-        if {$Drag ne {} && !$Opaque} {
-            my CancelDrag
-        }
-        my Schedule $id
-        # A nested split can change its parent's sash allocation through a geometry request without changing
-        # the parent's outer size. Reapply ancestor proportions even when no parent Configure event is emitted.
-        if {[dict exists $Nodes $id]} {
-            set parent [my parent $id]
-            while {$parent ne {}} {
-                my Schedule $parent
-                set parent [my parent $parent]
-            }
-        }
-    }
+    ### Owner window methods
     method SyncOwner {} {
         # Tracks the actual containing toplevel after ancestor docking or promotion.
         #
@@ -5789,7 +5804,6 @@ oo::configurable create ::splitlayout::splitlayout {
             my CancelDrag
         }
     }
-
 }
 
 namespace eval splitlayout {
