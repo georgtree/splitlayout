@@ -185,7 +185,7 @@ proc ::splitlayout::cursors::Create {platform state} {
                 set cursor [list @$source $mask black white]
             }
             default {
-                error "unsupported windowing system '$platform'"
+                return -code error "unsupported windowing system '$platform'"
             }
         }
     } on error {message options} {
@@ -268,6 +268,23 @@ namespace eval ::splitlayout {
     }
 
     variable _ruff_preamble {
+        ## Command-line help
+        Argparse-based public commands accept `-help`, print their descriptions and argument details to stdout,
+        and return without changing the layout. Required arguments and other supplied values are ignored for help.
+        Creation help allocates neither a TclOO object nor a Tk window.
+
+        ```tcl
+        splitlayout .layout -help
+        $manager split -help
+        $manager move -help
+        $manager constraints -help
+        $manager constraints $leaf -help
+        ```
+
+        Help is available for creation and all package-defined public instance commands. Inherited TclOO and
+        oo::configurable commands retain their standard interfaces. Standard TclOO `new` and `create` also recognize
+        constructor help. Formatting uses argparse's `textutil::adjust` dependency from Tcllib.
+
         ## Quick start
         ```tcl
         package require splitlayout
@@ -356,17 +373,17 @@ namespace eval ::splitlayout {
         space and leaf borders to the content minimum. For a horizontal split, child widths and themed sash widths are
         summed and the largest child height is used. Vertical splits use the opposite axes. Each split's structure
         border and padding are added when enabled. Removing, inserting, or moving children updates the calculated
-        requirement.  The query excludes the manager hull's padding/border, native window decorations, and application
-        widget requests.  It works before mapping; sash dimensions come from the active ttk theme without modifying its
+        requirement. The query excludes the manager hull's padding/border, native window decorations, and application
+        widget requests. It works before mapping; sash dimensions come from the active ttk theme without modifying its
         styles.
 
         With explicit minima configured, requested proportions are fitted to available space while respecting child
         requirements. Both live and deferred sash gestures stop at the adjacent panes' feasible limits. When the parent
         is too small, child requirements along each split axis are compressed proportionally; requested minima are
         retained and apply again when space becomes available. A cross-axis shortage likewise cannot satisfy the
-        requested minimum.  Very small allocations may leave no visible content after sashes and decoration consume the
-        available pixels.  Setting `{0 0}` clears the content requirement; enabled headers and borders still require
-        space.  Layouts that have never been assigned minima retain their existing sash behavior.
+        requested minimum. Very small allocations may leave no visible content after sashes and decoration consume the
+        available pixels. Setting `{0 0}` clears the content requirement; enabled headers and borders still require
+        space. Layouts that have never been assigned minima retain their existing sash behavior.
 
         Floating windows receive `wm minsize` based on their content and decoration. Header visibility, image sizes,
         border settings, and theme changes refresh constraints through the normal idle geometry pass. The manager does
@@ -374,8 +391,8 @@ namespace eval ::splitlayout {
         for their other widgets if they want to enforce a window minimum. Native window-manager behavior remains
         platform-dependent. Tk may report a larger minimum than requested because of native window limits. In
         particular, Windows can report a positive minimum width after setting `wm minsize` to `0 0`, and its reported
-        limits can change when a window is first mapped.  `requiredsize` reports the manager's calculated requirement,
-        not the native effective window minimum.  Constraints cover manager operations and gestures; direct
+        limits can change when a window is first mapped. `requiredsize` reports the manager's calculated requirement,
+        not the native effective window minimum. Constraints cover manager operations and gestures; direct
         modifications through the exposed native panedwindow command bypass the manager until its next geometry
         application.
 
@@ -490,7 +507,7 @@ namespace eval ::splitlayout {
 
         Ancestor flags are not rewritten. An ancestor can report `-nodestroy false` while a descendant makes its
         removal illegal. Validation considers everything the whole operation would delete before changing any widgets
-        or records.  Delete buttons obey these restrictions. Native close with `-onclose destroy` leaves protected
+        or records. Delete buttons obey these restrictions. Native close with `-onclose destroy` leaves protected
         content open; `-onclose dock` attempts normal docking and likewise leaves the window open if the destination
         violates constraints.
 
@@ -502,7 +519,7 @@ namespace eval ::splitlayout {
 
         ### Resize locks
         `-noresize` rejects sash gestures that would change the allocation of a protected node, including ancestor
-        sashes.  An explicitly locked split can still adjust its own internal sashes if its children are not
+        sashes. An explicitly locked split can still adjust its own internal sashes if its children are not
         locked. With resize locks present, a sash cannot push neighboring sashes to resize a more distant protected
         pane. Changing constraints cancels active manager gestures and prevents further movement from an already active
         native live sash gesture.
@@ -519,9 +536,9 @@ namespace eval ::splitlayout {
 
         ### Leaf counts and depth
         A leaf counts as one and has depth zero. A split containing only leaves has depth one; nesting adds one per
-        edge.  Thus `-maxdepth 0` prevents splitting that node or converting it into a split by moving or docking
+        edge. Thus `-maxdepth 0` prevents splitting that node or converting it into a split by moving or docking
         another leaf at its edge. Counts include all docked descendant leaves, not only immediate children. Floating
-        content is excluded.  Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1. The
+        content is excluded. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1. The
         layout always has at least one root leaf, including its empty placeholder. All numeric constraint values are
         limited to 2147483647.
 
@@ -550,10 +567,10 @@ namespace eval ::splitlayout {
 
         Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
         the tree. Errors have `-errorcode {SPLITLAYOUT CONSTRAINT option id}` and identify the restriction that blocked
-        the action.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
+        the action. Identical-node swaps and moves, and already-adjacent moves that make no change, remain
         no-ops. Drop previews suppress invalid destinations and release does nothing there. Header buttons retain their
-        action icons, including custom images, and become inactive when their current action is illegal.  The same
-        image is assigned explicitly to normal and disabled states; ttk still controls button styling.  Blocked native
+        action icons, including custom images, and become inactive when their current action is illegal. The same
+        image is assigned explicitly to normal and disabled states; ttk still controls button styling. Blocked native
         close requests leave the window open without a background error. Flags are explicit settings, not a cached
         summary of every action that might be prohibited by descendants or ancestor bounds.
 
@@ -586,7 +603,7 @@ namespace eval ::splitlayout {
         is created around the source and target subtree; the target keeps its identifier unless source removal leaves
         it with a sole child and normal collapse promotes that child. A split target may contain the source, including
         the root. For example, `.layout move $source -right [.layout root]` places the source beside the remaining
-        layout in a new horizontal root.  The source identifier remains unchanged and is also the command's return
+        layout in a new horizontal root. The source identifier remains unchanged and is also the command's return
         value.
 
         For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
@@ -708,7 +725,7 @@ namespace eval ::splitlayout {
 
         A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
         drag-area tooltip, and does not take a grab on press. Button tooltips remain available. If either operation
-        remains possible, the hover cursor is an open hand; destination constraints still apply to each drop.  An
+        remains possible, the hover cursor is an open hand; destination constraints still apply to each drop. An
         accepted mouse press immediately closes the hand. Crossing the drag threshold changes it to a closed hand
         holding a small window, which remains visible until release or cancellation, including over invalid
         destinations. Returning the pointer near its starting position does not deactivate the drag. A simple click or
@@ -852,9 +869,9 @@ namespace eval ::splitlayout {
         tooltip](https://core.tcl-lang.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip.md) for the
         drag area and action buttons. Drag-area text describes rearranging/undocking or moving/docking, depending on
         whether the content is docked or floating. If the package cannot load, there are no tooltips and no custom
-        fallback.  Set `-tooltips false` to remove this manager's tooltip registrations. It does not disable
+        fallback. Set `-tooltips false` to remove this manager's tooltip registrations. It does not disable
         application tooltips globally or change their delay, font, colors, or fading. Setting it to `true` retries
-        loading the optional package.  The value returned by `configure -tooltips` is the requested preference, even
+        loading the optional package. The value returned by `configure -tooltips` is the requested preference, even
         when the package is unavailable.
 
         ## Nested managers
@@ -922,8 +939,8 @@ namespace eval ::splitlayout {
         ```
 
         By default, each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel
-        inset on each side.  Customize these dimensions and colors with `-structureopts` or the option database
-        described below.  Flat siblings share one enclosing outline; a nested split has an additional inset outline
+        inset on each side. Customize these dimensions and colors with `-structureopts` or the option database
+        described below. Flat siblings share one enclosing outline; a nested split has an additional inset outline
         around its children. A sole root leaf has no split outline. The setting is independent of drag handles and
         applies to future splits. During docking, the receiving group outline turns blue alongside the existing
         destination preview. For a local edge move that creates a new split, the highlighted outline is the current
@@ -931,7 +948,7 @@ namespace eval ::splitlayout {
 
         Changing `-showstructure` cancels active gestures and rebuilds geometry while retaining content, native
         panedwindows, and split proportions (subject to available pixel space). Disabling it removes the outlines and
-        their spacing.  Very small panes can still collapse under Tk's normal geometry constraints.
+        their spacing. Very small panes can still collapse under Tk's normal geometry constraints.
 
         With this option enabled, `widget split` returns the enclosing outline frame. Use `panedwindow split` to obtain
         the native ttk panedwindow regardless of the option value, for example:
@@ -1054,9 +1071,9 @@ namespace eval ::splitlayout {
 
         The database is queried against the layout hull once during construction. Standard Tk name/class patterns and
         priorities apply; for example, `*editor.layout.splitlayoutDockColor` scopes a resource to a layout below
-        `.editor`.  Explicit constructor dictionary keys override database values. Later database changes affect newly
+        `.editor`. Explicit constructor dictionary keys override database values. Later database changes affect newly
         created layouts only; use `configure` for an existing layout. Built-in defaults are still available if the
-        application calls `option clear`.  The three dictionaries are accepted both at construction and by `configure`;
+        application calls `option clear`. The three dictionaries are accepted both at construction and by `configure`;
         an empty dictionary leaves current settings unchanged.
 
         All dimensions are integer **screen pixels**, from zero to 2147483647, without additional DPI scaling. Colors
@@ -1134,7 +1151,7 @@ namespace eval ::splitlayout {
         floating frame removes its record.
 
         Floating tokens are opaque, manager-specific handles. They expire on docking or removal, and must not be
-        reused.  `floating` lists these tokens; `floating $token` returns a dictionary with `id`, `frame`, `title`,
+        reused. `floating` lists these tokens; `floating $token` returns a dictionary with `id`, `frame`, `title`,
         `geometry`, `state`, and `onclose`. `frame $token` returns the retained frame. Docked-tree commands (`tree`,
         `leaves`, `node`, and `locate`) exclude floating content; `widgets` still exposes its actual Tk ancestry and
         `wm` geometry manager.
@@ -1173,7 +1190,7 @@ namespace eval ::splitlayout {
         ```
 
         For a non-root node identifier, `container` returns its parent panedwindow. Its actual Tk parent remains
-        `.layout`.  With handles enabled, passing the content frame pathname instead returns its pane wrapper. `winfo
+        `.layout`. With handles enabled, passing the content frame pathname instead returns its pane wrapper. `winfo
         manager` reports the manager name, not the pathname of that geometry container.
 
         `node` maps an exact managed frame or panedwindow pathname to its node identifier. `locate` accepts a descendant
@@ -1192,7 +1209,7 @@ namespace eval ::splitlayout {
         children. Split `children` are nested node dictionaries in pane order.
 
         `widgets` returns nested dictionaries containing `path`, `parent`, `class`, `manager`, `container`, and
-        `children`.  It includes application widgets. The container is resolved for layout nodes and for widgets
+        `children`. It includes application widgets. The container is resolved for layout nodes and for widgets
         managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup.
 
         Floating content is described separately by floating; widgets still includes its actual Tk subtree.
@@ -1230,6 +1247,44 @@ namespace eval ::splitlayout {
         }
     }
     unset group entries key spec
+}
+
+proc ::splitlayout::CreationArguments {} {
+    # Supplies the constructor argument definitions, shared by creation and side-effect-free help.
+    # Returns: An argparse definition list with per-argument descriptions.
+    return {
+        {path -help {New non-root Tk widget pathname}}
+        {-dockopts= -default {} -help {Drag preview colors, line width, detection areas, and activation threshold}}
+        {-structureopts= -default {} -help {Split outline colors, border width, and spacing}}
+        {-leafopts= -default {} -help {Leaf outline colors}}
+        {-leafborder= -default false -type boolean -help {Draw a border around each leaf}}
+        {-leafborderwidth= -default 1 -type integer -help {Nonnegative leaf border width in pixels}}
+        {-leafrelief= -default solid -enum {flat raised sunken ridge groove solid} -help {Leaf border relief}}
+        {-sashpreviewopts= -default {} -help {Deferred sash preview color and width}}
+        {-width= -default 800 -type integer -help {Nonnegative requested hull width in pixels}}
+        {-height= -default 600 -type integer -help {Nonnegative requested hull height in pixels}}
+        {-showstructure= -default false -type boolean -help {Show outlines around split nodes}}
+        {-draghandles= -default false -type boolean -help {Show draggable headers and action buttons}}
+        {-buttonside= -default right -enum {left right} -help {Header action-button alignment}}
+        {-lockbuttonmode= -default all -enum {all outer}\
+                -help {Lock all edges or only edges touching the immediate parent split boundary}}
+        {-titlealign= -default center -enum {left center right} -help {Header title alignment}}
+        {-buttonimages= -default {} -help {Application-owned images keyed by dock, undock, delete, lock, or unlock}}
+        {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid} -help {Header border relief}}
+        {-headerborderwidth= -default 1 -type integer -help {Nonnegative header border width in pixels}}
+        {-tooltips= -default true -type boolean\
+                -help {Enable header and button tooltips when Tklib tooltip is available}}
+        {-opaqueresize= -default true -type boolean -help {Resize panes continuously while moving a sash}}
+        {-sashpreview= -default window -enum {window inline none}\
+                -help {Preview style when opaque resizing is disabled}}
+    }
+}
+
+proc ::splitlayout::CreationHelp {args} {
+    # Prints creation help without allocating an object or a Tk window.
+    #  args - Constructor arguments including -help; other arguments are ignored by argparse help.
+    # Returns: Nothing. The normal argparse help completion returns from this procedure.
+    argparse -pfirst -help {Create a splitlayout widget with one empty root leaf} [CreationArguments]
 }
 
 oo::configurable create ::splitlayout::splitlayout {
@@ -1288,8 +1343,8 @@ oo::configurable create ::splitlayout::splitlayout {
                 -buttonimages {
                     Dictionary mapping dock, undock, delete, lock, and unlock to existing Tk image names. Empty values
                     select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one
-                    default.  Supplied images are application-owned. Buttons and header height accommodate image
-                    dimensions.  Changing images cancels an active drag. Empty dictionaries leave existing overrides
+                    default. Supplied images are application-owned. Buttons and header height accommodate image
+                    dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides
                     unchanged.
                 }
                 -headerrelief {
@@ -1324,7 +1379,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
                 -showstructure {
                     Boolean showing an outline and inset around every split; default false. Appearance is set by
-                    -structureopts.  Applies to existing and future splits. Changing it cancels active gestures,
+                    -structureopts. Applies to existing and future splits. Changing it cancels active gestures,
                     preserves content, and rebuilds geometry. During docking the receiving split outline is
                     highlighted.
                 }
@@ -1584,63 +1639,6 @@ oo::configurable create ::splitlayout::splitlayout {
     } -set {
         my SetAppearance sashpreviewopts $value
     }
-    method SetAppearance {group value} {
-        # Validates and applies an appearance dictionary without creating option instances.
-        #  group - Resource group: dockopts, structureopts, leafopts, or sashpreviewopts.
-        #  value - Dictionary of keys to override; unspecified keys retain current values.
-        #
-        # On first assignment, query the hull's option database using package-specific resource names and classes.
-        # Explicit keys override database defaults before validation. Built-in defaults also survive option clear.
-        # Validation completes before cancellation or mutation. Successful changes cancel gestures; structure changes
-        # rebuild geometry with retained proportions. Setting unchanged values has no effect.
-        # Returns: Nothing.
-        set schema [dict get $::splitlayout::appearanceResources $group]
-        set candidate {}
-        if {[dict exists $Settings $group]} {
-            set candidate [dict get $Settings $group]
-        } else {
-            dict for {key spec} $schema {
-                lassign $spec resource type fallback
-                set initial [option get $W $resource [string toupper $resource 0 0]]
-                if {$initial eq {}} {
-                    set initial $fallback
-                }
-                dict set candidate $key $initial
-            }
-        }
-        dict for {key setting} $value {
-            if {![dict exists $schema $key]} {
-                return -code error "unknown -$group key '$key'"
-            }
-            dict set candidate $key $setting
-        }
-        dict for {key setting} $candidate {
-            set type [lindex [dict get $schema $key] 1]
-            if {$type eq {color}} {
-                if {[catch {winfo rgb $W $setting}]} {
-                    return -code error "invalid color for -$group $key: '$setting'"
-                }
-            } else {
-                set minimum [expr {$type eq {positive} ? 1 : 0}]
-                if {![string is entier -strict $setting] || ($setting < $minimum) ||( $setting > 2147483647)} {
-                    return -code error "expected integer pixels from $minimum to 2147483647 for -$group $key"
-                }
-                dict set candidate $key [expr {$setting + 0}]
-            }
-        }
-        if {[dict exists $Settings $group] && ($candidate eq [dict get $Settings $group])} {
-            return
-        }
-        my CancelDrag
-        if {($group in {structureopts leafopts}) && [info exists Root]} {
-            my CaptureAll
-        }
-        dict set Settings $group $candidate
-        if {($group in {structureopts leafopts}) && [info exists Root]} {
-            my Rebuild
-        }
-        return
-    }
     property width -get {
         return [$Hull cget -width]
     } -set {
@@ -1684,6 +1682,27 @@ oo::configurable create ::splitlayout::splitlayout {
     property class -kind readable -get {
         return [$Hull cget -class]
     }
+    self method new {args} {
+        # Creates an instance, or prints constructor help without creating one.
+        #  args - Widget pathname and constructor options, or -help.
+        # Returns: The new object command, or an empty result for help.
+        if {{-help} in $args} {
+            ::splitlayout::CreationHelp {*}$args
+            return
+        }
+        next {*}$args
+    }
+    self method create {name args} {
+        # Creates a named instance, or prints constructor help without creating one.
+        #  name - Initial TclOO object command name.
+        #  args - Widget pathname and constructor options, or -help.
+        # Returns: The new object command, or an empty result for help.
+        if {{-help} in $args} {
+            ::splitlayout::CreationHelp {*}$args
+            return
+        }
+        next $name {*}$args
+    }
     self method unknown {w args} {
         # Creates a layout using Tk-style widget-path syntax.
         #  w - New widget pathname, or an unrecognized class subcommand.
@@ -1699,7 +1718,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: The widget pathname on creation; otherwise the inherited handler result.
         # Synopsis: w ?option value ...?
         if {[string match .* $w]} {
-            [self] new $w {*}$args
+            set instance [[self] new $w {*}$args]
+            if {$instance eq {}} {return}
             return $w
         }
         next $w {*}$args
@@ -1754,29 +1774,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set Closing 0
         set Owned 0
         set Serial 0
-        set options [argparse -inline -pfirst {
-            path
-            {-dockopts= -default {}}
-            {-structureopts= -default {}}
-            {-leafopts= -default {}}
-            {-leafborder= -default false -type boolean}
-            {-leafborderwidth= -default 1 -type integer}
-            {-leafrelief= -default solid -enum {flat raised sunken ridge groove solid}}
-            {-sashpreviewopts= -default {}}
-            {-width= -default 800 -type integer}
-            {-height= -default 600 -type integer}
-            {-showstructure= -default false -type boolean}
-            {-draghandles= -default false -type boolean}
-            {-buttonside= -default right -enum {left right}}
-            {-lockbuttonmode= -default all -enum {all outer}}
-            {-titlealign= -default center -enum {left center right}}
-            {-buttonimages= -default {}}
-            {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid}}
-            {-headerborderwidth= -default 1 -type integer}
-            {-tooltips= -default true -type boolean}
-            {-opaqueresize= -default true -type boolean}
-            {-sashpreview= -default window -enum {window inline none}}
-        }]
+        set options [argparse -inline -pfirst [::splitlayout::CreationArguments]]
         foreach option {opaqueresize sashpreview leafborder leafborderwidth leafrelief showstructure draghandles\
                             buttonside lockbuttonmode titlealign buttonimages headerrelief headerborderwidth\
                             tooltips} {
@@ -1875,6 +1873,63 @@ oo::configurable create ::splitlayout::splitlayout {
             my destroy
         }
     }
+    method SetAppearance {group value} {
+        # Validates and applies an appearance dictionary without creating option instances.
+        #  group - Resource group: dockopts, structureopts, leafopts, or sashpreviewopts.
+        #  value - Dictionary of keys to override; unspecified keys retain current values.
+        #
+        # On first assignment, query the hull's option database using package-specific resource names and classes.
+        # Explicit keys override database defaults before validation. Built-in defaults also survive option clear.
+        # Validation completes before cancellation or mutation. Successful changes cancel gestures; structure changes
+        # rebuild geometry with retained proportions. Setting unchanged values has no effect.
+        # Returns: Nothing.
+        set schema [dict get $::splitlayout::appearanceResources $group]
+        set candidate {}
+        if {[dict exists $Settings $group]} {
+            set candidate [dict get $Settings $group]
+        } else {
+            dict for {key spec} $schema {
+                lassign $spec resource type fallback
+                set initial [option get $W $resource [string toupper $resource 0 0]]
+                if {$initial eq {}} {
+                    set initial $fallback
+                }
+                dict set candidate $key $initial
+            }
+        }
+        dict for {key setting} $value {
+            if {![dict exists $schema $key]} {
+                return -code error "unknown -$group key '$key'"
+            }
+            dict set candidate $key $setting
+        }
+        dict for {key setting} $candidate {
+            set type [lindex [dict get $schema $key] 1]
+            if {$type eq {color}} {
+                if {[catch {winfo rgb $W $setting}]} {
+                    return -code error "invalid color for -$group $key: '$setting'"
+                }
+            } else {
+                set minimum [expr {$type eq {positive} ? 1 : 0}]
+                if {![string is entier -strict $setting] || ($setting < $minimum) ||( $setting > 2147483647)} {
+                    return -code error "expected integer pixels from $minimum to 2147483647 for -$group $key"
+                }
+                dict set candidate $key [expr {$setting + 0}]
+            }
+        }
+        if {[dict exists $Settings $group] && ($candidate eq [dict get $Settings $group])} {
+            return
+        }
+        my CancelDrag
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
+            my CaptureAll
+        }
+        dict set Settings $group $candidate
+        if {($group in {structureopts leafopts}) && [info exists Root]} {
+            my Rebuild
+        }
+        return
+    }
     method Check {id {kind {}}} {
         # Validates a logical node identifier and optional node type.
         #  id - Logical node identifier.
@@ -1922,20 +1977,47 @@ oo::configurable create ::splitlayout::splitlayout {
         dict set Nodes $id [dict create type leaf parent $parent widget $frame]
         return $id
     }
-    method constraints {id args} {
+    method constraints {args} {
         # Queries or atomically updates restrictions for one node or floating content.
         #  id - Leaf, split, or owned floating token.
-        #  args - No arguments, one option name, or option/value pairs.
+        #  option - Optional single constraint name to query, or option/value pairs to update.
         #
-        # Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and
-        # locked are leaf/floating-only. Floating content has no assignable subtree limits. Queries show explicit
-        # settings, not restrictions inherited by an operation from protected descendants. Locked also protects
-        # adjacent move/dock destinations on lockedside edges, in addition to setting the two movement flags.
-        # Lockedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection.
+        # Leaf flags follow content; split flags and subtree limits belong to node identity.
+        # Movement flags and locked are leaf/floating-only. Floating content has no assignable
+        # subtree limits. Queries show explicit settings, not restrictions inherited from descendants.
+        # Locked protects selected incoming placement edges and sets both movement flags.
+        #
         # Returns: One queried value, or the complete explicit settings dictionary.
         # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean?
         #  ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count?
         #  ?-maxdepth depth?
+
+        # A two-argument call is a query. Protect its option name from switch parsing.
+        if {[llength $args] == 2} {
+            set args [linsert $args 1 --]
+        }
+        set parsed [argparse -inline -pfirst -help {Query or atomically update node restrictions; omit options\
+                                                            to query all, or give one option to query it} {
+            {id -help {Leaf, split, or owned floating token}}
+            {option -optional -help {Single constraint name to query; omit to query all}}
+            {-nomove= -type boolean -help {Block direct leaf movement and swaps; ancestors remain movable}}
+            {-noundock= -type boolean -help {Prevent undocking this leaf; docking and desktop movement remain allowed}}
+            {-nodestroy= -type boolean -help {Prevent deletion; protected descendants also protect their ancestors}}
+            {-noresize= -type boolean -help {Prevent sash and proportion changes affecting this node}}
+            {-locked= -type boolean\
+                    -help {Set nomove and noundock together and enable lockedside protection; configure separately\
+                    from those flags}}
+            {-lockedside= -help {Blocked incoming placement edges: left, right, top, bottom; empty allows all edges}}
+            {-minleaves= -help {Minimum descendant leaves while retaining this subtree; nonnegative}}
+            {-maxleaves= -help {Maximum descendant leaves; -1 means unlimited}}
+            {-maxdepth= -help {Maximum nesting depth below this node; -1 means unlimited}}
+        }]
+        set id [dict get $parsed id]
+        set opts [dict remove $parsed id option]
+        if {[dict exists $parsed option] && [dict size $opts]} {
+            return -code error {cannot combine a constraint query with updates}
+        }
+
         classvariable ConstraintDefaults
         set floating [dict exists $Floating $id]
         set leaf [expr {$floating || ([my type $id] eq {leaf})}]
@@ -1949,27 +2031,18 @@ oo::configurable create ::splitlayout::splitlayout {
                 set current [dict merge $current [dict get $ContentRules $frame]]
             }
         }
-        if {![llength $args]} {
-            return $current
-        }
-        if {[llength $args] == 1} {
-            set option [lindex $args 0]
+
+        if {[dict exists $parsed option]} {
+            set option [dict get $parsed option]
             if {![dict exists $current $option]} {
                 return -code error "unknown constraint '$option'"
             }
             return [dict get $current $option]
         }
-        set opts [argparse -inline -pfirst {
-            {-nomove= -type boolean}
-            {-noundock= -type boolean}
-            {-nodestroy= -type boolean}
-            {-noresize= -type boolean}
-            {-locked= -type boolean}
-            -lockedside=
-            -minleaves=
-            -maxleaves=
-            -maxdepth=
-        }]
+        if {![dict size $opts]} {
+            return $current
+        }
+
         if {[dict exists $opts locked]} {
             if {[dict exists $opts nomove] || [dict exists $opts noundock]} {
                 return -code error {use -locked separately from -nomove and -noundock}
@@ -1977,6 +2050,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set opts nomove [dict get $opts locked]
             dict set opts noundock [dict get $opts locked]
         }
+
         set nodes $NodeRules
         set contents $ContentRules
         dict for {key value} $opts {
@@ -2562,10 +2636,11 @@ oo::configurable create ::splitlayout::splitlayout {
         # Header and border space is added by requiredsize. Validation is atomic; setting cancels active gestures.
         # Returns: The content minimum as {width height}.
         # Synopsis: id ?width height?
-        set opts [argparse -inline -pfirst {
-            id
-            {width -optional}
-            {height -optional}
+        set opts [argparse -inline -pfirst -help {Query or set content minimum size; width and height must be\
+                                                          supplied together} {
+            {id -help {Docked leaf or owned floating token; splits cannot own content minima}}
+            {width -optional -help {Minimum content width in pixels, from 0 to 2147483647; omit to query}}
+            {height -optional -help {Minimum content height in pixels, from 0 to 2147483647; required with width}}
         }]
         set frame [my frame [dict get $opts id]]
         if {[dict exists $opts width] != [dict exists $opts height]} {
@@ -2598,7 +2673,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # native window decorations, or application widget requests. This query does not resize the owner window.
         # Returns: A two-element {width height} list in pixels.
         # Synopsis: id
-        set opts [argparse -inline -pfirst {id}]
+        set opts [argparse -inline -pfirst -help {Return minimum outer width and height, including managed\
+                    decoration, without resizing the owner window} {
+            {id -help {Leaf, split, or owned floating token}}
+        }]
         set id [dict get $opts id]
         if {![dict exists $Floating $id] && ([my type $id] eq {split})} {
             set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
@@ -2769,7 +2847,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # In undersized layouts, proportional compressed minima become the temporary limits.
         # Returns: A feasible native sash coordinate.
-        if {![dict size $Minimums]} {return $target}
+        if {![dict size $Minimums]} {
+            return $target
+        }
         set pw [my panedwindow $id]
         set gap [my SashThickness $id]
         set minima [my PaneMinimums $id]
@@ -2797,9 +2877,11 @@ oo::configurable create ::splitlayout::splitlayout {
         # long headings to keep the buttons unobscured; the stored string is returned unchanged.
         # Returns: The current title string.
         # Synopsis: id ?text?
-        set opts [argparse -inline -pfirst {
-            id
-            {text -optional}
+        set opts [argparse -inline -pfirst -help {Query or set the title of managed content; the title follows\
+                    content through moves and docking} {
+            {id -help {Docked leaf or owned floating token}}
+            {text -optional -help {Header title; empty clears it, omit to query; does not change the native window\
+                                           title}}
         }]
         set frame [my frame [dict get $opts id]]
         if {[dict exists $opts text]} {
@@ -2826,13 +2908,17 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method floating {{id {}}} {
+    method floating {args} {
         # Lists floating content or describes one floating window owned by this manager.
         #  id - Floating token returned by undock; omit to list tokens.
         #
         # Floating content is absent from tree, leaves, node, and locate. Its actual widgets remain visible in widgets.
         # The snapshot contains id, frame, title, geometry, state, and onclose. Tokens expire on docking or removal.
         # Returns: A list of floating tokens, or a dictionary describing one floating window.
+        # Synopsis: ?id?
+        argparse -pfirst -help {List floating tokens, or describe one owned floating window} {
+            {id -optional -default {} -help {Floating token; omit or pass empty to list all}}
+        }
         if {$id eq {}} {
             return [dict keys $Floating]
         }
@@ -2960,11 +3046,13 @@ oo::configurable create ::splitlayout::splitlayout {
         # The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows.
         # Returns: An opaque floating token, accepted by dock, floating, frame, and remove.
         # Synopsis: leaf ?-title title? ?-geometry geometry? ?-onclose action?
-        set opts [argparse -inline -pfirst {
-            leaf
-            {-title= -default splitlayout}
-            {-geometry=}
-            {-onclose= -default dock -enum {dock destroy}}
+        set opts [argparse -inline -pfirst -help {Move managed leaf content into a floating window and return its\
+                                                          floating token} {
+            {leaf -help {Docked leaf identifier}}
+            {-title= -default splitlayout -help {Native floating-window title}}
+            {-geometry= -help {Tk window geometry; omit to use the current content size and position}}
+            {-onclose= -default dock -enum {dock destroy} -help {Action for native window close; the header delete\
+                                                                         button always requests deletion}}
         }]
         set id [my Check [dict get $opts leaf] leaf]
         set frame [my frame $id]
@@ -3040,14 +3128,15 @@ oo::configurable create ::splitlayout::splitlayout {
         # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
         # Returns: The new docked leaf identifier.
         # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
-        set opts [argparse -inline -pfirst {
-            floating
-            -left=
-            -right=
-            -top=
-            -bottom=
-            -before=
-            -after=
+        set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
+                                                          destination to restore the remembered position} {
+            {floating -help {Owned floating token returned by undock}}
+            {-left= -help {Place to the left of the target leaf or split}}
+            {-right= -help {Place to the right of the target leaf or split}}
+            {-top= -help {Place above the target leaf or split}}
+            {-bottom= -help {Place below the target leaf or split}}
+            {-before= -help {Place before a non-root target in its current parent}}
+            {-after= -help {Place after a non-root target in its current parent}}
         }]
         set token [dict get $opts floating]
         set frame [my FloatingFrame $token]
@@ -3167,36 +3256,50 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method root {} {
+    method root {args} {
         # Returns the current logical root node.
         #
         # Returns: The root node identifier.
+        # Synopsis:
+        argparse -pfirst -help {Return the current logical root node identifier} {}
         return $Root
     }
-    method type {id} {
+    method type {args} {
         # Returns the type of a logical node.
         #  id - Existing logical node identifier.
         #
         # Returns: The string leaf or split.
+        # Synopsis: id
+        argparse -pfirst -help {Return the type of a logical node: leaf or split} {
+            {id -help {Existing logical node identifier}}
+        }
         my Check $id
         return [dict get $Nodes $id type]
     }
-    method parent {id} {
+    method parent {args} {
         # Returns the logical parent of a node.
         #  id - Existing logical node identifier.
         #
         # This relationship is independent of the actual Tk widget parent.
         #
         # Returns: The parent node identifier, or an empty string for the root.
+        # Synopsis: id
+        argparse -pfirst -help {Return the logical parent identifier, or empty for the root} {
+            {id -help {Existing logical node identifier}}
+        }
         my Check $id
         return [dict get $Nodes $id parent]
     }
-    method widget {id} {
+    method widget {args} {
         # Returns the widget associated with a logical node.
         #  id - Existing logical node identifier.
         #
         # Returns: The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
         # or the content frame/native panedwindow otherwise. Use panedwindow to access a split's native widget.
+        # Synopsis: id
+        argparse -pfirst -help {Return the outer geometry widget associated with a logical node} {
+            {id -help {Existing logical node identifier}}
+        }
         my Check $id
         if {[dict exists $Borders $id]} {
             return [dict get $Borders $id]
@@ -3206,45 +3309,62 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return [dict get $Nodes $id widget]
     }
-    method panedwindow {id} {
+    method panedwindow {args} {
         # Returns the native panedwindow of a split, independently of structure visibility.
         #  id - Existing split identifier.
         #
         # Returns: The native ttk panedwindow pathname. Leaf identifiers raise an error.
+        # Synopsis: id
+        argparse -pfirst -help {Return the native ttk panedwindow of a split} {
+            {id -help {Existing split node identifier}}
+        }
         my Check $id split
         return [dict get $Nodes $id widget]
     }
-    method frame {id} {
+    method frame {args} {
         # Returns the retained content frame of a docked leaf or floating window.
         #  id - Existing leaf identifier or floating token.
         #
         # Raises an error if the node is unknown or is a split.
         #
         # Returns: The content frame pathname, unchanged across docking transitions.
+        # Synopsis: id
+        argparse -pfirst -help {Return the retained content frame of a docked leaf or floating window} {
+            {id -help {Existing leaf identifier or owned floating token}}
+        }
         if {[dict exists $Floating $id]} {
             return [my FloatingFrame $id]
         }
         my Check $id leaf
         return [dict get $Nodes $id widget]
     }
-    method children {id} {
+    method children {args} {
         # Returns the immediate logical children of a node.
         #  id - Existing logical node identifier.
         #
         # Returns: Child identifiers in pane order, or an empty list for a leaf.
+        # Synopsis: id
+        argparse -pfirst -help {Return immediate child identifiers in pane order; leaves have no children} {
+            {id -help {Existing logical node identifier}}
+        }
         my Check $id
         if {[my type $id] eq {leaf}} {
             return
         }
         return [dict get $Nodes $id children]
     }
-    method leaves {{id {}}} {
+    method leaves {args} {
         # Collects the leaves below a logical node.
         #  id - Subtree root identifier; empty selects the layout root.
         #
         # Traversal follows pane order recursively. A leaf includes itself.
         #
         # Returns: A list of leaf identifiers in depth-first pane order.
+        # Synopsis: ?id?
+        argparse -pfirst -help {Return leaf identifiers in depth-first pane order, including the node itself when\
+                it is a leaf} {
+            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
+        }
         if {$id eq {}} {
             set id $Root
         }
@@ -3258,13 +3378,17 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $result
     }
-    method node {path} {
+    method node {args} {
         # Finds the logical node associated with an exact widget pathname.
         #  path - Managed content frame, pane wrapper, or panedwindow pathname.
         #
         # This method does not search ancestors; use locate for application widgets inside a content frame.
         #
         # Returns: The node identifier, or an empty string when no node matches.
+        # Synopsis: path
+        argparse -pfirst -help {Find a logical node by its exact managed widget pathname; does not search ancestors} {
+            {path -help {Managed content frame, pane wrapper, split wrapper, or native panedwindow}}
+        }
         dict for {id border} $Borders {
             if {$border eq $path} {
                 return $id
@@ -3282,7 +3406,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return
     }
-    method locate {path} {
+    method locate {args} {
         # Finds the leaf containing an application widget.
         #  path - Widget pathname to locate.
         #
@@ -3290,6 +3414,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # A split panedwindow does not identify a leaf.
         #
         # Returns: The containing leaf identifier, or empty for a missing or unrelated widget.
+        # Synopsis: path
+        argparse -pfirst -help {Find the docked leaf containing an application widget by walking its Tk parents} {
+            {path -help {Widget pathname; missing or unrelated widgets return empty}}
+        }
         if {![winfo exists $path]} {
             return
         }
@@ -3302,7 +3430,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return
     }
-    method container {value} {
+    method container {args} {
         # Returns the geometry container for a managed node.
         #  value - Logical node identifier or exact managed widget pathname.
         #
@@ -3312,6 +3440,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # resolves to its pane wrapper when handles are enabled. A native panedwindow path resolves to its
         # enclosing split wrapper when showstructure is enabled.
         # Returns: The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate.
+        # Synopsis: value
+        argparse -pfirst -help {Return the geometry container of a managed node or exact managed widget} {
+            {value -help {Logical node identifier or exact managed widget pathname}}
+        }
         if {[dict exists $Nodes $value]} {
             set id $value
         } else {
@@ -3345,11 +3477,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The two new leaf identifiers in pane order.
         # Synopsis: node ?-orient orientation? ?-ratio fraction? ?-keep child?
-        set opts [argparse -inline -pfirst {
-            node
-            {-orient= -default horizontal -enum {horizontal vertical}}
-            {-ratio= -default 0.5}
-            {-keep= -default first -enum {first second}}
+        set opts [argparse -inline -pfirst -help {Turn a leaf into a two-child split, retaining its content in one\
+                                                          child; return both new leaf IDs} {
+            {node -help {Existing leaf to split}}
+            {-orient= -default horizontal -enum {horizontal vertical} -help {Arrange children horizontally or\
+                                                                                     vertically}}
+            {-ratio= -default 0.5 -help {First child fraction, strictly between 0 and 1}}
+            {-keep= -default first -enum {first second} -help {Child retaining the existing content frame}}
         }]
         set id [my Check [dict get $opts node] leaf]
         set fraction [my Fraction [dict get $opts ratio]]
@@ -3423,14 +3557,15 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.
         # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
-        set opts [argparse -inline -pfirst {
-            leaf
-            -left=
-            -right=
-            -top=
-            -bottom=
-            -before=
-            -after=
+        set opts [argparse -inline -pfirst -help {Move an existing leaf without recreating its content; specify\
+                                                          exactly one destination} {
+            {leaf -help {Docked leaf identifier}}
+            {-left= -help {Place to the left of the target leaf or split}}
+            {-right= -help {Place to the right of the target leaf or split}}
+            {-top= -help {Place above the target leaf or split}}
+            {-bottom= -help {Place below the target leaf or split}}
+            {-before= -help {Place before a non-root target in its current parent}}
+            {-after= -help {Place after a non-root target in its current parent}}
         }]
         set source [my Check [dict get $opts leaf] leaf]
         set destinations {}
@@ -3554,9 +3689,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The new leaf identifier.
         # Synopsis: node ?-side side?
-        set opts [argparse -inline -pfirst {
-            node
-            {-side= -default after -enum {before after}}
+        set opts [argparse -inline -pfirst -help {Insert an empty leaf beside a non-root node, sharing its parent\
+                    and dividing its pane share} {
+            {node -help {Non-root leaf or split serving as the insertion reference}}
+            {-side= -default after -enum {before after} -help {Insert before or after the reference node}}
         }]
         set id [my Check [dict get $opts node]]
         set parent [my parent $id]
@@ -3621,9 +3757,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The normalized list of pane proportions.
         # Synopsis: node ?weights?
-        set opts [argparse -inline -pfirst {
-            node 
-            {weights -optional}
+        set opts [argparse -inline -pfirst -help {Query or set normalized child proportions of a split} {
+            {node -help {Split node identifier}}
+            {weights -optional -help {One finite positive weight per child in pane order; omit to query}}
         }]
         set id [my Check [dict get $opts node] split]
         if {[dict exists $opts weights]} {
@@ -3912,9 +4048,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: The stored first pane fraction.
         # Synopsis: node ?value?
-        set opts [argparse -inline -pfirst {
-            node 
-            {value -optional}
+        set opts [argparse -inline -pfirst -help {Query or set the first-child fraction of a two-child split; use\
+                                                          proportions for larger splits} {
+            {node -help {Split node with exactly two children}}
+            {value -optional -help {First child fraction, strictly between 0 and 1; omit to query}}
         }]
         set id [my Check [dict get $opts node] split]
         if {[llength [my children $id]] != 2} {
@@ -3959,7 +4096,7 @@ oo::configurable create ::splitlayout::splitlayout {
         dict unset Nodes $id
         destroy $path
     }
-    method remove {id} {
+    method remove {args} {
         # Removes a docked subtree or destroys owned floating content.
         #  id - Existing node identifier or floating token to remove.
         #
@@ -3967,6 +4104,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
         #
         # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
+        # Synopsis: id
+        argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
+            {id -help {Node identifier or floating token to remove}}
+        }
         if {[dict exists $Floating $id]} {
             my ValidateOperation remove $id
             set frame [my FloatingFrame $id]
@@ -4029,7 +4170,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Nodes $grand children [lreplace $children $pos $pos $survivor]
         }
     }
-    method retain {id} {
+    method retain {args} {
         # Keeps a node while removing its siblings and collapsing its parent.
         #  id - Existing node identifier to retain.
         #
@@ -4037,6 +4178,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # parent. Only that parent level is collapsed. Retaining the root makes no changes.
         #
         # Returns: The retained node identifier.
+        # Synopsis: id
+        argparse -pfirst -help {Keep one node, remove its sibling subtrees, and collapse its immediate parent} {
+            {id -help {Existing node to retain; retaining the root makes no changes}}
+        }
         my Check $id
         set parent [my parent $id]
         if {$parent eq {}} {
@@ -4053,17 +4198,19 @@ oo::configurable create ::splitlayout::splitlayout {
         my Rebuild
         return $id
     }
-    method clear {} {
+    method clear {args} {
         # Destroys the docked tree and creates one empty root leaf; floating content is retained.
         #
         # Returns: The new root leaf identifier.
+        # Synopsis:
+        argparse -pfirst -help {Destroy the docked tree and create an empty root leaf; retain floating content} {}
         my ValidateOperation clear
         my Drop $Root
         set Root [my NewLeaf {}]
         my Rebuild
         return $Root
     }
-    method swap {a b} {
+    method swap {args} {
         # Exchanges the content frames assigned to two leaves.
         #  a - First leaf identifier.
         #  b - Second leaf identifier.
@@ -4073,6 +4220,11 @@ oo::configurable create ::splitlayout::splitlayout {
         # widget pathnames remain unchanged. Equal identifiers do nothing.
         #
         # Returns: Nothing.
+        # Synopsis: a b
+        argparse -pfirst -help {Exchange two leaves content frames without changing their logical positions} {
+            {a -help {First docked leaf identifier}}
+            {b -help {Second docked leaf identifier; equal identifiers make no changes}}
+        }
         my Check $a leaf
         my Check $b leaf
         if {$a eq $b} {
@@ -4087,7 +4239,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my Rebuild
         return
     }
-    method tree {{id {}}} {
+    method tree {args} {
         # Returns a recursive snapshot of the logical layout hierarchy.
         #  id - Subtree root identifier; empty selects the layout root.
         #
@@ -4100,6 +4252,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # Proportions are refreshed from usable geometry unless application is pending.
         #
         # Returns: A nested dictionary describing the requested logical subtree.
+        # Synopsis: ?id?
+        argparse -pfirst -help {Return a recursive dictionary snapshot of the logical layout hierarchy} {
+            {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
+        }
         if {$id eq {}} {
             set id $Root
         }
@@ -4119,7 +4275,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $result
     }
-    method widgets {{path {}}} {
+    method widgets {args} {
         # Returns a recursive snapshot of the actual Tk widget hierarchy.
         #  path - Widget subtree root; empty selects the layout hull.
         #
@@ -4127,6 +4283,11 @@ oo::configurable create ::splitlayout::splitlayout {
         # widgets and is independent of the logical tree returned by tree.
         #
         # Returns: A nested widget dictionary with path, parent, class, manager, container, and children.
+        # Synopsis: ?path?
+        argparse -pfirst -help {Return a recursive dictionary snapshot of the actual Tk widget hierarchy} {
+            {path -optional -default {} -help {Widget subtree root within this manager; omit or pass empty to use its\
+                                                       hull}}
+        }
         if {$path eq {}} {
             set path $W
         }
@@ -4964,7 +5125,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set source [dict get $Dock source]
         set op [dict get $target op]
         set args [list $source]
-        if {$op ne {undock} && [dict exists $Floating $source]} {
+        if {($op ne {undock}) && [dict exists $Floating $source]} {
             set op dock
             set opts {}
             if {[dict get $target side] ne {}} {
@@ -5359,7 +5520,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Only a gesture belonging to this panedwindow updates the target; live mode applies it immediately.
         #
         # Returns: Nothing for an unrelated event; Tcl break completion for handled motion.
-        if {$LivePress ne {} && [dict get $LivePress pw] eq $pw && [dict get $LivePress cancelled]} {
+        if {($LivePress ne {}) && [dict get $LivePress pw] eq $pw && [dict get $LivePress cancelled]} {
             return -code break
         }
         if {($Drag eq {}) || ([dict get $Drag pw] ne $pw)} {

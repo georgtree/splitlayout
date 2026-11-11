@@ -5,6 +5,10 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
+\fBCreationArguments\fP
+.br
+\fBCreationHelp\fP \fI?args?\fP
+.br
 \fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
 .br
 \fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
@@ -13,7 +17,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ children\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ clear\fP
+\fBSPLITLAYOUTOBJ clear\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
@@ -51,7 +55,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ retain\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ root\fP
+\fBSPLITLAYOUTOBJ root\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
 .br
@@ -70,6 +74,25 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ widgets\fP \fI?path?\fP
 .br
 .SH SPLITLAYOUT
+.SH "COMMAND-LINE HELP"
+.PP
+Argparse-based public commands accept -help, print their descriptions and argument details to stdout,
+and return without changing the layout\&. Required arguments and other supplied values are ignored for help\&.
+Creation help allocates neither a TclOO object nor a Tk window\&.
+.PP
+.RS 4n
+.nf
+splitlayout \&.layout -help
+$manager split -help
+$manager move -help
+$manager constraints -help
+$manager constraints $leaf -help
+.fi
+.RE
+.PP
+Help is available for creation and all package-defined public instance commands\&. Inherited TclOO and
+oo::configurable commands retain their standard interfaces\&. Standard TclOO new and create also recognize
+constructor help\&. Formatting uses argparse's textutil::adjust dependency from Tcllib\&.
 .SH "QUICK START"
 .PP
 .RS 4n
@@ -172,17 +195,17 @@ requiredsize id accepts a leaf, split, or floating token and returns {width heig
 space and leaf borders to the content minimum\&. For a horizontal split, child widths and themed sash widths are
 summed and the largest child height is used\&. Vertical splits use the opposite axes\&. Each split's structure
 border and padding are added when enabled\&. Removing, inserting, or moving children updates the calculated
-requirement\&.  The query excludes the manager hull's padding/border, native window decorations, and application
-widget requests\&.  It works before mapping; sash dimensions come from the active ttk theme without modifying its
+requirement\&. The query excludes the manager hull's padding/border, native window decorations, and application
+widget requests\&. It works before mapping; sash dimensions come from the active ttk theme without modifying its
 styles\&.
 .PP
 With explicit minima configured, requested proportions are fitted to available space while respecting child
 requirements\&. Both live and deferred sash gestures stop at the adjacent panes' feasible limits\&. When the parent
 is too small, child requirements along each split axis are compressed proportionally; requested minima are
 retained and apply again when space becomes available\&. A cross-axis shortage likewise cannot satisfy the
-requested minimum\&.  Very small allocations may leave no visible content after sashes and decoration consume the
-available pixels\&.  Setting {0 0} clears the content requirement; enabled headers and borders still require
-space\&.  Layouts that have never been assigned minima retain their existing sash behavior\&.
+requested minimum\&. Very small allocations may leave no visible content after sashes and decoration consume the
+available pixels\&. Setting {0 0} clears the content requirement; enabled headers and borders still require
+space\&. Layouts that have never been assigned minima retain their existing sash behavior\&.
 .PP
 Floating windows receive wm minsize based on their content and decoration\&. Header visibility, image sizes,
 border settings, and theme changes refresh constraints through the normal idle geometry pass\&. The manager does
@@ -190,8 +213,8 @@ border settings, and theme changes refresh constraints through the normal idle g
 for their other widgets if they want to enforce a window minimum\&. Native window-manager behavior remains
 platform-dependent\&. Tk may report a larger minimum than requested because of native window limits\&. In
 particular, Windows can report a positive minimum width after setting wm minsize to 0 0, and its reported
-limits can change when a window is first mapped\&.  requiredsize reports the manager's calculated requirement,
-not the native effective window minimum\&.  Constraints cover manager operations and gestures; direct
+limits can change when a window is first mapped\&. requiredsize reports the manager's calculated requirement,
+not the native effective window minimum\&. Constraints cover manager operations and gestures; direct
 modifications through the exposed native panedwindow command bypass the manager until its next geometry
 application\&.
 .SH "PER-NODE CONSTRAINTS"
@@ -328,7 +351,7 @@ otherwise its unprotected descendants may still be edited or removed while the s
 .PP
 Ancestor flags are not rewritten\&. An ancestor can report -nodestroy false while a descendant makes its
 removal illegal\&. Validation considers everything the whole operation would delete before changing any widgets
-or records\&.  Delete buttons obey these restrictions\&. Native close with -onclose destroy leaves protected
+or records\&. Delete buttons obey these restrictions\&. Native close with -onclose destroy leaves protected
 content open; -onclose dock attempts normal docking and likewise leaves the window open if the destination
 violates constraints\&.
 .PP
@@ -340,7 +363,7 @@ policies\&.
 .SS "RESIZE LOCKS"
 .PP
 -noresize rejects sash gestures that would change the allocation of a protected node, including ancestor
-sashes\&.  An explicitly locked split can still adjust its own internal sashes if its children are not
+sashes\&. An explicitly locked split can still adjust its own internal sashes if its children are not
 locked\&. With resize locks present, a sash cannot push neighboring sashes to resize a more distant protected
 pane\&. Changing constraints cancels active manager gestures and prevents further movement from an already active
 native live sash gesture\&.
@@ -357,9 +380,9 @@ minimum dimensions; the manager must still compress allocations when its parent 
 .SS "LEAF COUNTS AND DEPTH"
 .PP
 A leaf counts as one and has depth zero\&. A split containing only leaves has depth one; nesting adds one per
-edge\&.  Thus -maxdepth 0 prevents splitting that node or converting it into a split by moving or docking
+edge\&. Thus -maxdepth 0 prevents splitting that node or converting it into a split by moving or docking
 another leaf at its edge\&. Counts include all docked descendant leaves, not only immediate children\&. Floating
-content is excluded\&.  Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1\&. The
+content is excluded\&. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1\&. The
 layout always has at least one root leaf, including its empty placeholder\&. All numeric constraint values are
 limited to 2147483647\&.
 .PP
@@ -388,10 +411,10 @@ but setting those limits requires a docked node\&. Removing content discards its
 .PP
 Commands reject prohibited operations before allocating widgets, changing IDs, cancelling gestures, or mutating
 the tree\&. Errors have -errorcode {SPLITLAYOUT CONSTRAINT option id} and identify the restriction that blocked
-the action\&.  Identical-node swaps and moves, and already-adjacent moves that make no change, remain
+the action\&. Identical-node swaps and moves, and already-adjacent moves that make no change, remain
 no-ops\&. Drop previews suppress invalid destinations and release does nothing there\&. Header buttons retain their
-action icons, including custom images, and become inactive when their current action is illegal\&.  The same
-image is assigned explicitly to normal and disabled states; ttk still controls button styling\&.  Blocked native
+action icons, including custom images, and become inactive when their current action is illegal\&. The same
+image is assigned explicitly to normal and disabled states; ttk still controls button styling\&. Blocked native
 close requests leave the window open without a background error\&. Flags are explicit settings, not a cached
 summary of every action that might be prohibited by descendants or ancestor bounds\&.
 .SH "MOVING PANES"
@@ -433,7 +456,7 @@ locate to obtain the new target-content leaf identifier\&. If the target is alre
 is created around the source and target subtree; the target keeps its identifier unless source removal leaves
 it with a sole child and normal collapse promotes that child\&. A split target may contain the source, including
 the root\&. For example, \&.layout move $source -right [\&.layout root] places the source beside the remaining
-layout in a new horizontal root\&.  The source identifier remains unchanged and is also the command's return
+layout in a new horizontal root\&. The source identifier remains unchanged and is also the command's return
 value\&.
 .PP
 For example, a perpendicular move in a two-pane horizontal layout changes it to a vertical layout:
@@ -577,7 +600,7 @@ follows the theme\&. Preview styling and hit areas continue to use -dockopts and
 .PP
 A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
 drag-area tooltip, and does not take a grab on press\&. Button tooltips remain available\&. If either operation
-remains possible, the hover cursor is an open hand; destination constraints still apply to each drop\&.  An
+remains possible, the hover cursor is an open hand; destination constraints still apply to each drop\&. An
 accepted mouse press immediately closes the hand\&. Crossing the drag threshold changes it to a closed hand
 holding a small window, which remains visible until release or cancellation, including over invalid
 destinations\&. Returning the pointer near its starting position does not deactivate the drag\&. A simple click or
@@ -738,9 +761,9 @@ its override to refresh header sizing\&. Tk photo images hold rasterized SVG out
 uses \fITklib tooltip\fP [URL: https://core\&.tcl-lang\&.org/tklib/doc/trunk/embedded/md/tklib/files/modules/tooltip/tooltip\&.md] for the
 drag area and action buttons\&. Drag-area text describes rearranging/undocking or moving/docking, depending on
 whether the content is docked or floating\&. If the package cannot load, there are no tooltips and no custom
-fallback\&.  Set -tooltips false to remove this manager's tooltip registrations\&. It does not disable
+fallback\&. Set -tooltips false to remove this manager's tooltip registrations\&. It does not disable
 application tooltips globally or change their delay, font, colors, or fading\&. Setting it to true retries
-loading the optional package\&.  The value returned by configure -tooltips is the requested preference, even
+loading the optional package\&. The value returned by configure -tooltips is the requested preference, even
 when the package is unavailable\&.
 .SH "NESTED MANAGERS"
 .PP
@@ -818,8 +841,8 @@ splitlayout \&.outlined -draghandles true -showstructure true
 .RE
 .PP
 By default, each split receives a one-pixel gray outline and two pixels of inner spacing, giving a three-pixel
-inset on each side\&.  Customize these dimensions and colors with -structureopts or the option database
-described below\&.  Flat siblings share one enclosing outline; a nested split has an additional inset outline
+inset on each side\&. Customize these dimensions and colors with -structureopts or the option database
+described below\&. Flat siblings share one enclosing outline; a nested split has an additional inset outline
 around its children\&. A sole root leaf has no split outline\&. The setting is independent of drag handles and
 applies to future splits\&. During docking, the receiving group outline turns blue alongside the existing
 destination preview\&. For a local edge move that creates a new split, the highlighted outline is the current
@@ -827,7 +850,7 @@ enclosing group\&. Escape, an invalid destination, and release restore the norma
 .PP
 Changing -showstructure cancels active gestures and rebuilds geometry while retaining content, native
 panedwindows, and split proportions (subject to available pixel space)\&. Disabling it removes the outlines and
-their spacing\&.  Very small panes can still collapse under Tk's normal geometry constraints\&.
+their spacing\&. Very small panes can still collapse under Tk's normal geometry constraints\&.
 .PP
 With this option enabled, widget split returns the enclosing outline frame\&. Use panedwindow split to obtain
 the native ttk panedwindow regardless of the option value, for example:
@@ -975,9 +998,9 @@ set docking [\&.layout configure -dockopts]
 .PP
 The database is queried against the layout hull once during construction\&. Standard Tk name/class patterns and
 priorities apply; for example, *editor\&.layout\&.splitlayoutDockColor scopes a resource to a layout below
-\&.editor\&.  Explicit constructor dictionary keys override database values\&. Later database changes affect newly
+\&.editor\&. Explicit constructor dictionary keys override database values\&. Later database changes affect newly
 created layouts only; use configure for an existing layout\&. Built-in defaults are still available if the
-application calls option clear\&.  The three dictionaries are accepted both at construction and by configure;
+application calls option clear\&. The three dictionaries are accepted both at construction and by configure;
 an empty dictionary leaves current settings unchanged\&.
 .PP
 All dimensions are integer \fBscreen pixels\fP, from zero to 2147483647, without additional DPI scaling\&. Colors
@@ -1059,7 +1082,7 @@ the manager or an actual Tk ancestor destroys all owned floating windows as well
 floating frame removes its record\&.
 .PP
 Floating tokens are opaque, manager-specific handles\&. They expire on docking or removal, and must not be
-reused\&.  floating lists these tokens; floating $token returns a dictionary with id, frame, title,
+reused\&. floating lists these tokens; floating $token returns a dictionary with id, frame, title,
 geometry, state, and onclose\&. frame $token returns the retained frame\&. Docked-tree commands (tree,
 leaves, node, and locate) exclude floating content; widgets still exposes its actual Tk ancestry and
 wm geometry manager\&.
@@ -1101,7 +1124,7 @@ set widgetTree [\&.layout widgets]
 .RE
 .PP
 For a non-root node identifier, container returns its parent panedwindow\&. Its actual Tk parent remains
-\&.layout\&.  With handles enabled, passing the content frame pathname instead returns its pane wrapper\&. winfo
+\&.layout\&. With handles enabled, passing the content frame pathname instead returns its pane wrapper\&. winfo
 manager reports the manager name, not the pathname of that geometry container\&.
 .PP
 node maps an exact managed frame or panedwindow pathname to its node identifier\&. locate accepts a descendant
@@ -1123,13 +1146,49 @@ contain frame\&. Splits contain panedwindow, orient, and proportions, plus ratio
 children\&. Split children are nested node dictionaries in pane order\&.
 .PP
 widgets returns nested dictionaries containing path, parent, class, manager, container, and
-children\&.  It includes application widgets\&. The container is resolved for layout nodes and for widgets
+children\&. It includes application widgets\&. The container is resolved for layout nodes and for widgets
 managed by pack, grid, or place; it is empty for other managers without a supported reverse lookup\&.
 .PP
 Floating content is described separately by floating; widgets still includes its actual Tk subtree\&.
 .PP
 Both snapshots are for inspection\&. They do not serialize application widget state or provide a restore
 operation\&.
+.SH COMMANDS
+.PP
+.RS -4n
+\fBCreationArguments\fR (::splitlayout)
+.RE
+.PP
+Supplies the constructor argument definitions, shared by creation and side-effect-free help\&.
+.RS 4n
+\fBCreationArguments\fP
+.br
+.RE
+.PP
+\fBReturn value\fR
+.PP
+An argparse definition list with per-argument descriptions\&.
+.PP
+.RS -4n
+\fBCreationHelp\fR (::splitlayout)
+.RE
+.PP
+Prints creation help without allocating an object or a Tk window\&.
+.RS 4n
+\fBCreationHelp\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+args
+Constructor arguments including -help; other arguments are ignored by argparse help\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Nothing\&. The normal argparse help completion returns from this procedure\&.
 .SH CLASSES
 .PP
 .RS -4n
@@ -1469,8 +1528,12 @@ Child identifiers in pane order, or an empty list for a leaf\&.
 .PP
 Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ clear\fP
+\fBSPLITLAYOUTOBJ clear\fP \fI?args?\fP
 .br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
 .RE
 .PP
 \fBReturn value\fR
@@ -1493,17 +1556,16 @@ Queries or atomically updates restrictions for one node or floating content\&.
 id
 Leaf, split, or owned floating token\&.
 .TP
-args
-No arguments, one option name, or option/value pairs\&.
+option
+Optional single constraint name to query, or option/value pairs to update\&.
 .RE
 .PP
 \fBDescription\fR
 .PP
-Leaf flags follow content; split flags and subtree limits belong to node identity\&. Movement flags and
-locked are leaf/floating-only\&. Floating content has no assignable subtree limits\&. Queries show explicit
-settings, not restrictions inherited by an operation from protected descendants\&. Locked also protects
-adjacent move/dock destinations on lockedside edges, in addition to setting the two movement flags\&.
-Lockedside is a list of left/right/top/bottom; defaults to all four, and empty disables boundary protection\&.
+Leaf flags follow content; split flags and subtree limits belong to node identity\&.
+Movement flags and locked are leaf/floating-only\&. Floating content has no assignable
+subtree limits\&. Queries show explicit settings, not restrictions inherited from descendants\&.
+Locked protects selected incoming placement edges and sets both movement flags\&.
 .PP
 \fBReturn value\fR
 .PP
@@ -1604,7 +1666,7 @@ Lists floating content or describes one floating window owned by this manager\&.
 .RS 4n
 .TP
 id
-Floating token returned by undock; omit to list tokens\&. Optional, default ""\&.
+Floating token returned by undock; omit to list tokens\&.
 .RE
 .PP
 \fBDescription\fR
@@ -1686,7 +1748,7 @@ Collects the leaves below a logical node\&.
 .RS 4n
 .TP
 id
-Subtree root identifier; empty selects the layout root\&. Optional, default ""\&.
+Subtree root identifier; empty selects the layout root\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2030,8 +2092,12 @@ The retained node identifier\&.
 Returns the current logical root node\&.
 The root node identifier\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ root\fP
+\fBSPLITLAYOUTOBJ root\fP \fI?args?\fP
 .br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
 .RE
 .PP
 \fBReturn value\fR
@@ -2150,7 +2216,7 @@ A nested dictionary describing the requested logical subtree\&.
 .RS 4n
 .TP
 id
-Subtree root identifier; empty selects the layout root\&. Optional, default ""\&.
+Subtree root identifier; empty selects the layout root\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2267,7 +2333,7 @@ A nested widget dictionary with path, parent, class, manager, container, and chi
 .RS 4n
 .TP
 path
-Widget subtree root; empty selects the layout hull\&. Optional, default ""\&.
+Widget subtree root; empty selects the layout hull\&.
 .RE
 .PP
 \fBDescription\fR
