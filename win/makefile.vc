@@ -1,0 +1,32 @@
+# Run from win in a Visual Studio developer command prompt.
+!IFNDEF INSTALLDIR
+INSTALLDIR=C:\Tcl
+!ENDIF
+!IFNDEF TCLSH
+TCLSH=$(INSTALLDIR)\bin\tclsh91.exe
+!ENDIF
+!IFNDEF OUT_DIR
+OUT_DIR=$(MAKEDIR)\build
+!ENDIF
+!IFNDEF DIST_ROOT
+DIST_ROOT=$(OUT_DIR)\dist
+!ENDIF
+
+all:
+	@"$(TCLSH)" package.tcl build "$(OUT_DIR)"
+
+test: all
+	@cmd.exe /d /s /c "set "TCLLIBPATH={$(OUT_DIR:\=/)} $(TCLLIBPATH)" && "$(TCLSH)" ..\test\all.tcl $(TESTFLAGS)"
+
+install: all
+	@"$(TCLSH)" package.tcl install "$(OUT_DIR)" "$(INSTALLDIR)"
+
+uninstall:
+	@"$(TCLSH)" package.tcl uninstall "$(OUT_DIR)" "$(INSTALLDIR)"
+
+dist-zip: all
+	@"$(TCLSH)" package.tcl dist-zip "$(OUT_DIR)" "$(DIST_ROOT)"
+
+clean:
+	@if exist "$(OUT_DIR)\pkgIndex.tcl" del "$(OUT_DIR)\pkgIndex.tcl"
+	@if exist "$(OUT_DIR)\splitlayout.tcl" del "$(OUT_DIR)\splitlayout.tcl"

@@ -75,6 +75,11 @@ Tcl and Tk 9\&.0 or newer\&.
 .TP
 \(bu
 \fIargparse\fP [URL: https://github\&.com/georgtree/argparse], available to the selected Tcl interpreter\&.
+.SH "CONTINUOUS INTEGRATION"
+.PP
+Pushes run the GUI suite with Tcl/Tk 9\&.1\&.0, argparse and tklib tooltip on Linux GCC (Xvfb), Windows UCRT64 and
+Windows MSVC\&. \fBActions → Build packages → Run workflow\fP tests all three installations and publishes the archives
+and SHA-256 checksums to the moving latest release\&. Each archive contains the pure Tcl package and its manuals\&.
 .SH INSTALLING
 .PP
 From the source directory, run:
@@ -90,6 +95,20 @@ sudo make install
 .PP
 Use make install without sudo when installing into a user-writable prefix\&. On Windows, run the commands in an
 MSYS2 shell with your Tcl/Tk installation available through the environment\&.
+.PP
+From a Visual Studio developer command prompt, enter win and run the following with your Tcl/Tk 9 installation\&.
+Make argparse and, for tooltip tests, tklib tooltip available through Tcl's package search path\&.
+.PP
+.RS 4n
+.nf
+nmake /f makefile\&.vc INSTALLDIR=C:\\Tcl
+nmake /f makefile\&.vc INSTALLDIR=C:\\Tcl test
+nmake /f makefile\&.vc INSTALLDIR=C:\\Tcl install
+nmake /f makefile\&.vc INSTALLDIR=C:\\Tcl dist-zip
+.fi
+.RE
+.PP
+Use TCLSH=\&.\&.\&. to select a different Tcl executable, or uninstall to remove the installed package and manuals\&.
 .PP
 To select a Tcl installation and a custom installation prefix:
 .PP
@@ -109,7 +128,7 @@ make install
 available to the selected interpreter\&. Tests require a graphical display\&.
 .PP
 Installation follows the configured prefix: the Tcl source and pkgIndex\&.tcl go together in
-lib/splitlayout0\&.4\&. Load the installed package with:
+lib/splitlayout0\&.1\&. Load the installed package with:
 .PP
 .RS 4n
 .nf

@@ -60,7 +60,7 @@ TCL_SRC_DIR	= @TCL_SRC_DIR@
 EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR)
 TCLLIBPATH	= @TCLLIBPATH@
 TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library`
-PKG_ENV		= PATH="$(EXTRA_PATH):$(PATH)" TCLLIBPATH="{@abs_srcdir@} $(TCLLIBPATH)"
+PKG_ENV		= PATH="$(EXTRA_PATH):$(PATH)" TCLLIBPATH="{`@CYGPATH@ "$(top_builddir)"`} $(TCLLIBPATH)"
 
 TCLSH_PROG	= @TCLSH_PROG@
 TCLSH		= $(PKG_ENV) "$(TCLSH_PROG)"
@@ -75,7 +75,8 @@ all: libraries
 
 binaries: $(BINARIES)
 
-libraries:
+libraries: pkgIndex.tcl
+	@if test ! -f splitlayout.tcl || ! test "$(srcdir)/splitlayout.tcl" -ef splitlayout.tcl; then cp "$(srcdir)/splitlayout.tcl" .; fi
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)
@@ -84,7 +85,7 @@ shell: binaries libraries
 # Test recipes
 #========================================================================
 test: libraries
-	$(TCLSH) "$(srcdir)/test/all.tcl" $(TESTFLAGS)
+	$(TCLSH) "`@CYGPATH@ "$(srcdir)/test/all.tcl"`" $(TESTFLAGS)
 
 #========================================================================
 # Package installing recipes
@@ -185,6 +186,7 @@ dist-zip: dist
 #========================================================================
 # Ordinary clean preserves the prebuilt documentation distributed in git.
 clean:
+	@if test "$(srcdir)/splitlayout.tcl" -ef splitlayout.tcl; then :; else rm -f splitlayout.tcl; fi
 	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 doc-clean:

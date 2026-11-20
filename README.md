@@ -1,5 +1,7 @@
 # splitlayout — Dynamic pane layouts for Tcl/Tk
 
+[![Tests: Linux, Windows UCRT64 and MSVC](https://img.shields.io/github/actions/workflow/status/georgtree/splitlayout/tests.yml?branch=main&label=Tests%3A%20Linux%2C%20Windows%20UCRT64%20and%20MSVC)](https://github.com/georgtree/splitlayout/actions/workflows/tests.yml)
+
 `splitlayout` is a pure Tcl megawidget for creating dynamically resizable layouts from nested `ttk::panedwindow`
 widgets. Split a content area, add panes beside existing ones, remove subtrees, or exchange content between panes
 without recreating the surviving application widgets.
@@ -50,6 +52,12 @@ content, including floating windows. Surviving frames retain their widgets and s
 - Tcl and Tk 9.0 or newer.
 - [argparse](https://github.com/georgtree/argparse), available to the selected Tcl interpreter.
 
+## Continuous integration
+
+Pushes run the GUI suite with Tcl/Tk 9.1.0, argparse and tklib tooltip on Linux GCC (Xvfb), Windows UCRT64 and
+Windows MSVC. **Actions → Build packages → Run workflow** tests all three installations and publishes the archives
+and SHA-256 checksums to the moving `latest` release. Each archive contains the pure Tcl package and its manuals.
+
 ## Installing
 
 From the source directory, run:
@@ -63,6 +71,18 @@ sudo make install
 
 Use `make install` without `sudo` when installing into a user-writable prefix. On Windows, run the commands in an
 MSYS2 shell with your Tcl/Tk installation available through the environment.
+
+From a Visual Studio developer command prompt, enter `win` and run the following with your Tcl/Tk 9 installation.
+Make argparse and, for tooltip tests, tklib tooltip available through Tcl's package search path.
+
+```bat
+nmake /f makefile.vc INSTALLDIR=C:\Tcl
+nmake /f makefile.vc INSTALLDIR=C:\Tcl test
+nmake /f makefile.vc INSTALLDIR=C:\Tcl install
+nmake /f makefile.vc INSTALLDIR=C:\Tcl dist-zip
+```
+
+Use `TCLSH=...` to select a different Tcl executable, or `uninstall` to remove the installed package and manuals.
 
 To select a Tcl installation and a custom installation prefix:
 
@@ -80,7 +100,7 @@ make install
 available to the selected interpreter. Tests require a graphical display.
 
 Installation follows the configured prefix: the Tcl source and `pkgIndex.tcl` go together in
-`lib/splitlayout0.4`. Load the installed package with:
+`lib/splitlayout0.1`. Load the installed package with:
 
 ```tcl
 package require splitlayout 0.1

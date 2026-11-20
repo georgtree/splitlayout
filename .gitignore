@@ -28,3 +28,6 @@ configure~
 /argparse.tcl
 /argparse-LICENSE.txt
 /argparse-README.txt
+
+/_ci/
+/win/build/

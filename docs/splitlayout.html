@@ -52,6 +52,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#continuous-integration">Continuous integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#installing">Installing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
 </ul>
@@ -210,6 +211,12 @@ content, including floating windows. Surviving frames retain their widgets and s
 <li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, available to the selected Tcl interpreter.</p></li>
 </ul>
 </section>
+<section id="continuous-integration">
+<span id="r-continuous-integration"></span><span id="r-continuous20integration"></span><h2>Continuous integration<a class="headerlink" href="#continuous-integration" title="Link to this heading"></a></h2>
+<p>Pushes run the GUI suite with Tcl/Tk 9.1.0, argparse and tklib tooltip on Linux GCC (Xvfb), Windows UCRT64 and
+Windows MSVC. <strong>Actions → Build packages → Run workflow</strong> tests all three installations and publishes the archives
+and SHA-256 checksums to the moving <code class="docutils literal notranslate"><span class="pre">latest</span></code> release. Each archive contains the pure Tcl package and its manuals.</p>
+</section>
 <section id="installing">
 <span id="r-installing"></span><h2>Installing<a class="headerlink" href="#installing" title="Link to this heading"></a></h2>
 <p>From the source directory, run:</p>
@@ -221,6 +228,15 @@ sudo<span class="w"> </span>make<span class="w"> </span>install
 </div>
 <p>Use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install</span></code> without <code class="docutils literal notranslate"><span class="pre">sudo</span></code> when installing into a user-writable prefix. On Windows, run the commands in an
 MSYS2 shell with your Tcl/Tk installation available through the environment.</p>
+<p>From a Visual Studio developer command prompt, enter <code class="docutils literal notranslate"><span class="pre">win</span></code> and run the following with your Tcl/Tk 9 installation.
+Make argparse and, for tooltip tests, tklib tooltip available through Tcl’s package search path.</p>
+<div class="highlight-bat notranslate"><div class="highlight"><pre><span></span>nmake /f makefile.vc INSTALLDIR=C:\Tcl
+nmake /f makefile.vc INSTALLDIR=C:\Tcl test
+nmake /f makefile.vc INSTALLDIR=C:\Tcl install
+nmake /f makefile.vc INSTALLDIR=C:\Tcl dist-zip
+</pre></div>
+</div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">TCLSH=...</span></code> to select a different Tcl executable, or <code class="docutils literal notranslate"><span class="pre">uninstall</span></code> to remove the installed package and manuals.</p>
 <p>To select a Tcl installation and a custom installation prefix:</p>
 <div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./configure<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--with-tcl<span class="o">=</span>/path/to/tcl/lib<span class="w"> </span><span class="se">\</span>
@@ -234,7 +250,7 @@ make<span class="w"> </span>install
 <p><code class="docutils literal notranslate"><span class="pre">--with-tcl</span></code> takes the directory containing <code class="docutils literal notranslate"><span class="pre">tclConfig.sh</span></code>. Use matching Tcl/Tk installations and make argparse
 available to the selected interpreter. Tests require a graphical display.</p>
 <p>Installation follows the configured prefix: the Tcl source and <code class="docutils literal notranslate"><span class="pre">pkgIndex.tcl</span></code> go together in
-<code class="docutils literal notranslate"><span class="pre">lib/splitlayout0.4</span></code>. Load the installed package with:</p>
+<code class="docutils literal notranslate"><span class="pre">lib/splitlayout0.1</span></code>. Load the installed package with:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">package</span><span class="w"> </span>require<span class="w"> </span>splitlayout<span class="w"> </span><span class="mf">0.1</span>
 </pre></div>
 </div>
