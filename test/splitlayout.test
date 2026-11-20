@@ -1299,20 +1299,29 @@ foreach action {click escape focus outside self disable remove clear destroy res
 
 test splitlayout-dock-13.7 {foreign layouts are not destinations and existing grabs are not stolen} -setup {
     lassign [::sltest::docksetup] m root a b
+    # Keep the source and drop point visible on small desktops, even when dockstart raises the source.
+    set width [expr {[winfo vrootwidth $m] / 3}]
+    wm geometry .sltest ${width}x240+10+20
+    ::sltest::settle $m
     toplevel .foreign
-    wm geometry .foreign 300x200+950+100
+    wm geometry .foreign ${width}x200-10+20
     splitlayout .foreign.layout -draghandles true
     pack .foreign.layout -fill both -expand 1
-    ::sltest::settle .foreign
+    ::sltest::settle .foreign.layout
 } -body {
     set g [::sltest::grip $m $a]
     grab .foreign
     ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
     set protected [expr {[grab current $m] eq {.foreign} && [::sltest::dockstate $m] eq {}}]
     grab release .foreign
-    set g [::sltest::dockstart $m $a [::sltest::point .foreign.layout]]
+    set point [::sltest::point .foreign.layout]
+    set hit [winfo containing -displayof $m {*}$point]
+    if {$hit eq {} || [winfo toplevel $hit] ne ".foreign"} {
+        error "drop point $point missed the foreign window (hit '$hit')"
+    }
+    set g [::sltest::dockstart $m $a $point]
     set target [dict get [::sltest::dockstate $m] target]
-    ::sltest::dockevent $g <ButtonRelease-1> [::sltest::point .foreign.layout]
+    ::sltest::dockevent $g <ButtonRelease-1> $point
     list $protected [dict get $target op] [llength [$m floating]] [llength [.foreign.layout leaves]]\
             [::sltest::dockstate $m] [grab current $m]
 } -cleanup {
