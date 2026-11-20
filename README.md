@@ -50,7 +50,7 @@ content, including floating windows. Surviving frames retain their widgets and s
 ## Requirements
 
 - Tcl and Tk 9.0 or newer.
-- [argparse](https://github.com/georgtree/argparse), available to the selected Tcl interpreter.
+- [argparse](https://github.com/georgtree/argparse), and Tcllib’s `textutil::adjust` module, used by argparse for help formatting.
 
 ## Continuous integration
 
@@ -73,7 +73,7 @@ Use `make install` without `sudo` when installing into a user-writable prefix. O
 MSYS2 shell with your Tcl/Tk installation available through the environment.
 
 From a Visual Studio developer command prompt, enter `win` and run the following with your Tcl/Tk 9 installation.
-Make argparse and, for tooltip tests, tklib tooltip available through Tcl's package search path.
+Make argparse, Tcllib and, for tooltip tests, tklib tooltip available through Tcl's package search path.
 
 ```bat
 nmake /f makefile.vc INSTALLDIR=C:\Tcl

@@ -28,6 +28,11 @@ runs:
         repository: tcltk/tklib
         ref: tklib-0.9
         path: _ci/tklib
+    - uses: actions/checkout@v4
+      with:
+        repository: tcltk/tcllib
+        ref: tcllib-2-0
+        path: _ci/tcllib
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -46,7 +51,7 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb xauth libx11-dev libxft-dev libxss-dev libxext-dev
+        sudo apt-get install -y xvfb xauth libx11-dev libxft-dev libxss-dev libxext-dev libharfbuzz-dev
     - if: inputs.toolchain == 'windows-ucrt64'
       uses: msys2/setup-msys2@v2
       with:

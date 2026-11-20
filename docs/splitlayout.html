@@ -208,7 +208,7 @@ content, including floating windows. Surviving frames retain their widgets and s
 <span id="r-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p>Tcl and Tk 9.0 or newer.</p></li>
-<li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, available to the selected Tcl interpreter.</p></li>
+<li><p><a class="reference external" href="https://github.com/georgtree/argparse">argparse</a>, and Tcllib’s <code class="docutils literal notranslate"><span class="pre">textutil::adjust</span></code> module, used by argparse for help formatting.</p></li>
 </ul>
 </section>
 <section id="continuous-integration">
@@ -229,7 +229,7 @@ sudo<span class="w"> </span>make<span class="w"> </span>install
 <p>Use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">install</span></code> without <code class="docutils literal notranslate"><span class="pre">sudo</span></code> when installing into a user-writable prefix. On Windows, run the commands in an
 MSYS2 shell with your Tcl/Tk installation available through the environment.</p>
 <p>From a Visual Studio developer command prompt, enter <code class="docutils literal notranslate"><span class="pre">win</span></code> and run the following with your Tcl/Tk 9 installation.
-Make argparse and, for tooltip tests, tklib tooltip available through Tcl’s package search path.</p>
+Make argparse, Tcllib and, for tooltip tests, tklib tooltip available through Tcl’s package search path.</p>
 <div class="highlight-bat notranslate"><div class="highlight"><pre><span></span>nmake /f makefile.vc INSTALLDIR=C:\Tcl
 nmake /f makefile.vc INSTALLDIR=C:\Tcl test
 nmake /f makefile.vc INSTALLDIR=C:\Tcl install

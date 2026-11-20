@@ -30,7 +30,7 @@ cd "$root/_ci/layout-build"
 bash "$root/configure" --with-tcl="$prefix/lib" --with-tk="$prefix/lib" --prefix="$prefix" --exec-prefix="$prefix"
 make
 argparse=$(cat "$root/_ci/argparse/package-dir.txt")
-export TCLLIBPATH="{$(native_path "$root/_ci/argparse/lib/$argparse")} {$(native_path "$root/_ci/tklib/modules/tooltip")}"
+export TCLLIBPATH="{$(native_path "$root/_ci/argparse/lib/$argparse")} {$(native_path "$root/_ci/tklib/modules/tooltip")} {$(native_path "$root/_ci/tcllib/modules")}"
 export SPLITLAYOUT_TEST_TOOLTIP=1
 "${display[@]}" make test TCLLIBPATH="$TCLLIBPATH" | tee test.log
 grep -Eq '^all\.tcl:[[:space:]]+Total[[:space:]]+[0-9]+[[:space:]]+Passed[[:space:]]+[1-9][0-9]*[[:space:]]+Skipped[[:space:]]+[0-9]+[[:space:]]+Failed[[:space:]]+0[[:space:]]*$' test.log

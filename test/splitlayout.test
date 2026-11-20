@@ -2753,9 +2753,11 @@ test splitlayout-wm-24.2 {reported WSL geometry arms a complete drag and preserv
     update
     list $initial $request [::sltest::dockstate $m] [grab current $m]
 } -cleanup {
-    rename ::wm {}
-    rename ::sltest::realwm ::wm
-    unset ::sltest::wmFrame ::sltest::wmMock ::sltest::wmRequests
+    if {[llength [info commands ::sltest::realwm]]} {
+        rename ::wm {}
+        rename ::sltest::realwm ::wm
+    }
+    unset -nocomplain ::sltest::wmFrame ::sltest::wmMock ::sltest::wmRequests
     ::sltest::cleanup
 } -result {{-32 -32} +-24+-22 {} {}}
 

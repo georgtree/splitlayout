@@ -26,7 +26,7 @@ if ($env:RUNTIME_CACHE_HIT -ne 'true') {
     } finally { Pop-Location }
 }
 $argparse = (Get-Content "$root/_ci/argparse/package-dir.txt" -Raw).Trim()
-$env:TCLLIBPATH = "{$root/_ci/argparse/lib/$argparse} {$root/_ci/tklib/modules/tooltip}".Replace('\','/')
+$env:TCLLIBPATH = "{$root/_ci/argparse/lib/$argparse} {$root/_ci/tklib/modules/tooltip} {$root/_ci/tcllib/modules}".Replace('\','/')
 $env:SPLITLAYOUT_TEST_TOOLTIP = '1'
 $out = Join-Path $root '_ci/layout-build'
 $buildArgs = @("INSTALLDIR=$prefix", "TCLSH=$tclsh", "OUT_DIR=$out")

@@ -37,7 +37,7 @@ else:
         inputs['packages'] = output('dpkg-query', '-W', 'make', 'binutils', f'gcc-{major}',
                                     f'libgcc-{major}-dev', 'libc6-dev', 'linux-libc-dev',
                                     'zlib1g-dev', 'libx11-dev', 'libxft-dev', 'libxext-dev', 'libxss-dev',
-                                    'libfontconfig-dev', 'libfreetype-dev')
+                                    'libfontconfig-dev', 'libfreetype-dev', 'libharfbuzz-dev')
 inputs['recipe'] = hashlib.sha256(Path(__file__).with_name(recipe).read_bytes()).hexdigest()
 digest = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()
 with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
