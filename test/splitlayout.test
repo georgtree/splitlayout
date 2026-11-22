@@ -5359,6 +5359,24 @@ foreach action {move swap escape label denied} {
     } -cleanup {::sltest::cleanup} -result {1 1 1 retained {}}
 }
 
+test splitlayout-tabs-41.5 {pressed and drag cursors follow the grab and reset after cancellation} -setup {
+    lassign [::sltest::docksetup] m root a b
+    $m configure -leafborder true -headerrelief ridge
+    set page [$m addtab A]
+    set book [winfo parent $page]
+    $book configure -cursor crosshair
+    ::sltest::settle $m
+    set grip [::sltest::grip $m $a]
+} -body {
+    set point [::sltest::point $grip]
+    ::sltest::dockevent $grip.separator.edge <ButtonPress-1> $point
+    set result [list [::sltest::handstate $m $book] [::sltest::handstate $m $grip.separator.edge]]
+    ::sltest::dockevent $book <B1-Motion> [::sltest::point [$m widget $b]]
+    lappend result [::sltest::handstate $m $book] [::sltest::handstate $m $grip.separator.edge]
+    event generate $book <Escape>
+    lappend result [$book cget -cursor] [$grip.separator.edge cget -cursor]
+} -cleanup {::sltest::cleanup} -result {closed closed drag drag crosshair {}}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

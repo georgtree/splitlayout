@@ -5033,15 +5033,29 @@ oo::configurable create ::splitlayout::splitlayout {
         # Empty inherits the normal parent cursor. An accepted press closes the hand even before drag activation.
         # The separator inherits from this canvas; action buttons explicitly use the ordinary arrow.
         # Returns: Nothing.
+        set state open
         if {![my HandleDragAllowed $id]} {
             $grip configure -cursor {}
-            return
+        } else {
+            if {($Dock ne {}) && ([dict get $Dock grip] eq $grip)} {
+                set state [expr {[dict get $Dock active] ? {drag} : {closed}}]
+            }
+            ::splitlayout::cursors::Apply [info object namespace [self]] $grip $state
         }
-        set state open
-        if {($Dock ne {}) && ([dict get $Dock grip] eq $grip)} {
-            set state [expr {[dict get $Dock active] ? {drag} : {closed}}]
+        set cursor {}
+        if {$state ne {open}} {
+            set cursor [$grip cget -cursor]
+            set receiver [dict get $Dock receiver]
+            if {$receiver ne $grip} {
+                $receiver configure -cursor $cursor
+            }
         }
-        ::splitlayout::cursors::Apply [info object namespace [self]] $grip $state
+        # Tk on Windows refreshes the cursor of the window directly under a stationary pointer.
+        foreach path [list $grip.separator $grip.separator.edge] {
+            if {[winfo exists $path]} {
+                $path configure -cursor $cursor
+            }
+        }
     }
     method SyncHeaderTips {} {
         # Synchronizes handle cursors and applies the tooltip preference using the optional Tklib package.
@@ -5387,6 +5401,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set receiver $grip
         if {$Book ne {}} {
             set receiver $Book
+            dict set state receiverCursor [$receiver cget -cursor]
             dict set state origin [my ActivePage]
             dict set state hover {}
             dict set state timer {}
@@ -5807,6 +5822,9 @@ oo::configurable create ::splitlayout::splitlayout {
             after cancel [dict get $state timer]
         }
         set receiver [dict get $state receiver]
+        if {[dict exists $state receiverCursor] && [winfo exists $receiver]} {
+            $receiver configure -cursor [dict get $state receiverCursor]
+        }
         if {[winfo exists $receiver] && ([grab current $receiver] eq $receiver)} {
             grab release $receiver
         }
