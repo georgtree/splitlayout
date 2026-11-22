@@ -2316,6 +2316,81 @@ test splitlayout-return-20.5 {anchor converted to a split retains its subtree on
             [[$m panedwindow [$m root]] cget -orient] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 1 vertical 1}
 
+foreach which {first second} {
+    test splitlayout-return-20.8-$which {collapsed split restores the live sash on either side} -setup {
+        set m [::sltest::setup]
+        set root [$m root]
+        lassign [$m split $root -orient vertical] a b
+        ::sltest::settle $m
+        set pw [$m panedwindow $root]
+        set pos [expr {int(0.7*[winfo height $pw])}]
+        $pw sashpos 0 $pos
+    } -body {
+        set token [$m undock [expr {$which eq {first} ? $a : $b}]]
+        $m dock $token
+        ::sltest::settle $m
+        list [expr {abs([$m ratio [$m root]]-0.7)<0.015}] [::sltest::check $m]
+    } -cleanup {::sltest::cleanup} -result {1 1}
+}
+
+test splitlayout-return-20.9 {returning middle pane keeps its share and honours a later sibling resize} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    set c [$m insert $b]
+    $m proportions $root {2 3 5}
+} -body {
+    set token [$m undock $b]
+    $m proportions $root {1 1}
+    $m dock $token
+    ::sltest::settle $m
+    lmap actual [$m proportions $root] expected {0.35 0.30 0.35} {expr {abs($actual-$expected)<0.015}}
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+foreach destination {explicit fallback} {
+    test splitlayout-return-20.10-$destination {ordinary insertion keeps its equal division} -setup {
+        set m [::sltest::setup]
+        lassign [$m split [$m root] -ratio 0.7] a b
+        set token [$m undock $a]
+    } -body {
+        if {$destination eq {explicit}} {
+            $m dock $token -left $b
+        } else {
+            $m clear
+            $m dock $token
+        }
+        ::sltest::settle $m
+        expr {abs([$m ratio [$m root]]-0.5)<0.015}
+    } -cleanup {::sltest::cleanup} -result 1
+}
+
+test splitlayout-return-20.11 {a collapsed nested split divides only its promoted sibling's slot} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root -ratio 0.6] a b
+    lassign [$m split $a -ratio 0.75] c d
+} -body {
+    set token [$m undock $d]
+    $m dock $token
+    ::sltest::settle $m
+    lmap actual [$m proportions $root] expected {0.45 0.15 0.40} {expr {abs($actual-$expected)<0.015}}
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-return-20.12 {following a relocated sibling uses ordinary insertion sizing} -setup {
+    set m [::sltest::setup]
+    set root [$m root]
+    lassign [$m split $root] a b
+    lassign [$m split $a -orient vertical -ratio 0.8] c d
+    lassign [$m split $b -orient vertical] e f
+} -body {
+    set token [$m undock $c]
+    $m move $d -after $f
+    $m proportions $b {2 3 5}
+    $m dock $token
+    ::sltest::settle $m
+    lmap actual [$m proportions $b] expected {0.2 0.3 0.25 0.25} {expr {abs($actual-$expected)<0.015}}
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
 foreach side {left right} {
     test splitlayout-header-20.6-$side\
             {docked and floating strips share alignment and stay centered during growth and shrink} -setup {

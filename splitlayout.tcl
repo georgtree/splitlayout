@@ -1135,9 +1135,11 @@ namespace eval ::splitlayout {
         orientation and relative order (following siblings take precedence at equal distance). The first surviving
         sibling node is used, including if it has become a split. Node identity represents a position: swapping its
         content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
-        anchors are skipped. Original sash proportions are not restored. Explicit destinations override this
-        restoration. If no anchor remains, `dock` places the content to the right of the current root. Undocking the
-        sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces
+        anchors are skipped. Returning to the original split restores the floating pane's share at undock time.
+        The remaining panes divide the rest according to their current proportions. If the split collapsed, docking
+        restores the saved division beside the promoted sibling. Minimum sizes may limit the resulting sash positions.
+        Explicit destinations, relocated anchors in other splits, and fallback positions use ordinary insertion sizing.
+        If no anchor remains, `dock` places the content to the right of the current root. Undocking the sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces
         that placeholder if it is still the root, has no header title, and its content frame has no child widgets. If
         you populate it, both contents are retained. Explicit destinations always follow the requested placement
         instead of replacing the placeholder.
@@ -2818,7 +2820,6 @@ oo::configurable create ::splitlayout::splitlayout {
         set frame [my frame $id]
         set parent [my parent $id]
         my ValidateOperation undock $id
-        set placement [my RememberPlacement $id]
         set top [winfo toplevel $frame]
         set tags [my BindingSnapshot $frame]
         set width [expr {max(1,[winfo width $frame])}]
@@ -2829,6 +2830,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my CancelDrag
         my CaptureAll
+        set placement [my RememberPlacement $id]
         my Detach $frame
         # Do not mutate the tree until the platform has accepted promotion and the window options.
         if {[catch {
@@ -2881,9 +2883,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -after target - Dock after a non-root node in its existing parent.
         #
         # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
-        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Explicit
-        # destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
-        # target in a new split.
+        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Returning to the original
+        # split or beside its promoted sibling restores the saved share. Explicit destinations follow move semantics:
+        # reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split.
         # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
         # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
         # Returns: The new docked leaf identifier.
@@ -2900,7 +2902,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         set token [dict get $opts floating]
         set frame [my FloatingFrame $token]
-        lassign [my DockDestination $token $opts] side target replace
+        lassign [my DockDestination $token $opts] side target replace division
         my ValidateOperation dock $token $side $target $replace
         set parent [my parent $target]
         set edge [expr {$side in {left right top bottom}}]
@@ -2943,6 +2945,11 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[dict exists $Floating $token leafbackground]} {
             $frame configure -background [dict get $Floating $token leafbackground]
         }
+        set restoreParent [expr {($division ne {}) && ($parent eq [dict get $Floating $token placement parent])}]
+        if {$division eq {}} {
+            set division {0.5 0.5}
+        }
+        lassign $division share other
         dict unset Floating $token
         set source [my NewLeaf $parent $frame]
         if {$replace} {
@@ -2965,17 +2972,26 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             dict set Nodes $source parent $wrapper
             set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+            set weights [expr {$before ? $division : [lreverse $division]}]
             dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
-                                             proportions {0.5 0.5} children $children]
+                                             proportions $weights children $children]
         } else {
             set children [my children $parent]
             set at [lsearch -exact $children $target]
             set weights [dict get $Nodes $parent proportions]
-            set half [expr {[lindex $weights $at]/2.0}]
-            dict set Nodes $parent proportions [lreplace $weights $at $at $half $half]
+            if {$restoreParent} {
+                # Keep the surviving panes in their current proportions.
+                set weights [lmap weight $weights {expr {$weight*$other}}]
+            } else {
+                # Explicit insertion and docking beside a promoted sibling divide only the target slot.
+                set weight [lindex $weights $at]
+                lset weights $at [expr {$weight*$other}]
+                set share [expr {$weight*$share}]
+            }
             if {!$before} {
                 incr at
             }
+            dict set Nodes $parent proportions [linsert $weights $at $share]
             dict set Nodes $parent children [linsert $children $at $source]
         }
         my Rebuild
@@ -4112,7 +4128,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Resolves explicit or remembered docking without changing any widgets.
         #  token - Owned floating token.
         #  opts - Parsed destination dictionary, with unprefixed option names.
-        # Returns: Side, target, and untouched-placeholder replacement boolean.
+        # Returns: Side, target, untouched-placeholder replacement boolean, and optional saved division (pane, remainder).
         my FloatingFrame $token
         set destinations {}
         foreach side {left right top bottom before after} {
@@ -4123,10 +4139,11 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[llength $destinations] > 1} {
             return -code error {expected at most one docking destination}
         }
+        set division {}
         if {![llength $destinations]} {
             set remembered [my RestoreDestination $token]
             if {$remembered ne {}} {
-                lassign $remembered side target
+                lassign $remembered side target division
                 dict set opts $side $target
                 set destinations [list $side]
             }
@@ -4142,7 +4159,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {($side in {before after}) && ([my parent $target] eq {})} {
             return -code error {cannot dock beside root; use an edge destination}
         }
-        return [list $side $target $replace]
+        return [list $side $target $replace $division]
     }
     method FloatingFrame {id} {
         # Validates a floating token and returns its retained content frame.
@@ -4216,10 +4233,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  id - Leaf to undock.
         #
         # Candidates are tried nearest first, preferring the following sibling at equal distance.
-        # Returns: Ordered pairs of sibling node identifiers and edge destinations; empty for the root.
+        # Returns: Parent, ordered sibling anchors, and (for a non-root leaf) grandparent and saved division.
         set parent [my parent $id]
         if {$parent eq {}} {
-            return
+            return [dict create parent {} anchors {}]
         }
         set siblings [my children $parent]
         set at [lsearch -exact $siblings $id]
@@ -4235,7 +4252,11 @@ oo::configurable create ::splitlayout::splitlayout {
                 lappend result [list [lindex $siblings $previous] [expr {$horizontal ? {right} : {bottom}}]]
             }
         }
-        return $result
+        set weights [dict get $Nodes $parent proportions]
+        # Summing preserves a small remainder even when the largest share rounds to 1.0.
+        set other [::tcl::mathop::+ {*}[lreplace $weights $at $at]]
+        return [dict create parent $parent grandparent [my parent $parent] anchors $result\
+                        division [list [lindex $weights $at] $other]]
     }
     method RestoreDestination {token} {
         # Finds the first surviving sibling position saved during undocking.
@@ -4243,10 +4264,18 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Node identity denotes a layout position, so swapping its content does not change the anchor. A node
         # converted to a split remains an anchor for that whole split. Removed anchors are skipped.
-        # Returns: Edge option name and target node, or empty to use the ordinary default destination.
-        foreach candidate [dict get $Floating $token placement] {
+        # Returns: Edge and target, plus the saved division in the original or collapsed split. Empty if no anchor
+        # survives.
+        set placement [dict get $Floating $token placement]
+        foreach candidate [dict get $placement anchors] {
             lassign $candidate anchor side
             if {[dict exists $Nodes $anchor]} {
+                set parent [dict get $placement parent]
+                set current [my parent $anchor]
+                if {($current eq $parent) || (![dict exists $Nodes $parent] &&\
+                                                      ($current eq [dict get $placement grandparent]))} {
+                    return [list $side $anchor [dict get $placement division]]
+                }
                 return [list $side $anchor]
             }
         }

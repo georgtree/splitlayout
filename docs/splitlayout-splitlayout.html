@@ -1262,9 +1262,11 @@ insertion point.</p>
 orientation and relative order (following siblings take precedence at equal distance). The first surviving
 sibling node is used, including if it has become a split. Node identity represents a position: swapping its
 content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
-anchors are skipped. Original sash proportions are not restored. Explicit destinations override this
-restoration. If no anchor remains, <code class="docutils literal notranslate"><span class="pre">dock</span></code> places the content to the right of the current root. Undocking the
-sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces
+anchors are skipped. Returning to the original split restores the floating pane’s share at undock time.
+The remaining panes divide the rest according to their current proportions. If the split collapsed, docking
+restores the saved division beside the promoted sibling. Minimum sizes may limit the resulting sash positions.
+Explicit destinations, relocated anchors in other splits, and fallback positions use ordinary insertion sizing.
+If no anchor remains, <code class="docutils literal notranslate"><span class="pre">dock</span></code> places the content to the right of the current root. Undocking the sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces
 that placeholder if it is still the root, has no header title, and its content frame has no child widgets. If
 you populate it, both contents are retained. Explicit destinations always follow the requested placement
 instead of replacing the placeholder.</p>
@@ -1703,9 +1705,9 @@ The new docked leaf identifier.</p>
 </dl>
 <p class="rubric">Description</p>
 <p>At most one destination is allowed. With no destination, tries the saved sibling positions in the original
-orientation, then replaces an untouched root placeholder or docks to the right of the current root. Explicit
-destinations follow move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split
-target in a new split.
+orientation, then replaces an untouched root placeholder or docks to the right of the current root. Returning to the original
+split or beside its promoted sibling restores the saved share. Explicit destinations follow move semantics:
+reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split.
 The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
 other managers’ tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.</p>
 <p class="rubric">Return value</p>
