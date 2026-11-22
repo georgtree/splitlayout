@@ -19,7 +19,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ clear\fP \fI?args?\fP
 .br
-\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean? ?-closeaction destroy|hide|none? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
@@ -28,6 +28,10 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
 .br
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ hidden\fP \fI?args?\fP
+.br
+\fBSPLITLAYOUTOBJ hide\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ insert\fP \fInode ?-side side?\fP
 .br
@@ -56,6 +60,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ retain\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ root\fP \fI?args?\fP
+.br
+\fBSPLITLAYOUTOBJ show\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
 .br
@@ -235,25 +241,28 @@ $manager constraints $output -noresize true
 .PP
 .RS 4n
 .nf
-┌─────────────┬─────────────────────────┬──────────────────────────┬───────────────────────────────────────────────────┐
-│ Option      │ Default                 │ Applies to               │ Meaning                                           │
-├─────────────┼─────────────────────────┼──────────────────────────┼───────────────────────────────────────────────────┤
-│ -nomove     │ false                   │ Leaf / floating content  │ Reject direct move and either operand of swap\&.    │
-│ -noundock   │ false                   │ Leaf / floating content  │ Reject undocking this content\&.                    │
-│ -nodestroy  │ false                   │ Any node / floating      │ Reject deletion of protected content or an        │
-│             │                         │ content                  │ explicitly protected split\&.                       │
-│ -noresize   │ false                   │ Any node / floating      │ Lock sash-driven allocation changes; this is not  │
-│             │                         │ content                  │ a fixed pixel size\&.                               │
-│ -locked     │ false                   │ Leaf / floating content  │ Set movement flags and block adjacent move/dock   │
-│             │                         │                          │ destinations\&.                                     │
-│ -lockedside │ {left right top bottom} │ Leaf / floating content  │ Edges blocking incoming move/dock placement while │
-│             │                         │                          │ locked\&.                                           │
-│ -minleaves  │ 1                       │ Docked node              │ Minimum descendant leaf count while this subtree  │
-│             │                         │                          │ is retained\&.                                      │
-│ -maxleaves  │ -1                      │ Docked node              │ Maximum descendant leaf count; -1 means           │
-│             │                         │                          │ unlimited\&.                                        │
-│ -maxdepth   │ -1                      │ Docked node              │ Maximum depth below the node; -1 means unlimited\&. │
-└─────────────┴─────────────────────────┴──────────────────────────┴───────────────────────────────────────────────────┘
+┌──────────────┬─────────────────────────┬──────────────────────────┬──────────────────────────────────────────────────┐
+│ Option       │ Default                 │ Applies to               │ Meaning                                          │
+├──────────────┼─────────────────────────┼──────────────────────────┼──────────────────────────────────────────────────┤
+│ -nomove      │ false                   │ Leaf / floating content  │ Reject direct move and either operand of swap\&.   │
+│ -noundock    │ false                   │ Leaf / floating content  │ Reject undocking this content\&.                   │
+│ -nodestroy   │ false                   │ Any node / floating      │ Reject deletion of protected content or an       │
+│              │                         │ content                  │ explicitly protected split\&.                      │
+│ -noresize    │ false                   │ Any node / floating      │ Lock sash-driven allocation changes; this is not │
+│              │                         │ content                  │ a fixed pixel size\&.                              │
+│ -locked      │ false                   │ Leaf / floating content  │ Set movement flags and block adjacent move/dock  │
+│              │                         │                          │ destinations\&.                                    │
+│ -nohide      │ false                   │ Leaf / detached content  │ Prevent hiding this pane\&.                        │
+│ -closeaction │ destroy                 │ Leaf / detached content  │ Header cross action: destroy, hide, or none\&.     │
+│ -lockedside  │ {left right top bottom} │ Leaf / floating content  │ Edges blocking incoming move/dock placement      │
+│              │                         │                          │ while locked\&.                                    │
+│ -minleaves   │ 1                       │ Docked node              │ Minimum descendant leaf count while this subtree │
+│              │                         │                          │ is retained\&.                                     │
+│ -maxleaves   │ -1                      │ Docked node              │ Maximum descendant leaf count; -1 means          │
+│              │                         │                          │ unlimited\&.                                       │
+│ -maxdepth    │ -1                      │ Docked node              │ Maximum depth below the node; -1 means           │
+│              │                         │                          │ unlimited\&.                                       │
+└──────────────┴─────────────────────────┴──────────────────────────┴──────────────────────────────────────────────────┘
 .fi
 .RE
 .SS "LOCK TERMINOLOGY AND MIGRATION"
@@ -577,17 +586,17 @@ Each grip has three monochrome bitmap buttons, with tooltips:
 .PP
 .RS 4n
 .nf
-┌────────┬────────────────────────────┬─────────────────────────────────────────────────┐
-│ Button │ Docked leaf                │ Floating content                                │
-├────────┼────────────────────────────┼─────────────────────────────────────────────────┤
-│ Lock   │ Toggle locking             │ Toggle locking                                  │
-│ Arrow  │ Undock                     │ Dock at the default destination defined by dock │
-│ Cross  │ Delete content with remove │ Delete content with remove                      │
-└────────┴────────────────────────────┴─────────────────────────────────────────────────┘
+┌────────┬────────────────────┬─────────────────────────────────────────────────┐
+│ Button │ Docked leaf        │ Floating content                                │
+├────────┼────────────────────┼─────────────────────────────────────────────────┤
+│ Lock   │ Toggle locking     │ Toggle locking                                  │
+│ Arrow  │ Undock             │ Dock at the default destination defined by dock │
+│ Cross  │ Apply -closeaction │ Apply -closeaction                              │
+└────────┴────────────────────┴─────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
-The cross requests content deletion, subject to constraints\&. It never consults -onclose; that policy controls
+The cross performs the configured close action, subject to constraints\&. It never consults -onclose; that policy controls
 only the native floating window close request (including Alt+F4)\&. Buttons accept keyboard focus and do not
 start dragging\&. The global -draghandles property controls both strips, including these buttons\&. A floating
 strip spans the window width and reserves space using the content labelframe's label-widget area, preserving
@@ -1062,6 +1071,16 @@ require a non-root target\&. Docking reuses a matching parent orientation, conve
 when necessary, or wraps a split target in a new parent\&. Existing pane shares are divided equally at the
 insertion point\&.
 .PP
+Use hide leaf to release the pane's space while retaining its content frame and widgets\&. The returned
+frame pathname doubles as its hidden token\&. Use hidden to list these frames and show frame to restore
+one at its remembered position\&. Hidden content is outside the logical tree\&. Hiding and showing respect
+subtree limits\&. A refused show can be retried\&. Use remove frame to discard hidden content\&.
+.PP
+Use constraints leaf -closeaction hide to make its header cross hide the content, destroy (the default)
+to delete it, or none to disable the button\&. The setting follows the content\&. The separate -nohide
+flag blocks hiding from either the header or the command\&. A pane protected only by -nodestroy can be
+hidden\&. Floating headers follow the same rules; the native window close button follows -onclose\&.
+.PP
 With no destination, dock tries the sibling positions saved by undock, nearest first, with the original
 orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
 sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
@@ -1241,6 +1260,12 @@ Lists floating content or describes one floating window owned by this manager\&.
 frame
 Returns the retained content frame of a docked leaf or floating window\&. The content frame pathname, unchanged across docking transitions\&.
 .TP
+hidden
+Lists the retained content frames hidden by this manager\&.
+.TP
+hide
+Unmaps a leaf or floating window and retains its application widgets\&.
+.TP
 insert
 Inserts an empty leaf beside an existing non-root node\&.
 .TP
@@ -1282,6 +1307,9 @@ Keeps a node while removing its siblings and collapsing its parent\&.
 .TP
 root
 Returns the current logical root node\&. The root node identifier\&.
+.TP
+show
+Restores hidden content using the same placement and share rules as implicit docking\&.
 .TP
 \fIsplit\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]
 Replaces a leaf with a split containing two new leaves\&.
@@ -1548,7 +1576,7 @@ The new root leaf identifier\&.
 .PP
 Queries or atomically updates restrictions for one node or floating content\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
+\fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean? ?-closeaction destroy|hide|none? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
 .RE
 .PP
@@ -1643,11 +1671,12 @@ Token returned by this manager's undock command\&.
 \fBDescription\fR
 .PP
 At most one destination is allowed\&. With no destination, tries the saved sibling positions in the original
-orientation, then replaces an untouched root placeholder or docks to the right of the current root\&. Returning to the original
-split or beside its promoted sibling restores the saved share\&. Explicit destinations follow move semantics:
-reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split\&.
-The floating token expires; all content widgets retain their pathnames and state\&. Arbitrary windows and
-other managers' tokens are rejected\&. Custom toplevel bindtags are adjusted; literal paths in scripts are not\&.
+orientation, then replaces an untouched root placeholder or docks to the right of the current root\&. Returning
+to the original split or beside its promoted sibling restores the saved share\&. Explicit destinations follow
+move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new
+split\&.  The floating token expires; all content widgets retain their pathnames and state\&. Arbitrary windows
+and other managers' tokens are rejected\&. Custom toplevel bindtags are adjusted; literal paths in scripts are
+not\&.
 .PP
 \fBReturn value\fR
 .PP
@@ -1706,6 +1735,49 @@ Raises an error if the node is unknown or is a split\&.
 .PP
 Returns the retained content frame of a docked leaf or floating window\&.
 The content frame pathname, unchanged across docking transitions\&.
+.PP
+.RS -4n
+\fBhidden\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Lists the retained content frames hidden by this manager\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ hidden\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.RE
+.PP
+\fBReturn value\fR
+.PP
+A list of frame pathnames accepted by show and remove\&.
+.PP
+.RS -4n
+\fBhide\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Unmaps a leaf or floating window and retains its application widgets\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ hide\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Docked leaf identifier or floating token\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+The leaf ID or floating token expires\&. The frame pathname remains valid\&.
+.PP
+\fBReturn value\fR
+.PP
+The retained frame pathname for use with show\&.
 .PP
 .RS -4n
 \fBinsert\fR (::splitlayout::splitlayout)
@@ -2106,6 +2178,27 @@ The root node identifier\&.
 .PP
 Returns the current logical root node\&.
 The root node identifier\&.
+.PP
+.RS -4n
+\fBshow\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Restores hidden content using the same placement and share rules as implicit docking\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ show\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+frame
+Retained content frame returned by hide or listed by hidden\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The new docked leaf identifier\&. A refused restoration leaves the frame hidden\&.
 .PP
 .RS -4n
 \fBsplit\fR (::splitlayout::splitlayout)

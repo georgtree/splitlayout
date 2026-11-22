@@ -416,6 +416,8 @@ namespace eval ::splitlayout {
         | `-nodestroy`  | false                     | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
         | `-noresize`   | false                     | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
         | `-locked`     | false                     | Leaf / floating content     | Set movement flags and block adjacent move/dock destinations.          |
+        | `-nohide` | `false` | Leaf / detached content | Prevent hiding this pane. |
+        | `-closeaction` | `destroy` | Leaf / detached content | Header cross action: destroy, hide, or none. |
         | `-lockedside` | `{left right top bottom}` | Leaf / floating content     | Edges blocking incoming move/dock placement while locked.              |
         | `-minleaves`  | 1                         | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
         | `-maxleaves`  | -1                        | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
@@ -710,9 +712,9 @@ namespace eval ::splitlayout {
         | ------ | ---------------------------- | ------------------------------------------------- |
         | Lock   | Toggle locking               | Toggle locking                                    |
         | Arrow  | Undock                       | Dock at the default destination defined by `dock` |
-        | Cross  | Delete content with `remove` | Delete content with `remove`                      |
+        | Cross  | Apply `-closeaction`         | Apply `-closeaction`                              |
 
-        The cross requests content deletion, subject to constraints. It never consults `-onclose`; that policy controls
+        The cross performs the configured close action, subject to constraints. It never consults `-onclose`; that policy controls
         only the native floating window close request (including Alt+F4). Buttons accept keyboard focus and do not
         start dragging. The global `-draghandles` property controls both strips, including these buttons. A floating
         strip spans the window width and reserves space using the content labelframe's label-widget area, preserving
@@ -1131,6 +1133,16 @@ namespace eval ::splitlayout {
         when necessary, or wraps a split target in a new parent. Existing pane shares are divided equally at the
         insertion point.
 
+        Use `hide leaf` to release the pane's space while retaining its content frame and widgets. The returned
+        frame pathname doubles as its hidden token. Use `hidden` to list these frames and `show frame` to restore
+        one at its remembered position. Hidden content is outside the logical tree. Hiding and showing respect
+        subtree limits. A refused show can be retried. Use `remove frame` to discard hidden content.
+
+        Use `constraints leaf -closeaction hide` to make its header cross hide the content, `destroy` (the default)
+        to delete it, or `none` to disable the button. The setting follows the content. The separate `-nohide`
+        flag blocks hiding from either the header or the command. A pane protected only by `-nodestroy` can be
+        hidden. Floating headers follow the same rules; the native window close button follows `-onclose`.
+
         With no destination, `dock` tries the sibling positions saved by `undock`, nearest first, with the original
         orientation and relative order (following siblings take precedence at equal distance). The first surviving
         sibling node is used, including if it has become a split. Node identity represents a position: swapping its
@@ -1291,7 +1303,7 @@ proc ::splitlayout::CreationHelp {args} {
 
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Root Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure\
-            Borders Settings Floating VacantRoot Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips\
+            Borders Settings Hidden Floating VacantRoot Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips\
             TooltipReady Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums\
             NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
@@ -1729,8 +1741,9 @@ oo::configurable create ::splitlayout::splitlayout {
     initialize {
         # the explicit-setting defaults for a node or content frame.
         variable ConstraintDefaults
-        const ConstraintDefaults {-nomove 0 -noundock 0 -nodestroy 0 -noresize 0 -minleaves 1 -maxleaves -1\
-                                          -maxdepth -1 -locked 0 -lockedside {left right top bottom}}
+        const ConstraintDefaults {-nohide 0 -closeaction destroy -nomove 0 -noundock 0 -nodestroy 0 -noresize 0\
+                                          -minleaves 1 -maxleaves -1 -maxdepth -1 -locked 0\
+                                          -lockedside {left right top bottom}}
     }
     constructor {args} {
         # Creates a split layout with one empty root leaf.
@@ -1767,8 +1780,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary?
         #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
         #  ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?
-        foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers Floating VacantRoot\
-                         Settings Drag Dock Borders Panels Pending Nodes} {
+        foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers Hidden Floating\
+                             VacantRoot Settings Drag Dock Borders Panels Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
@@ -1942,6 +1955,7 @@ oo::configurable create ::splitlayout::splitlayout {
         argparse -pfirst -help {Return the retained content frame of a docked leaf or floating window} {
             {id -help {Existing leaf identifier or owned floating token}}
         }
+        if {[dict exists $Hidden $id]} {return $id}
         if {[dict exists $Floating $id]} {
             return [my FloatingFrame $id]
         }
@@ -2149,9 +2163,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # Locked protects selected incoming placement edges and sets both movement flags.
         #
         # Returns: One queried value, or the complete explicit settings dictionary.
-        # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean?
-        #  ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count?
-        #  ?-maxdepth depth?
+        # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean?
+        # ?-closeaction destroy|hide|none? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count?
+        # ?-maxleaves count? ?-maxdepth depth?
 
         # A two-argument call is a query. Protect its option name from switch parsing.
         if {[llength $args] == 2} {
@@ -2162,12 +2176,14 @@ oo::configurable create ::splitlayout::splitlayout {
             {id -help {Leaf, split, or owned floating token}}
             {option -optional -help {Single constraint name to query; omit to query all}}
             {-nomove= -type boolean -help {Block direct leaf movement and swaps; ancestors remain movable}}
+            {-nohide= -type boolean -help {Prevent hiding this content}}
+            {-closeaction= -enum {destroy hide none} -help {Header close button action for this content}}
             {-noundock= -type boolean -help {Prevent undocking this leaf; docking and desktop movement remain allowed}}
             {-nodestroy= -type boolean -help {Prevent deletion; protected descendants also protect their ancestors}}
             {-noresize= -type boolean -help {Prevent sash and proportion changes affecting this node}}
             {-locked= -type boolean\
                     -help {Set nomove and noundock together and enable lockedside protection; configure separately\
-                    from those flags}}
+                                   from those flags}}
             {-lockedside= -help {Blocked incoming placement edges: left, right, top, bottom; empty allows all edges}}
             {-minleaves= -help {Minimum descendant leaves while retaining this subtree; nonnegative}}
             {-maxleaves= -help {Maximum descendant leaves; -1 means unlimited}}
@@ -2179,7 +2195,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error {cannot combine a constraint query with updates}
         }
         classvariable ConstraintDefaults
-        set floating [dict exists $Floating $id]
+        set floating [expr {[dict exists $Floating $id] || [dict exists $Hidden $id]}]
         set leaf [expr {$floating || ([my type $id] eq {leaf})}]
         set current $ConstraintDefaults
         if {!$floating && [dict exists $NodeRules $id]} {
@@ -2212,11 +2228,11 @@ oo::configurable create ::splitlayout::splitlayout {
         set contents $ContentRules
         dict for {key value} $opts {
             set option -$key
-            if {$key in {nomove noundock nodestroy noresize locked}} {
-                if {!$leaf && $key in {nomove noundock locked}} {
+            if {$key in {nomove noundock nohide nodestroy noresize locked closeaction}} {
+                if {!$leaf && $key in {nomove noundock nohide locked closeaction}} {
                     return -code error "$option applies only to leaf or floating content"
                 }
-                set value [expr {!!$value}]
+                if {$key ne {closeaction}} {set value [expr {!!$value}]}
                 if {$leaf} {
                     dict set contents $frame $option $value
                 } else {
@@ -2317,7 +2333,7 @@ oo::configurable create ::splitlayout::splitlayout {
             {id -help {Leaf, split, or owned floating token}}
         }]
         set id [dict get $opts id]
-        if {![dict exists $Floating $id] && ([my type $id] eq {split})} {
+        if {![dict exists $Floating $id] && ![dict exists $Hidden $id] && ([my type $id] eq {split})} {
             set horizontal [expr {[dict get $Nodes $id orient] eq {horizontal}}]
             set along 0
             set across 0
@@ -2726,6 +2742,11 @@ oo::configurable create ::splitlayout::splitlayout {
         argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
             {id -help {Node identifier or floating token to remove}}
         }
+        if {[dict exists $Hidden $id]} {
+            my ValidateOperation remove $id
+            destroy $id
+            return
+        }
         if {[dict exists $Floating $id]} {
             my ValidateOperation remove $id
             set frame [my FloatingFrame $id]
@@ -2814,7 +2835,7 @@ oo::configurable create ::splitlayout::splitlayout {
             {-title= -default splitlayout -help {Native floating-window title}}
             {-geometry= -help {Tk window geometry; omit to use the current content size and position}}
             {-onclose= -default dock -enum {dock destroy} -help {Action for native window close; the header delete\
-                                                                         button always requests deletion}}
+                                                                         button follows -closeaction}}
         }]
         set id [my Check [dict get $opts leaf] leaf]
         set frame [my frame $id]
@@ -2850,6 +2871,94 @@ oo::configurable create ::splitlayout::splitlayout {
                                           placement $placement]
         bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
         wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
+        my ReleaseLeaf $id $parent
+        wm deiconify $frame
+        raise $frame
+        my RefreshNestedOwners $frame
+        return $token
+    }
+    method dock {args} {
+        # Returns owned floating content to a new leaf in the docked layout.
+        #  floating - Token returned by this manager's undock command.
+        #  -left target - Dock to the left of a leaf or split.
+        #  -right target - Dock to the right of a leaf or split.
+        #  -top target - Dock above a leaf or split.
+        #  -bottom target - Dock below a leaf or split.
+        #  -before target - Dock before a non-root node in its existing parent.
+        #  -after target - Dock after a non-root node in its existing parent.
+        #
+        # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
+        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Returning
+        # to the original split or beside its promoted sibling restores the saved share. Explicit destinations follow
+        # move semantics: reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new
+        # split.  The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows
+        # and other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are
+        # not.
+        # Returns: The new docked leaf identifier.
+        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
+        set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
+                                                          destination to restore the remembered position} {
+            {floating -help {Owned floating token returned by undock}}
+            {-left= -help {Place to the left of the target leaf or split}}
+            {-right= -help {Place to the right of the target leaf or split}}
+            {-top= -help {Place above the target leaf or split}}
+            {-bottom= -help {Place below the target leaf or split}}
+            {-before= -help {Place before a non-root target in its current parent}}
+            {-after= -help {Place after a non-root target in its current parent}}
+        }]
+        set token [dict get $opts floating]
+        my FloatingFrame $token
+        return [my RestoreContent $token $opts [dict get $Floating $token placement] 1]
+    }
+    method hidden {args} {
+        # Lists the retained content frames hidden by this manager.
+        # Returns: A list of frame pathnames accepted by show and remove.
+        argparse -pfirst -help {List hidden content frames} {}
+        return [dict keys $Hidden]
+    }
+    method hide {args} {
+        # Unmaps a leaf or floating window and retains its application widgets.
+        #  id - Docked leaf identifier or floating token.
+        # The leaf ID or floating token expires. The frame pathname remains valid.
+        # Returns: The retained frame pathname for use with show.
+        argparse -pfirst -help {Hide content and return its retained frame pathname} {
+            {id -help {Docked leaf or floating token}}
+        }
+        set frame [my frame $id]
+        if {[dict exists $Hidden $id]} {
+            return $id
+        }
+        my ValidateOperation hide $id
+        my CancelDrag
+        if {[dict exists $Floating $id]} {
+            set placement [dict get $Floating $id placement]
+            my UnmanageFloating $id $frame
+            dict unset Floating $id
+        } else {
+            my CaptureAll
+            set placement [my RememberPlacement $id]
+            my Detach $frame
+            my ReleaseLeaf $id [my parent $id]
+        }
+        dict set Hidden $frame $placement
+        return $frame
+    }
+    method show {args} {
+        # Restores hidden content using the same placement and share rules as implicit docking.
+        #  frame - Retained content frame returned by hide or listed by hidden.
+        # Returns: The new docked leaf identifier. A refused restoration leaves the frame hidden.
+        argparse -pfirst -help {Restore a hidden content frame and return its new leaf ID} {
+            {frame -help {Hidden content frame pathname}}
+        }
+        if {![dict exists $Hidden $frame]} {
+            return -code error "unknown hidden content '$frame'"
+        }
+        return [my RestoreContent $frame {} [dict get $Hidden $frame] 0]
+    }
+
+    ### Detached content management
+    method ReleaseLeaf {id parent} {
+        # Removes an already detached leaf from the tree and promotes a sole survivor.
         dict unset Nodes $id
         if {$parent eq {}} {
             set Root [my NewLeaf {}]
@@ -2867,41 +2976,33 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my Rebuild
         my RefreshMinimums
-        wm deiconify $frame
-        raise $frame
-        my RefreshNestedOwners $frame
-        return $token
     }
-    method dock {args} {
-        # Returns owned floating content to a new leaf in the docked layout.
-        #  floating - Token returned by this manager's undock command.
-        #  -left target - Dock to the left of a leaf or split.
-        #  -right target - Dock to the right of a leaf or split.
-        #  -top target - Dock above a leaf or split.
-        #  -bottom target - Dock below a leaf or split.
-        #  -before target - Dock before a non-root node in its existing parent.
-        #  -after target - Dock after a non-root node in its existing parent.
-        #
-        # At most one destination is allowed. With no destination, tries the saved sibling positions in the original
-        # orientation, then replaces an untouched root placeholder or docks to the right of the current root. Returning to the original
-        # split or beside its promoted sibling restores the saved share. Explicit destinations follow move semantics:
-        # reuse a matching parent, convert a leaf target to a split, or wrap a split target in a new split.
-        # The floating token expires; all content widgets retain their pathnames and state. Arbitrary windows and
-        # other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are not.
-        # Returns: The new docked leaf identifier.
-        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
-        set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
-                                                          destination to restore the remembered position} {
-            {floating -help {Owned floating token returned by undock}}
-            {-left= -help {Place to the left of the target leaf or split}}
-            {-right= -help {Place to the right of the target leaf or split}}
-            {-top= -help {Place above the target leaf or split}}
-            {-bottom= -help {Place below the target leaf or split}}
-            {-before= -help {Place before a non-root target in its current parent}}
-            {-after= -help {Place after a non-root target in its current parent}}
-        }]
-        set token [dict get $opts floating]
-        set frame [my FloatingFrame $token]
+    method UnmanageFloating {token frame} {
+        # Releases native window management and restores the content's original binding tags.
+        # Remove only our watcher; application binding tags remain intact.
+        set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
+        set watched [bindtags $frame]
+        if {$watcher >= 0} {
+            bindtags $frame [lreplace $watched $watcher $watcher]
+        }
+        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {
+            bindtags $frame {}
+        }
+        my RemoveFloatingGrip $token
+        set tags [my BindingSnapshot $frame]
+        if {[catch {wm forget $frame} message options]} {
+            bindtags $frame $watched
+            my SyncFloatingGrips
+            return -options $options $message
+        }
+        my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
+        if {[dict exists $Floating $token leafbackground]} {
+            $frame configure -background [dict get $Floating $token leafbackground]
+        }
+    }
+    method RestoreContent {token opts placement floating} {
+        # Reattaches a floating or hidden frame after validating the complete destination.
+        set frame [my frame $token]
         lassign [my DockDestination $token $opts] side target replace division
         my ValidateOperation dock $token $side $target $replace
         set parent [my parent $target]
@@ -2922,35 +3023,22 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my CancelDrag
         my CaptureAll
-        # Remove only our watcher; application binding tags remain intact.
-        set watcher [lsearch -exact [bindtags $frame] ${Tag}Floating]
-        set watched [bindtags $frame]
-        if {$watcher >= 0} {
-            bindtags $frame [lreplace $watched $watcher $watcher]
-        }
-        if {[bindtags $frame] eq [list $frame [winfo class $frame] all]} {
-            bindtags $frame {}
-        }
-        my RemoveFloatingGrip $token
-        set tags [my BindingSnapshot $frame]
-        if {[catch {wm forget $frame} message options]} {
-            bindtags $frame $watched
-            my SyncFloatingGrips
-            if {$wrap} {
-                destroy $pw
+        if {$floating} {
+            if {[catch {my UnmanageFloating $token $frame} message options]} {
+                if {$wrap} {
+                    destroy $pw
+                }
+                return -options $options $message
             }
-            return -options $options $message
+            dict unset Floating $token
+        } else {
+            dict unset Hidden $token
         }
-        my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
-        if {[dict exists $Floating $token leafbackground]} {
-            $frame configure -background [dict get $Floating $token leafbackground]
-        }
-        set restoreParent [expr {($division ne {}) && ($parent eq [dict get $Floating $token placement parent])}]
+        set restoreParent [expr {($division ne {}) && ($parent eq [dict get $placement parent])}]
         if {$division eq {}} {
             set division {0.5 0.5}
         }
         lassign $division share other
-        dict unset Floating $token
         set source [my NewLeaf $parent $frame]
         if {$replace} {
             my Drop $Root
@@ -3773,6 +3861,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set root $Root
         set replacements {}
         set floats $Floating
+        foreach frame [dict keys $Hidden] {dict set floats $frame [dict create frame $frame]}
         set id [lindex $args 0]
         switch $operation {
             split {
@@ -3836,14 +3925,21 @@ oo::configurable create ::splitlayout::splitlayout {
                 dict set model $parent children [list $id]
                 my ModelCollapse model root replacements $parent
             }
-            remove - undock {
+            remove - undock - hide {
+                if {($operation eq {hide}) && [my constraints $id -nohide]} {
+                    my ConstraintError $id -nohide {hiding is disabled}
+                }
                 if {[dict exists $floats $id]} {
-                    dict unset floats $id
+                    if {$operation ne {hide}} {
+                        dict unset floats $id
+                    }
                 } else {
                     if {$operation eq {undock}} {
                         if {[my constraints $id -noundock]} {
                             my ConstraintError $id -noundock {undocking is disabled}
                         }
+                    }
+                    if {$operation in {hide undock}} {
                         dict set floats @floating [dict create frame [dict get $model $id widget]]
                     }
                     set parent [dict get $model $id parent]
@@ -3898,6 +3994,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 my ConstraintError $token -nodestroy {operation would destroy protected floating content}
             }
         }
+        if {($operation eq {remove}) && [dict exists $Hidden $id] && [my constraints $id -nodestroy]} {
+            my ConstraintError $id -nodestroy {deletion of hidden content is disabled}
+        }
         my ValidateLimits $model $NodeRules $replacements
     }
     method ActionAllowed {id action} {
@@ -3905,10 +4004,11 @@ oo::configurable create ::splitlayout::splitlayout {
         #  id - Leaf or floating token.
         #  action - dock, undock, delete, lock, or unlock.
         # Returns: Boolean. Unexpected implementation errors remain errors.
+        if {$action eq {none}} {return 0}
         if {$action in {lock unlock}} {
             return 1
         }
-        set op [expr {$action eq {delete} ? {remove} : $action}]
+        set op [expr {$action in {delete destroy} ? {remove} : $action}]
         set args [list $id]
         if {$op eq {dock}} {
             lappend args {*}[my DockDestination $id {}]
@@ -4129,7 +4229,6 @@ oo::configurable create ::splitlayout::splitlayout {
         #  token - Owned floating token.
         #  opts - Parsed destination dictionary, with unprefixed option names.
         # Returns: Side, target, untouched-placeholder replacement boolean, and optional saved division (pane, remainder).
-        my FloatingFrame $token
         set destinations {}
         foreach side {left right top bottom before after} {
             if {[dict exists $opts $side]} {
@@ -4266,7 +4365,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # converted to a split remains an anchor for that whole split. Removed anchors are skipped.
         # Returns: Edge and target, plus the saved division in the original or collapsed split. Empty if no anchor
         # survives.
-        set placement [dict get $Floating $token placement]
+        set placement [expr {[dict exists $Hidden $token] ? [dict get $Hidden $token] :\
+                                     [dict get $Floating $token placement]}]
         foreach candidate [dict get $placement anchors] {
             lassign $candidate anchor side
             if {[dict exists $Nodes $anchor]} {
@@ -4466,6 +4566,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         if {$frame eq $path} {
+            dict unset Hidden $frame
+            dict unset ContentRules $frame
             if {[dict exists $Titles $frame]} {
                 dict unset Titles $frame
             }
@@ -4605,7 +4707,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #  id - Docked leaf or floating token.
         #  action - dock, undock, delete, lock, or unlock.
         #
-        # Returns: Nothing. Delete requests removal regardless of onclose, but still honors node constraints.
+        # Returns: Nothing. The cross follows the content close action and honors node constraints.
+        if {$action eq {delete}} {
+            set action [my constraints $id -closeaction]
+        }
         if {![my ActionAllowed $id $action]} {
             return
         }
@@ -4625,7 +4730,10 @@ oo::configurable create ::splitlayout::splitlayout {
             undock {
                 my undock $id
             }
-            delete {
+            hide {
+                my hide $id
+            }
+            destroy {
                 my remove $id
             }
         }
@@ -4824,7 +4932,14 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
                 ::tooltip::tooltip $grip.lock [my LockTooltip $id]
                 ::tooltip::tooltip $grip.toggle $action
-                ::tooltip::tooltip $grip.delete {Delete content}
+                switch [my constraints $id -closeaction] {
+                    destroy {
+                        ::tooltip::tooltip $grip.delete {Delete content}
+                    }
+                    hide {
+                        ::tooltip::tooltip $grip.delete {Hide content}
+                    }
+                }
             }
         }
     }
@@ -4967,7 +5082,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set widths {}
         set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
         foreach name {lock toggle delete} kind [list $lockAction $action delete] {
-            $grip.$name state [expr {[my ActionAllowed $id $kind] ? {!disabled} : {disabled}}]
+            set operation [expr {$kind eq {delete} ? [my constraints $id -closeaction] : $kind}]
+            $grip.$name state [expr {[my ActionAllowed $id $operation] ? {!disabled} : {disabled}}]
             set image [my ButtonImage $kind]
             # Use the action image in both states; disabling must not substitute a different symbol.
             set images [list $image disabled $image]
@@ -5082,7 +5198,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         my CancelDrag
-        set floating [dict exists $Floating $id]
+        set floating [expr {[dict exists $Floating $id] || [dict exists $Hidden $id]}]
         set grip [expr {$floating ? [dict get $Floating $id grip] : [dict get $Panels $id grip]}]
         my ClearHeaderTips $grip
         set previous [focus]

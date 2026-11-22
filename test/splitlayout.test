@@ -5207,6 +5207,57 @@ test splitlayout-help-42.4 {per-option details include defaults enums and destin
             [string match {*Place before a non-root target*} $movement] $result $result2
 } -cleanup {::sltest::cleanup} -result {1 1 1 1 {} {}}
 
+test splitlayout-hide-40.1 {header hides protected content and show restores its state and share} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    set root [$m root]
+    lassign [$m split $root -ratio 0.7] a b
+    set f [$m frame $b]
+    entry $f.e
+    $f.e insert 0 retained
+    $m constraints $b -closeaction hide -nodestroy true
+} -body {
+    [::sltest::grip $m $b].delete invoke
+    update
+    set result [list [expr {[$m hidden] eq $f}] [winfo ismapped $f] [::sltest::blocked $m [list $m remove $f] -nodestroy]]
+    set b [$m show $f]
+    update
+    lappend result [expr {[$m frame $b] eq $f}] [$f.e get] [expr {abs([$m ratio [$m root]]-0.7)<0.015}]
+} -cleanup {::sltest::cleanup} -result {1 0 1 1 retained 1}
+
+test splitlayout-hide-40.2 {nohide and inactive button have independent command semantics} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    set leaf [$m root]
+    $m constraints $leaf -closeaction hide -nohide true
+} -body {
+    update
+    set btn [::sltest::grip $m $leaf].delete
+    set result [list [$btn instate disabled] [::sltest::blocked $m [list $m hide $leaf] -nohide]]
+    $m constraints $leaf -closeaction none -nohide false
+    update
+    lappend result [$btn instate disabled]
+    set f [$m hide $leaf]
+    $m show $f
+    lappend result [$m hidden] [llength [$m leaves]]
+} -cleanup {::sltest::cleanup} -result {1 1 1 {} 1}
+
+test splitlayout-hide-40.3 {hidden content survives failed restoration and floating headers can hide} -setup {
+    set m [::sltest::setup]
+    $m configure -draghandles true
+    lassign [$m split [$m root]] a b
+    set token [$m undock $b]
+    $m constraints $token -closeaction hide
+    set frame [$m frame $token]
+} -body {
+    [::sltest::floatgrip $m $token].delete invoke
+    $m constraints [$m root] -maxleaves 1
+    set result [list [$m floating] [::sltest::blocked $m [list $m show $frame] -maxleaves] [expr {$frame in [$m hidden]}]]
+    $m constraints [$m root] -maxleaves 2
+    set leaf [$m show $frame]
+    lappend result [expr {[$m frame $leaf] eq $frame}] [$m constraints $leaf -closeaction]
+} -cleanup {::sltest::cleanup} -result {{} 1 1 1 hide}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors
