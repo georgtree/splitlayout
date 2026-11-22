@@ -1191,7 +1191,7 @@ namespace eval ::splitlayout {
         compatibility.
 
         ## Notebook workspaces
-        The first `addtab title` puts the existing tree in a notebook page. Each further call creates an independent
+        The first `addtab title` puts the existing tree in a notebook page. By default each further call creates a
         root leaf. `tabs` lists stable page pathnames, `selecttab ?page?` queries or selects a page, and `root ?page?`
         returns the selected or specified root. For example:
 
@@ -1203,7 +1203,23 @@ namespace eval ::splitlayout {
 
         Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply
         to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
-        a different tab is selected. Moving the last leaf away leaves its page with a fresh empty root.
+        a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
+
+        Use `addtab title -empty` for a page that can have zero leaves. On a new manager this consumes the initial
+        blank root. Adopt an existing populated layout with ordinary `addtab` first. When a page has no tree,
+        `root` returns an empty string and the selected page's `leaves`, `tree` and `clear` return empty.
+        The whole page is a single drop target. Moving, hiding, undocking or deleting its last pane empties it
+        again. The page remains selectable. To populate one from code:
+
+        ```tcl
+        set plots [.layout addtab Plots -empty]
+        set plot [.layout addleaf $plots]
+        set other [.layout addtab Comparison -empty]
+        .layout move $plot -tab $other
+        ```
+
+        A floating pane can likewise be placed with `dock $floating -tab $page`.
+        Both commands require the destination page to have zero leaves.
 
         Hold a dragged header over a tab label briefly to open that page. Drop inside it using the ordinary centre,
         edge, outer rim and sash destinations. Hovering alone never commits a change. Releasing over a label leaves
@@ -1323,7 +1339,7 @@ proc ::splitlayout::CreationHelp {args} {
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock\
+    variable W Hull Nodes Roots EmptyTabs Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock\
             Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide LockButtonMode HeaderRelief\
             HeaderBorder Tooltips TooltipReady Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder\
             LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
@@ -1802,7 +1818,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
         #  ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?
         foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers Hidden Floating\
-                             Roots Book Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
+                             Roots EmptyTabs Book Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
@@ -1903,7 +1919,7 @@ oo::configurable create ::splitlayout::splitlayout {
     method root {args} {
         # Returns the current logical root node.
         #  tab - Optional tab returned by addtab. Defaults to the selected page.
-        # Returns: The root node identifier.
+        # Returns: The root node identifier, or empty for a page without a tree.
         # Synopsis: ?tab?
         argparse -pfirst -help {Return the root of the selected or specified page} {
             {tab -optional -default {} -help {Tab pathname returned by addtab}}
@@ -1914,17 +1930,33 @@ oo::configurable create ::splitlayout::splitlayout {
         return [dict get $Roots $tab]
     }
     method addtab {args} {
-        # Adds a notebook tab. The first call adopts the existing tree, later calls create empty roots.
+        # Adds a notebook tab. By default the first call adopts the existing tree, later calls create a root leaf.
+        #  -empty - Allow zero leaves and start without a root.
         #  title - Visible tab label.
         # Returns: Stable page pathname accepted by root and selecttab.
+        # Synopsis: title ?-empty?
         argparse -pfirst -help {Add a tab containing an independent split tree} {
             {title -help {Tab label}}
+            {-empty -boolean -help {Create a page that can hold zero leaves}}
+        }
+        if {$empty && ($Book eq {})} {
+            set root [my root]
+            if {([my type $root] ne {leaf}) || [llength [winfo children [my frame $root]]] ||\
+                        [dict exists $ContentRules [my frame $root]] || [dict exists $NodeRules $root] ||\
+                        [dict exists $Titles [my frame $root]] || [dict exists $Minimums [my frame $root]]} {
+                return -code error {use addtab without -empty to adopt the existing layout first}
+            }
         }
         my CancelDrag
         my CaptureAll
         if {$Book eq {}} {
             set Book [ttk::notebook $W.notebook]
             set root [dict get $Roots $W]
+            if {$empty} {
+                my Drop $root
+                dict unset Vacancies $root
+                set root {}
+            }
             dict unset Roots $W
             pack $Book -fill both -expand 1
             bind ${Tag}TabDrag <B1-Motion> [namespace code {my DockMotion %X %Y}]
@@ -1932,6 +1964,8 @@ oo::configurable create ::splitlayout::splitlayout {
             bind ${Tag}TabDrag <Escape> [namespace code {my DockEscape}]
             bind ${Tag}TabDrag <FocusOut> [namespace code {my TabFocusOut %W}]
             bindtags $Book [linsert [bindtags $Book] 0 ${Tag}TabDrag]
+        } elseif {$empty} {
+            set root {}
         } else {
             set root [my NewLeaf {}]
         }
@@ -1940,8 +1974,25 @@ oo::configurable create ::splitlayout::splitlayout {
         pack propagate $page 0
         $Book add $page -text $title
         dict set Roots $page $root
+        if {$empty} {
+            dict set EmptyTabs $page 1
+        }
         my Rebuild
         return $page
+    }
+    method addleaf {args} {
+        # Creates the first leaf on an empty notebook page.
+        #  tab - Page returned by addtab.
+        # Returns: The new root leaf identifier.
+        # Synopsis: tab
+        argparse -pfirst -help {Create a root leaf on an empty page} {
+            {tab -help {Empty notebook page}}
+        }
+        my CheckEmptyTab $tab
+        set root [my NewLeaf {}]
+        dict set Roots $tab $root
+        my Rebuild
+        return $root
     }
     method tabs {args} {
         # Lists tab pathnames in notebook order. Empty for a plain layout.
@@ -2075,6 +2126,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         if {$id eq {}} {
             set id [dict get $Roots [my ActivePage]]
+            if {$id eq {}} {
+                return {}
+            }
         }
         my Check $id
         if {[my type $id] eq {leaf}} {
@@ -2184,13 +2238,16 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Proportions are refreshed from usable geometry unless application is pending.
         #
-        # Returns: A nested dictionary describing the requested logical subtree.
+        # Returns: A nested dictionary describing the requested logical subtree, or empty for a rootless page.
         # Synopsis: ?id?
         argparse -pfirst -help {Return a recursive dictionary snapshot of the logical layout hierarchy} {
             {id -optional -default {} -help {Subtree root; omit or pass empty to use the layout root}}
         }
         if {$id eq {}} {
             set id [dict get $Roots [my ActivePage]]
+            if {$id eq {}} {
+                return {}
+            }
         }
         my Check $id
         set result [dict merge [dict create id $id] [dict get $Nodes $id]]
@@ -2583,6 +2640,7 @@ oo::configurable create ::splitlayout::splitlayout {
     method move {args} {
         # Moves an existing leaf to an edge or sibling position without destroying its content.
         #  leaf - Existing source leaf identifier, retained by the move.
+        #  -tab page - Place the leaf as the root of an empty page.
         #  -left target - Place before a target leaf or split in a horizontal split.
         #  -right target - Place after a target leaf or split in a horizontal split.
         #  -top target - Place before a target leaf or split in a vertical split.
@@ -2604,10 +2662,11 @@ oo::configurable create ::splitlayout::splitlayout {
         # A successful structural move cancels deferred dragging and rebuilds geometry once, without nested updates.
         #
         # Returns: The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.
-        # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target
+        # Synopsis: leaf -left|-right|-top|-bottom|-before|-after target | leaf -tab page
         set opts [argparse -inline -pfirst -help {Move an existing leaf without recreating its content; specify\
                                                           exactly one destination} {
             {leaf -help {Docked leaf identifier}}
+            {-tab= -help {Move into an empty notebook page}}
             {-left= -help {Place to the left of the target leaf or split}}
             {-right= -help {Place to the right of the target leaf or split}}
             {-top= -help {Place above the target leaf or split}}
@@ -2617,16 +2676,34 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         set source [my Check [dict get $opts leaf] leaf]
         set destinations {}
-        foreach key {left right top bottom before after} {
+        foreach key {left right top bottom before after tab} {
             if {[dict exists $opts $key]} {
                 lappend destinations $key
             }
         }
         if {[llength $destinations] != 1} {
-            return -code error {move requires exactly one destination: -left, -right, -top, -bottom, -before, or -after}
+            return -code error {move requires exactly one destination: -left, -right, -top, -bottom, -before, -after,\
+                                        or -tab}
         }
         set where [lindex $destinations 0]
-        set target [my Check [dict get $opts $where]]
+        set target [dict get $opts $where]
+        if {$where eq {tab}} {
+            my CheckEmptyTab $target
+            my ValidateOperation move $source tab $target
+            my CancelDrag
+            my CaptureAll
+            my Detach [my frame $source]
+            set parent [my parent $source]
+            my DetachFromTree $source $parent
+            dict set Nodes $source parent {}
+            dict set Roots $target $source
+            if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
+                my Promote $parent [lindex [my children $parent] 0]
+            }
+            my Rebuild
+            return $source
+        }
+        my Check $target
         set edge [expr {$where in {left right top bottom}}]
         # A self-drop is a no-op even for the sole root leaf.
         if {$source eq $target} {
@@ -2677,18 +2754,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my CancelDrag
         my CaptureAll
         my Detach [my frame $source]
-        if {$oldParent eq {}} {
-            set placeholder [my NewLeaf {}]
-            my ReplaceRoot $source $placeholder
-            dict set Vacancies $placeholder 1
-        } else {
-            set children [my children $oldParent]
-            set from [lsearch -exact $children $source]
-            set remaining [lreplace $children $from $from]
-            set weights [lreplace [dict get $Nodes $oldParent proportions] $from $from]
-            dict set Nodes $oldParent children $remaining
-            dict set Nodes $oldParent proportions [my Normalize $weights [llength $remaining]]
-        }
+        my DetachFromTree $source $oldParent
         if {$wrapSplit} {
             # A subtree keeps its identifier; add a new split around it and the source leaf.
             my Detach [my widget $target]
@@ -2826,7 +2892,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # Removing the root behaves like clear. Otherwise, the parent retains its remaining children with normalized
         # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
         #
-        # Returns: The surviving parent split, its promoted child, or new root; empty for floating removal.
+        # Returns: The surviving parent split, its promoted child, or new root. Empty when no root remains or
+        # when removing floating content.
         # Synopsis: id
         argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
             {id -help {Node identifier or floating token to remove}}
@@ -2847,8 +2914,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my ValidateOperation remove $id
         if {[my parent $id] eq {}} {
             my Drop $id
-            set root [my NewLeaf {}]
-            my ReplaceRoot $id $root
+            set root [my VacateRoot $id]
             my Rebuild
             return $root
         }
@@ -2899,16 +2965,18 @@ oo::configurable create ::splitlayout::splitlayout {
         return $id
     }
     method clear {args} {
-        # Destroys the docked tree and creates one empty root leaf; floating content is retained.
+        # Clears the selected page, retaining floating content. Pages created with -empty return to zero leaves.
         #
-        # Returns: The new root leaf identifier.
+        # Returns: The new root leaf identifier, or empty for a page created with -empty.
         # Synopsis:
-        argparse -pfirst -help {Destroy the docked tree and create an empty root leaf; retain floating content} {}
+        argparse -pfirst -help {Clear the selected layout tree and retain floating content} {}
+        set old [my root]
+        if {$old eq {}} {
+            return {}
+        }
         my ValidateOperation clear
-        set old [dict get $Roots [my ActivePage]]
         my Drop $old
-        set root [my NewLeaf {}]
-        my ReplaceRoot $old $root
+        set root [my VacateRoot $old]
         my Rebuild
         return $root
     }
@@ -2977,6 +3045,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  floating - Token returned by this manager's undock command.
         #  -left target - Dock to the left of a leaf or split.
         #  -right target - Dock to the right of a leaf or split.
+        #  -tab page - Dock as the root of an empty notebook page.
         #  -top target - Dock above a leaf or split.
         #  -bottom target - Dock below a leaf or split.
         #  -before target - Dock before a non-root node in its existing parent.
@@ -2990,10 +3059,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # and other managers' tokens are rejected. Custom toplevel bindtags are adjusted; literal paths in scripts are
         # not.
         # Returns: The new docked leaf identifier.
-        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target?
+        # Synopsis: floating ?-left target|-right target|-top target|-bottom target|-before target|-after target|-tab
+        # page?
         set opts [argparse -inline -pfirst -help {Dock owned floating content and return its new leaf ID; omit\
                                                           destination to restore the remembered position} {
             {floating -help {Owned floating token returned by undock}}
+            {-tab= -help {Dock into an empty notebook page}}
             {-left= -help {Place to the left of the target leaf or split}}
             {-right= -help {Place to the right of the target leaf or split}}
             {-top= -help {Place above the target leaf or split}}
@@ -3055,10 +3126,17 @@ oo::configurable create ::splitlayout::splitlayout {
     method ReleaseLeaf {id parent} {
         # Removes an already detached leaf from the tree and promotes a sole survivor.
         dict unset Nodes $id
+        my DetachFromTree $id $parent
+        if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
+            my Promote $parent [lindex [my children $parent] 0]
+        }
+        my Rebuild
+        my RefreshMinimums
+    }
+    method DetachFromTree {id parent} {
+        # Unlink a leaf and redistribute its share before the caller handles promotion.
         if {$parent eq {}} {
-            set root [my NewLeaf {}]
-            my ReplaceRoot $id $root
-            dict set Vacancies $root 1
+            my VacateRoot $id 1
         } else {
             set children [my children $parent]
             set at [lsearch -exact $children $id]
@@ -3066,12 +3144,7 @@ oo::configurable create ::splitlayout::splitlayout {
             set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
             dict set Nodes $parent children $children
             dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
-            if {[llength $children] == 1} {
-                my Promote $parent [lindex $children 0]
-            }
         }
-        my Rebuild
-        my RefreshMinimums
     }
     method UnmanageFloating {token frame} {
         # Releases native window management and restores the content's original binding tags.
@@ -3101,9 +3174,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set frame [my frame $token]
         lassign [my DockDestination $token $opts] side target replace division
         my ValidateOperation dock $token $side $target $replace
-        set parent [my parent $target]
+        set parent [expr {$side eq {tab} ? {} : [my parent $target]}]
         set edge [expr {$side in {left right top bottom}}]
-        if {!$edge && ($parent eq {})} {
+        if {($side in {before after}) && ($parent eq {})} {
             return -code error {cannot dock beside root; use an edge destination}
         }
         set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
@@ -3136,7 +3209,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         lassign $division share other
         set source [my NewLeaf $parent $frame]
-        if {$replace} {
+        if {$side eq {tab}} {
+            dict set Roots $target $source
+        } elseif {$replace} {
             my Drop $target
             my ReplaceRoot $target $source
         } elseif {$wrap} {
@@ -3200,6 +3275,24 @@ oo::configurable create ::splitlayout::splitlayout {
             set id $parent
         }
         return [my PageOfRoot $id]
+    }
+    method CheckEmptyTab {page} {
+        # Require an owned notebook page with no current tree.
+        if {![dict exists $EmptyTabs $page] || ([dict get $Roots $page] ne {})} {
+            return -code error "expected an empty notebook page, got '$page'"
+        }
+    }
+    method VacateRoot {id {remember 0}} {
+        # Retain a placeholder only on pages that require a root.
+        set root {}
+        if {![dict exists $EmptyTabs [my PageOfRoot $id]]} {
+            set root [my NewLeaf {}]
+            if {$remember} {
+                dict set Vacancies $root 1
+            }
+        }
+        my ReplaceRoot $id $root
+        return $root
     }
     method ReplaceRoot {old new} {
         # Updates one page's root after removal, wrapping, or promotion.
@@ -3390,7 +3483,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Nothing.
         my CancelDrag
         dict for {id settings} $NodeRules {
-            if {![dict exists $Nodes $id]} {dict unset NodeRules $id}
+            if {![dict exists $Nodes $id]} {
+                dict unset NodeRules $id
+            }
         }
         # Detach all known windows before adding any: this also handles swaps
         # where both frames were originally in the same panedwindow.
@@ -3406,6 +3501,9 @@ oo::configurable create ::splitlayout::splitlayout {
         my SyncPanels
         my SyncBorders
         dict for {page root} $Roots {
+            if {$root eq {}} {
+                continue
+            }
             my Attach $root
             pack [my widget $root] -in $page -fill both -expand 1
             my Stack $root
@@ -4011,15 +4109,17 @@ oo::configurable create ::splitlayout::splitlayout {
                     my ConstraintError $source -nomove {direct movement is disabled}
                 }
                 set parent [dict get $model $source parent]
-                if {$parent eq {}} {
-                    my ModelLeaf model {}
-                } else {
+                if {$parent ne {}} {
                     set children [dict get $model $parent children]
                     set at [lsearch -exact $children $source]
                     dict set model $parent children [lreplace $children $at $at]
                 }
-                my ValidatePlacement $model $target $side
-                my ModelAttach model root $source $target $side
+                if {$side eq {tab}} {
+                    dict set model $source parent {}
+                } else {
+                    my ValidatePlacement $model $target $side
+                    my ModelAttach model root $source $target $side
+                }
                 my ModelCollapse model root replacements $parent
             }
             swap {
@@ -4038,7 +4138,6 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             clear {
                 my ModelDrop model $root
-                set root [my ModelLeaf model {}]
             }
             retain {
                 set parent [dict get $model $id parent]
@@ -4072,9 +4171,7 @@ oo::configurable create ::splitlayout::splitlayout {
                     }
                     set parent [dict get $model $id parent]
                     my ModelDrop model $id
-                    if {$parent eq {}} {
-                        set root [my ModelLeaf model {}]
-                    } else {
+                    if {$parent ne {}} {
                         set children [dict get $model $parent children]
                         set at [lsearch -exact $children $id]
                         dict set model $parent children [lreplace $children $at $at]
@@ -4086,7 +4183,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 lassign $args token side target replace
                 set source [my ModelLeaf model {} [dict get $floats $token frame]]
                 dict unset floats $token
-                if {$replace} {
+                if {$side eq {tab}} {
+                    set root $source
+                } elseif {$replace} {
                     my ModelDrop model $target
                     set root $source
                 } else {
@@ -4360,13 +4459,18 @@ oo::configurable create ::splitlayout::splitlayout {
         # remainder).
         if {[dict exists $opts placeholder]} {return [list right [dict get $opts placeholder] 1 {}]}
         set destinations {}
-        foreach side {left right top bottom before after} {
+        foreach side {left right top bottom before after tab} {
             if {[dict exists $opts $side]} {
                 lappend destinations $side
             }
         }
         if {[llength $destinations] > 1} {
             return -code error {expected at most one docking destination}
+        }
+        if {$destinations eq {tab}} {
+            set page [dict get $opts tab]
+            my CheckEmptyTab $page
+            return [list tab $page 0 {}]
         }
         set placement [expr {[dict exists $Hidden $token] ? [dict get $Hidden $token] :\
                                      [dict get $Floating $token placement]}]
@@ -4382,6 +4486,9 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         set root [dict get $Roots $page]
+        if {($root eq {}) && ![llength $destinations]} {
+            return [list tab $page 0 {}]
+        }
         set replace [expr {![llength $destinations] && [dict exists $Vacancies $root] && ([my type $root] eq {leaf}) &&\
                                    ![llength [winfo children [my frame $root]]] && ([my title $root] eq {})}]
         set side right
@@ -4664,7 +4771,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # A perpendicular edge move highlights the current enclosing group, which the move will subdivide.
         # Returns: Nothing.
         set receiver {}
-        if {($target ne {}) && ([dict get $target op] ne {undock})} {
+        if {($target ne {}) && ([dict get $target op] ne {undock}) && ([dict get $target side] ne {tab})} {
             set id [dict get $target target]
             if {[dict get $target kind] eq {outer}} {
                 set receiver [dict get $Roots [my ActivePage]]
@@ -5556,6 +5663,15 @@ oo::configurable create ::splitlayout::splitlayout {
             set hit [winfo parent $hit]
         }
         if {$hit ne $W} {
+            return
+        }
+        set page [my ActivePage]
+        if {[dict get $Roots $page] eq {}} {
+            set rect [my DockBounds $page]
+            lassign $rect px py width height
+            if {[winfo ismapped $page] && ($x >= $px) && ($y >= $py) && ($x < $px+$width) && ($y < $py+$height)} {
+                return [dict create op move side tab target $page kind center rect $rect]
+            }
             return
         }
         set outer [my DockOuterTarget $x $y]

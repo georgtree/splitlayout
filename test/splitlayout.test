@@ -5308,12 +5308,12 @@ test splitlayout-tabs-41.3 {both trees are unchanged when source or destination 
             [expr {[$m leaves $root] eq [list $a $b] && [$m leaves $dest] eq $dest}]
 } -cleanup {::sltest::cleanup} -result {1 1 1}
 
-foreach action {move swap escape label denied} {
+foreach action {move swap escape label denied empty} {
     test splitlayout-tabs-41.4-$action {one grab survives tab hover and commits only a permitted drop} -setup {
         set m [::sltest::setup]
         $m configure -draghandles true
         set from [$m addtab A]
-        set to [$m addtab B]
+        set to [expr {$action eq {empty} ? [$m addtab B -empty] : [$m addtab B]}]
         set a [$m root $from]
         set b [$m root $to]
         set frame [$m frame $a]
@@ -5336,14 +5336,14 @@ foreach action {move swap escape label denied} {
     } -body {
         ::sltest::dockevent $grip <ButtonPress-1> [::sltest::point $grip 0.2]
         ::sltest::dockevent $book <B1-Motion> $label
-        ::sltest::await {[$m selecttab] eq $to && [winfo ismapped [$m widget $b]]} {hovered page}
+        ::sltest::await {[$m selecttab] eq $to && [winfo ismapped $to]} {hovered page}
         set result [list [expr {[$m root $from] eq $a && [$m root $to] eq $b}] [expr {[grab current $m] eq $book}]]
         switch $action {
             escape {event generate $book <Escape>}
             label {::sltest::dockevent $book <ButtonRelease-1> $label}
             default {
                 set rx [expr {$action eq {swap} ? 0.5 : 0.01}]
-                set dest [::sltest::point [$m widget $b] $rx]
+                set dest [::sltest::point [expr {$action eq {empty} ? $to : [$m widget $b]}] $rx]
                 ::sltest::dockevent $book <B1-Motion> $dest
                 ::sltest::dockevent $book <ButtonRelease-1> $dest
             }
@@ -5351,6 +5351,7 @@ foreach action {move swap escape label denied} {
         update
         switch $action {
             escape {set ok [expr {[$m selecttab] eq $from && [$m frame $a] eq $frame}]}
+            empty {set ok [expr {[$m root $to] eq $a && [$m frame $a] eq $frame}]}
             move {set ok [expr {[$m root $from] ne $a && [lindex [$m leaves $b] 0] eq $a}]}
             swap {set ok [expr {[$m frame $b] eq $frame}]}
             default {set ok [expr {[$m root $from] eq $a && [$m root $to] eq $b && [$m frame $a] eq $frame}]}
@@ -5376,6 +5377,68 @@ test splitlayout-tabs-41.5 {pressed and drag cursors follow the grab and reset a
     event generate $book <Escape>
     lappend result [$book cget -cursor] [$grip.separator.edge cget -cursor]
 } -cleanup {::sltest::cleanup} -result {closed closed drag drag crosshair {}}
+
+test splitlayout-emptytab-42.1 {empty pages have no nodes and accept an initial leaf} -setup {
+    set m [::sltest::setup]
+} -body {
+    set page [$m addtab Plots -empty]
+    set other [$m addtab Comparison -empty]
+    set result [list [$m root] [$m leaves] [$m tree] [$m clear]]
+    set leaf [$m addleaf $page]
+    set frame [$m frame $leaf]
+    ttk::entry $frame.entry
+    $frame.entry insert 0 retained
+    lappend result [catch {$m addleaf $page}] [catch {$m move $leaf -tab $page}]
+    $m move $leaf -tab $other
+    lappend result [$m root $page] [expr {[$m root $other] eq $leaf}] [$frame.entry get]
+    $m selecttab $other
+    lappend result [$m clear] [$m root] [winfo exists $frame]
+    set normal [$m addtab Ordinary]
+    lappend result [expr {[$m root $normal] ne {}}]
+} -cleanup {::sltest::cleanup} -result {{} {} {} {} 1 1 {} 1 retained {} {} 0 1}
+
+test splitlayout-emptytab-42.2 {a populated plain layout must be adopted before adding an empty page} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+    set frame [::sltest::fill $m $leaf trace]
+} -body {
+    list [catch {$m addtab Plots -empty}] [$m tabs] [expr {[$m root] eq $leaf}] [winfo exists [$m frame $leaf]]
+} -cleanup {::sltest::cleanup} -result {1 {} 1 1}
+
+test splitlayout-emptytab-42.3 {hide, show, dock and remove use the correct empty page when several exist} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab A -empty]
+    set b [$m addtab B -empty]
+    set leaf [$m addleaf $b]
+    set frame [$m frame $leaf]
+    $m constraints $leaf -nohide 1
+} -body {
+    set result [list [::sltest::blocked $m [list $m hide $leaf] -nohide]]
+    $m constraints $leaf -nohide 0
+    set saved [$m hide $leaf]
+    lappend result [$m root $b]
+    set leaf [$m show $saved]
+    lappend result [expr {[$m root $b] eq $leaf && [$m frame $leaf] eq $frame}]
+    set leaf [$m dock [$m undock $leaf]]
+    lappend result [expr {[$m root $b] eq $leaf}]
+    set leaf [$m dock [$m undock $leaf] -tab $a]
+    lappend result [expr {[$m root $a] eq $leaf}] [$m root $b] [$m remove $leaf] [$m root $a]
+} -cleanup {::sltest::cleanup} -result {1 {} 1 1 1 {} {} {}}
+
+test splitlayout-emptytab-42.4 {moving to an empty tab honours source subtree and content constraints} -setup {
+    lassign [::sltest::docksetup] m root a b
+    set home [$m addtab Home]
+    set empty [$m addtab Plots -empty]
+} -body {
+    $m constraints $root -minleaves 2
+    set result [list [::sltest::blocked $m [list $m move $a -tab $empty] -minleaves]]
+    $m constraints $root -minleaves 1
+    $m constraints $a -nomove 1
+    lappend result [::sltest::blocked $m [list $m move $a -tab $empty] -nomove] [$m root $empty]
+    $m constraints $a -nomove 0
+    $m move $a -tab $empty
+    lappend result [expr {[$m root $home] eq $b && [$m root $empty] eq $a}]
+} -cleanup {::sltest::cleanup} -result {1 1 {} 1}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

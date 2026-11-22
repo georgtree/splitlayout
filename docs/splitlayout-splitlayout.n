@@ -15,7 +15,9 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
-\fBSPLITLAYOUTOBJ addtab\fP \fI?args?\fP
+\fBSPLITLAYOUTOBJ addleaf\fP \fItab\fP
+.br
+\fBSPLITLAYOUTOBJ addtab\fP \fItitle ?-empty?\fP
 .br
 \fBSPLITLAYOUTOBJ children\fP \fIid\fP
 .br
@@ -25,7 +27,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
-\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target?\fP
+\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target|-tab page?\fP
 .br
 \fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
 .br
@@ -43,7 +45,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ minsize\fP \fIid ?width height?\fP
 .br
-\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
+\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target | leaf -tab page\fP
 .br
 \fBSPLITLAYOUTOBJ node\fP \fIpath\fP
 .br
@@ -1135,7 +1137,7 @@ behavior should be verified on their native Tk builds; X11 test results alone do
 compatibility\&.
 .SH "NOTEBOOK WORKSPACES"
 .PP
-The first addtab title puts the existing tree in a notebook page\&. Each further call creates an independent
+The first addtab title puts the existing tree in a notebook page\&. By default each further call creates a
 root leaf\&. tabs lists stable page pathnames, selecttab ?page? queries or selects a page, and root ?page?
 returns the selected or specified root\&. For example:
 .PP
@@ -1149,7 +1151,25 @@ set ac [\&.layout addtab AC]
 .PP
 Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply
 to the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if
-a different tab is selected\&. Moving the last leaf away leaves its page with a fresh empty root\&.
+a different tab is selected\&. Ordinary pages receive a fresh root leaf when their last pane leaves\&.
+.PP
+Use addtab title -empty for a page that can have zero leaves\&. On a new manager this consumes the initial
+blank root\&. Adopt an existing populated layout with ordinary addtab first\&. When a page has no tree,
+root returns an empty string and the selected page's leaves, tree and clear return empty\&.
+The whole page is a single drop target\&. Moving, hiding, undocking or deleting its last pane empties it
+again\&. The page remains selectable\&. To populate one from code:
+.PP
+.RS 4n
+.nf
+set plots [\&.layout addtab Plots -empty]
+set plot [\&.layout addleaf $plots]
+set other [\&.layout addtab Comparison -empty]
+\&.layout move $plot -tab $other
+.fi
+.RE
+.PP
+A floating pane can likewise be placed with dock $floating -tab $page\&.
+Both commands require the destination page to have zero leaves\&.
 .PP
 Hold a dragged header over a tab label briefly to open that page\&. Drop inside it using the ordinary centre,
 edge, outer rim and sash destinations\&. Hovering alone never commits a change\&. Releasing over a label leaves
@@ -1268,14 +1288,17 @@ Destructor for the class\&.
 \fIconfigure\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]
 Configure properties\&. See \fI::oo::configuresupport::configurable\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]\&.
 .TP
+addleaf
+Creates the first leaf on an empty notebook page\&.
+.TP
 addtab
-Adds a notebook tab\&. The first call adopts the existing tree, later calls create empty roots\&.
+Adds a notebook tab\&. By default the first call adopts the existing tree, later calls create a root leaf\&.
 .TP
 children
 Returns the immediate logical children of a node\&. Child identifiers in pane order, or an empty list for a leaf\&.
 .TP
 clear
-Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
+Clears the selected page, retaining floating content\&. Pages created with -empty return to zero leaves\&.
 .TP
 constraints
 Queries or atomically updates restrictions for one node or floating content\&.
@@ -1338,7 +1361,7 @@ retain
 Keeps a node while removing its siblings and collapsing its parent\&.
 .TP
 root
-Returns the current logical root node\&. The root node identifier\&.
+Returns the current logical root node\&. The root node identifier, or empty for a page without a tree\&.
 .TP
 selecttab
 Selects a tab or queries the current selection\&.
@@ -1359,7 +1382,7 @@ title
 Gets or sets the optional header title belonging to managed content\&.
 .TP
 tree
-Returns a recursive snapshot of the logical layout hierarchy\&. A nested dictionary describing the requested logical subtree\&.
+Returns a recursive snapshot of the logical layout hierarchy\&. A nested dictionary describing the requested logical subtree, or empty for a rootless page\&.
 .TP
 type
 Returns the type of a logical node\&. The string leaf or split\&.
@@ -1568,17 +1591,41 @@ bindtag, and destroys the owned hull\&. Also supports cleanup after partially co
 Nothing\&.
 .PP
 .RS -4n
-\fBaddtab\fR (::splitlayout::splitlayout)
+\fBaddleaf\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Adds a notebook tab\&. The first call adopts the existing tree, later calls create empty roots\&.
+Creates the first leaf on an empty notebook page\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ addtab\fP \fI?args?\fP
+\fBSPLITLAYOUTOBJ addleaf\fP \fItab\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+tab
+Page returned by addtab\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The new root leaf identifier\&.
+.PP
+.RS -4n
+\fBaddtab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Adds a notebook tab\&. By default the first call adopts the existing tree, later calls create a root leaf\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ addtab\fP \fItitle ?-empty?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-empty
+Allow zero leaves and start without a root\&.
 .TP
 title
 Visible tab label\&.
@@ -1615,7 +1662,7 @@ Child identifiers in pane order, or an empty list for a leaf\&.
 \fBclear\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Destroys the docked tree and creates one empty root leaf; floating content is retained\&.
+Clears the selected page, retaining floating content\&. Pages created with -empty return to zero leaves\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ clear\fP \fI?args?\fP
 .br
@@ -1627,7 +1674,7 @@ Destroys the docked tree and creates one empty root leaf; floating content is re
 .PP
 \fBReturn value\fR
 .PP
-The new root leaf identifier\&.
+The new root leaf identifier, or empty for a page created with -empty\&.
 .PP
 .RS -4n
 \fBconstraints\fR (::splitlayout::splitlayout)
@@ -1698,7 +1745,7 @@ The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 Returns owned floating content to a new leaf in the docked layout\&.
 The new docked leaf identifier\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target?\fP
+\fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target|-tab page?\fP
 .br
 .RE
 .PP
@@ -1719,6 +1766,9 @@ Dock to the left of a leaf or split\&.
 .TP
 -right target
 Dock to the right of a leaf or split\&.
+.TP
+-tab page
+Dock as the root of an empty notebook page\&.
 .TP
 -top target
 Dock above a leaf or split\&.
@@ -1956,7 +2006,7 @@ The content minimum as {width height}\&.
 .PP
 Moves an existing leaf to an edge or sibling position without destroying its content\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target\fP
+\fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target | leaf -tab page\fP
 .br
 .RE
 .PP
@@ -1977,6 +2027,9 @@ Place before a target leaf or split in a horizontal split\&.
 .TP
 -right target
 Place after a target leaf or split in a horizontal split\&.
+.TP
+-tab page
+Place the leaf as the root of an empty page\&.
 .TP
 -top target
 Place before a target leaf or split in a vertical split\&.
@@ -2163,7 +2216,8 @@ weights\&. If only one child remains, that child replaces the parent split\&. Su
 .PP
 \fBReturn value\fR
 .PP
-The surviving parent split, its promoted child, or new root; empty for floating removal\&.
+The surviving parent split, its promoted child, or new root\&. Empty when no root remains or
+when removing floating content\&.
 .PP
 .RS -4n
 \fBrequiredsize\fR (::splitlayout::splitlayout)
@@ -2223,7 +2277,7 @@ The retained node identifier\&.
 .RE
 .PP
 Returns the current logical root node\&.
-The root node identifier\&.
+The root node identifier, or empty for a page without a tree\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ root\fP \fI?tab?\fP
 .br
@@ -2239,7 +2293,7 @@ Optional tab returned by addtab\&. Defaults to the selected page\&.
 \fBReturn value\fR
 .PP
 Returns the current logical root node\&.
-The root node identifier\&.
+The root node identifier, or empty for a page without a tree\&.
 .PP
 .RS -4n
 \fBselecttab\fR (::splitlayout::splitlayout)
@@ -2402,7 +2456,7 @@ The current title string\&.
 .RE
 .PP
 Returns a recursive snapshot of the logical layout hierarchy\&.
-A nested dictionary describing the requested logical subtree\&.
+A nested dictionary describing the requested logical subtree, or empty for a rootless page\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
 .br
@@ -2428,7 +2482,7 @@ Proportions are refreshed from usable geometry unless application is pending\&.
 \fBReturn value\fR
 .PP
 Returns a recursive snapshot of the logical layout hierarchy\&.
-A nested dictionary describing the requested logical subtree\&.
+A nested dictionary describing the requested logical subtree, or empty for a rootless page\&.
 .PP
 .RS -4n
 \fBtype\fR (::splitlayout::splitlayout)
