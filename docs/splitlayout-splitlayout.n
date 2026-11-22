@@ -15,6 +15,8 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
+\fBSPLITLAYOUTOBJ addtab\fP \fI?args?\fP
+.br
 \fBSPLITLAYOUTOBJ children\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ clear\fP \fI?args?\fP
@@ -59,13 +61,17 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ retain\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ root\fP \fI?args?\fP
+\fBSPLITLAYOUTOBJ root\fP \fI?tab?\fP
+.br
+\fBSPLITLAYOUTOBJ selecttab\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ show\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ split\fP \fInode ?-orient orientation? ?-ratio fraction? ?-keep child?\fP
 .br
 \fBSPLITLAYOUTOBJ swap\fP \fIa b\fP
+.br
+\fBSPLITLAYOUTOBJ tabs\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ title\fP \fIid ?text?\fP
 .br
@@ -596,14 +602,14 @@ Each grip has three monochrome bitmap buttons, with tooltips:
 .fi
 .RE
 .PP
-The cross performs the configured close action, subject to constraints\&. It never consults -onclose; that policy controls
-only the native floating window close request (including Alt+F4)\&. Buttons accept keyboard focus and do not
-start dragging\&. The global -draghandles property controls both strips, including these buttons\&. A floating
-strip spans the window width and reserves space using the content labelframe's label-widget area, preserving
-application pack and grid settings\&. The manager owns the content frame's label-widget options; applications
-should configure children inside the content frame\&. Use -buttonside left|right (default right) at
-construction or with configure to align buttons globally\&. Both docked and floating headers follow it; title
-alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
+The cross performs the configured close action, subject to constraints\&. It never consults -onclose; that
+policy controls only the native floating window close request (including Alt+F4)\&. Buttons accept keyboard focus
+and do not start dragging\&. The global -draghandles property controls both strips, including these buttons\&. A
+floating strip spans the window width and reserves space using the content labelframe's label-widget area,
+preserving application pack and grid settings\&. The manager owns the content frame's label-widget options;
+applications should configure children inside the content frame\&. Use -buttonside left|right (default right)
+at construction or with configure to align buttons globally\&. Both docked and floating headers follow it;
+title alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
 moving content\&. It is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground
 follows the theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
 .PP
@@ -1085,14 +1091,15 @@ With no destination, dock tries the sibling positions saved by undock, nearest f
 orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
 sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
 content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
-anchors are skipped\&. Returning to the original split restores the floating pane's share at undock time\&.
-The remaining panes divide the rest according to their current proportions\&. If the split collapsed, docking
+anchors are skipped\&. Returning to the original split restores the floating pane's share at undock time\&. The
+remaining panes divide the rest according to their current proportions\&. If the split collapsed, docking
 restores the saved division beside the promoted sibling\&. Minimum sizes may limit the resulting sash positions\&.
 Explicit destinations, relocated anchors in other splits, and fallback positions use ordinary insertion sizing\&.
-If no anchor remains, dock places the content to the right of the current root\&. Undocking the sole root creates an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces
-that placeholder if it is still the root, has no header title, and its content frame has no child widgets\&. If
-you populate it, both contents are retained\&. Explicit destinations always follow the requested placement
-instead of replacing the placeholder\&.
+If no anchor remains, dock places the content to the right of the current root\&. Undocking the sole root
+creates an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces that
+placeholder if it is still the root, has no header title, and its content frame has no child widgets\&. If you
+populate it, both contents are retained\&. Explicit destinations always follow the requested placement instead of
+replacing the placeholder\&.
 .PP
 undock accepts -title (default splitlayout), -geometry (default current content size and position), and
 -onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current
@@ -1126,6 +1133,28 @@ on the platform/window manager\&. Invalid destinations are rejected before unman
 window\&. Failure to promote or apply the requested geometry restores the docked layout\&. Windows and Aqua
 behavior should be verified on their native Tk builds; X11 test results alone do not establish macOS
 compatibility\&.
+.SH "NOTEBOOK WORKSPACES"
+.PP
+The first addtab title puts the existing tree in a notebook page\&. Each further call creates an independent
+root leaf\&. tabs lists stable page pathnames, selecttab ?page? queries or selects a page, and root ?page?
+returns the selected or specified root\&. For example:
+.PP
+.RS 4n
+.nf
+set transient [\&.layout addtab Transient]
+set ac [\&.layout addtab AC]
+\&.layout move $plot -right [\&.layout root $ac]
+.fi
+.RE
+.PP
+Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply
+to the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if
+a different tab is selected\&. Moving the last leaf away leaves its page with a fresh empty root\&.
+.PP
+Hold a dragged header over a tab label briefly to open that page\&. Drop inside it using the ordinary centre,
+edge, outer rim and sash destinations\&. Hovering alone never commits a change\&. Releasing over a label leaves
+both trees intact; Escape restores the starting page\&. The usual movement, boundary and subtree constraints
+apply to both trees before a drop commits\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1239,6 +1268,9 @@ Destructor for the class\&.
 \fIconfigure\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]
 Configure properties\&. See \fI::oo::configuresupport::configurable\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]\&.
 .TP
+addtab
+Adds a notebook tab\&. The first call adopts the existing tree, later calls create empty roots\&.
+.TP
 children
 Returns the immediate logical children of a node\&. Child identifiers in pane order, or an empty list for a leaf\&.
 .TP
@@ -1308,6 +1340,9 @@ Keeps a node while removing its siblings and collapsing its parent\&.
 root
 Returns the current logical root node\&. The root node identifier\&.
 .TP
+selecttab
+Selects a tab or queries the current selection\&.
+.TP
 show
 Restores hidden content using the same placement and share rules as implicit docking\&.
 .TP
@@ -1316,6 +1351,9 @@ Replaces a leaf with a split containing two new leaves\&.
 .TP
 swap
 Exchanges the content frames assigned to two leaves\&.
+.TP
+tabs
+Lists tab pathnames in notebook order\&. Empty for a plain layout\&.
 .TP
 title
 Gets or sets the optional header title belonging to managed content\&.
@@ -1528,6 +1566,27 @@ bindtag, and destroys the owned hull\&. Also supports cleanup after partially co
 \fBReturn value\fR
 .PP
 Nothing\&.
+.PP
+.RS -4n
+\fBaddtab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Adds a notebook tab\&. The first call adopts the existing tree, later calls create empty roots\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ addtab\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+title
+Visible tab label\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Stable page pathname accepted by root and selecttab\&.
 .PP
 .RS -4n
 \fBchildren\fR (::splitlayout::splitlayout)
@@ -2166,18 +2225,42 @@ The retained node identifier\&.
 Returns the current logical root node\&.
 The root node identifier\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ root\fP \fI?args?\fP
+\fBSPLITLAYOUTOBJ root\fP \fI?tab?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
+.TP
+tab
+Optional tab returned by addtab\&. Defaults to the selected page\&.
 .RE
 .PP
 \fBReturn value\fR
 .PP
 Returns the current logical root node\&.
 The root node identifier\&.
+.PP
+.RS -4n
+\fBselecttab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Selects a tab or queries the current selection\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ selecttab\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+tab
+Optional page returned by addtab\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+Selected page pathname, or empty for a plain layout\&.
 .PP
 .RS -4n
 \fBshow\fR (::splitlayout::splitlayout)
@@ -2265,6 +2348,24 @@ widget pathnames remain unchanged\&. Equal identifiers do nothing\&.
 \fBReturn value\fR
 .PP
 Nothing\&.
+.PP
+.RS -4n
+\fBtabs\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Lists tab pathnames in notebook order\&. Empty for a plain layout\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ tabs\fP \fI?args?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.RE
+.PP
+\fBReturn value\fR
+.PP
+List of tab pathnames\&.
 .PP
 .RS -4n
 \fBtitle\fR (::splitlayout::splitlayout)

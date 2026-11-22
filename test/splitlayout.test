@@ -3484,7 +3484,7 @@ namespace eval ::sltest {
     proc policySnapshot {m} {
         set ns [info object namespace $m]
         set result {}
-        foreach name {Nodes Root Serial Floating Pending Panels Borders Dock Drag NodeRules ContentRules LivePress} {
+        foreach name {Nodes Roots Vacancies Serial Hidden Floating Pending Panels Borders Dock Drag NodeRules ContentRules LivePress} {
             lappend result [set ${ns}::$name]
         }
         lappend result [winfo children $m] [grab current $m]
@@ -5257,6 +5257,107 @@ test splitlayout-hide-40.3 {hidden content survives failed restoration and float
     set leaf [$m show $frame]
     lappend result [expr {[$m frame $leaf] eq $frame}] [$m constraints $leaf -closeaction]
 } -cleanup {::sltest::cleanup} -result {{} 1 1 1 hide}
+
+test splitlayout-tabs-41.1 {first tab adopts existing content and commands resolve page roots independently} -setup {
+    set m [::sltest::setup]
+    set a [$m root]
+    set fa [$m frame $a]
+    set first [$m addtab Transient]
+    set other [$m addtab AC]
+    set b [$m root $other]
+} -body {
+    set result [list [expr {[$m tabs] eq [list $first $other]}] [expr {[$m root $first] eq $a}]]
+    $m selecttab $other
+    $m move $a -left $b
+    set empty [$m root $first]
+    lappend result [expr {[$m leaves $empty] eq $empty && $empty ne $a}] [expr {[lindex [$m leaves] 0] eq $a}]\
+            [expr {[$m frame $a] eq $fa}] [expr {[$m container [$m root]] eq $other}]
+    $m remove $empty
+    lappend result [expr {[$m root] eq $b && [$m root $first] ne $empty}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1}
+
+foreach operation {hide undock} {
+    test splitlayout-tabs-41.2-$operation {implicit restoration uses the original tab and leaves selection alone} -setup {
+        set m [::sltest::setup]
+        set first [$m addtab Transient]
+        set other [$m addtab AC]
+        set leaf [$m root $first]
+        set frame [$m frame $leaf]
+    } -body {
+        set token [$m $operation $leaf]
+        $m selecttab $other
+        set restore [expr {$operation eq {hide} ? {show} : {dock}}]
+        set new [$m $restore $token]
+        list [expr {[$m selecttab] eq $other}] [expr {[$m root $first] eq $new}] [expr {[$m frame $new] eq $frame}]
+    } -cleanup {::sltest::cleanup} -result {1 1 1}
+}
+
+test splitlayout-tabs-41.3 {both trees are unchanged when source or destination constraints refuse a move} -setup {
+    set m [::sltest::setup]
+    set from [$m addtab A]
+    set to [$m addtab B]
+    set root [$m root $from]
+    lassign [$m split $root] a b
+    set dest [$m root $to]
+    $m constraints $root -minleaves 2
+} -body {
+    set result [list [::sltest::blocked $m [list $m move $a -left $dest] -minleaves]]
+    $m constraints $root -minleaves 1
+    $m constraints $dest -maxleaves 1
+    lappend result [::sltest::blocked $m [list $m move $a -left $dest] -maxleaves]\
+            [expr {[$m leaves $root] eq [list $a $b] && [$m leaves $dest] eq $dest}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+foreach action {move swap escape label denied} {
+    test splitlayout-tabs-41.4-$action {one grab survives tab hover and commits only a permitted drop} -setup {
+        set m [::sltest::setup]
+        $m configure -draghandles true
+        set from [$m addtab A]
+        set to [$m addtab B]
+        set a [$m root $from]
+        set b [$m root $to]
+        set frame [$m frame $a]
+        ttk::entry $frame.e
+        $frame.e insert 0 retained
+        if {$action eq {denied}} {$m constraints $b -maxleaves 1}
+        ::sltest::settle $m
+        set book [winfo parent $to]
+        # Ask the native theme where it drew the second tab label.
+        set label {}
+        for {set y 1} {$y < [winfo height $book] && $label eq {}} {incr y 2} {
+            for {set x 1} {$x < [winfo width $book]} {incr x 3} {
+                if {![catch {$book index @$x,$y} index] && ($index == 1)} {
+                    set label [list [expr {[winfo rootx $book]+$x}] [expr {[winfo rooty $book]+$y}]]
+                    break
+                }
+            }
+        }
+        set grip [::sltest::grip $m $a]
+    } -body {
+        ::sltest::dockevent $grip <ButtonPress-1> [::sltest::point $grip 0.2]
+        ::sltest::dockevent $book <B1-Motion> $label
+        ::sltest::await {[$m selecttab] eq $to && [winfo ismapped [$m widget $b]]} {hovered page}
+        set result [list [expr {[$m root $from] eq $a && [$m root $to] eq $b}] [expr {[grab current $m] eq $book}]]
+        switch $action {
+            escape {event generate $book <Escape>}
+            label {::sltest::dockevent $book <ButtonRelease-1> $label}
+            default {
+                set rx [expr {$action eq {swap} ? 0.5 : 0.01}]
+                set dest [::sltest::point [$m widget $b] $rx]
+                ::sltest::dockevent $book <B1-Motion> $dest
+                ::sltest::dockevent $book <ButtonRelease-1> $dest
+            }
+        }
+        update
+        switch $action {
+            escape {set ok [expr {[$m selecttab] eq $from && [$m frame $a] eq $frame}]}
+            move {set ok [expr {[$m root $from] ne $a && [lindex [$m leaves $b] 0] eq $a}]}
+            swap {set ok [expr {[$m frame $b] eq $frame}]}
+            default {set ok [expr {[$m root $from] eq $a && [$m root $to] eq $b && [$m frame $a] eq $frame}]}
+        }
+        lappend result $ok [$frame.e get] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 retained {}}
+}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
