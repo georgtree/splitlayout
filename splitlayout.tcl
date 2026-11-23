@@ -3132,41 +3132,20 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my ValidateOperation move $source $where $target
         # Allocate any new native widget before detaching the source.
-        set wrapSplit [expr {$wrap && ([my type $target] eq {split})}]
         if {$wrap} {
-            set wrapper $target
-            if {$wrapSplit} {
-                set wrapper n[incr Serial]
-            }
-            set pw [my NewSplitWidget $wrapper $orient]
+            lassign [my NewWrapper $target $orient] wrapper pw
         }
         my CancelDrag
         my CaptureAll $pages
         my Detach [my frame $source]
         my DetachFromTree $source $oldParent
-        if {$wrapSplit} {
-            # A subtree keeps its identifier; add a new split around it and the source leaf.
-            my Detach [my widget $target]
-            set children [expr {$before ? [list $source $target] : [list $target $source]}]
-            dict set Nodes $wrapper [dict create type split parent $destination widget $pw orient $orient\
-                                             proportions {0.5 0.5} children $children]
-            dict set Nodes $source parent $wrapper
-            dict set Nodes $target parent $wrapper
-            if {$destination eq {}} {
-                my ReplaceRoot $target $wrapper
+        if {$wrap} {
+            if {$wrapper eq $target} {
+                my Detach [my frame $target]
             } else {
-                set children [my children $destination]
-                set at [lsearch -exact $children $target]
-                dict set Nodes $destination children [lreplace $children $at $at $wrapper]
+                my Detach [my widget $target]
             }
-        } elseif {$wrap} {
-            set frame [my frame $target]
-            my Detach $frame
-            set retained [my NewLeaf $target $frame]
-            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
-            dict set Nodes $target [dict create type split parent $destination widget $pw orient $orient\
-                                            proportions {0.5 0.5} children $children]
-            dict set Nodes $source parent $target
+            my WrapTarget $source $target $wrapper $pw $orient $before {0.5 0.5}
         } else {
             set children [my children $destination]
             set at [lsearch -exact $children $target]
@@ -3576,13 +3555,8 @@ oo::configurable create ::splitlayout::splitlayout {
         } else {
             lassign [my Placement $Nodes $target $side] parent orient before wrap
         }
-        set wrapper {}
         if {$wrap} {
-            set wrapper $target
-            if {[my type $target] eq {split}} {
-                set wrapper n[incr Serial]
-            }
-            set pw [my NewSplitWidget $wrapper $orient]
+            lassign [my NewWrapper $target $orient] wrapper pw
         }
         my CancelDrag
         set page [expr {$side eq {tab} ? $target : [my NodePage $target]}]
@@ -3610,24 +3584,7 @@ oo::configurable create ::splitlayout::splitlayout {
             my Drop $target
             my ReplaceRoot $target $source
         } elseif {$wrap} {
-            if {$wrapper eq $target} {
-                set retained [my NewLeaf $wrapper [my frame $target]]
-            } else {
-                set retained $target
-                dict set Nodes $target parent $wrapper
-                if {$parent eq {}} {
-                    my ReplaceRoot $target $wrapper
-                } else {
-                    set children [my children $parent]
-                    set at [lsearch -exact $children $target]
-                    dict set Nodes $parent children [lreplace $children $at $at $wrapper]
-                }
-            }
-            dict set Nodes $source parent $wrapper
-            set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
-            set weights [expr {$before ? $division : [lreverse $division]}]
-            dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
-                                             proportions $weights children $children]
+            my WrapTarget $source $target $wrapper $pw $orient $before $division
         } else {
             set children [my children $parent]
             set at [lsearch -exact $children $target]
@@ -4315,6 +4272,37 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
             }
         }
+    }
+    method NewWrapper {target orient} {
+        # Allocate the panedwindow before the caller detaches the source. A leaf becomes the split
+        # in place, while an existing split keeps its ID and gains a new parent.
+        set wrapper $target
+        if {[my type $target] eq {split}} {
+            set wrapper n[incr Serial]
+        }
+        return [list $wrapper [my NewSplitWidget $wrapper $orient]]
+    }
+    method WrapTarget {source target wrapper pw orient before division} {
+        # Install the prepared split at the target's position. The division is in source/target order.
+        set parent [my parent $target]
+        if {$wrapper eq $target} {
+            set retained [my NewLeaf $wrapper [my frame $target]]
+        } else {
+            set retained $target
+            dict set Nodes $target parent $wrapper
+            if {$parent eq {}} {
+                my ReplaceRoot $target $wrapper
+            } else {
+                set children [my children $parent]
+                set at [lsearch -exact $children $target]
+                dict set Nodes $parent children [lreplace $children $at $at $wrapper]
+            }
+        }
+        dict set Nodes $source parent $wrapper
+        set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+        set weights [expr {$before ? $division : [lreverse $division]}]
+        dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
+                                         proportions $weights children $children]
     }
     method Placement {model target side} {
         # Determines how a live or proposed tree accepts a pane beside target.
