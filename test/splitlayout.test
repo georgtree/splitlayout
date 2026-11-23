@@ -5671,8 +5671,16 @@ proc ::sltest::tabclosepoint {book tab} {
     error "missing close button for $tab"
 }
 
+proc ::sltest::movePointer {point} {
+    # Native crossing events use the OS pointer position even during a synthetic gesture.
+    lassign $point x y
+    event generate {} <Motion> -warp 1 -x $x -y $y
+    ::sltest::await {[winfo pointerxy .] eq $point} "moving the pointer to $point"
+}
+
 foreach finish {close other label escape protected reprotect} {
     test splitlayout-tabdelete-45.3-$finish {cross press owns the gesture and checks protection on release} -setup {
+        set savedPointer [winfo pointerxy .]
         set m [::sltest::setup]
         set a [$m addtab Alpha]
         set b [$m addtab Bravo]
@@ -5681,6 +5689,7 @@ foreach finish {close other label escape protected reprotect} {
         ::sltest::settle $m
         set start [::sltest::tabclosepoint $book $b]
         set end $start
+        ::sltest::movePointer $start
     } -body {
         ::sltest::dockevent $book <ButtonPress-1> $start
         switch $finish {
@@ -5689,11 +5698,15 @@ foreach finish {close other label escape protected reprotect} {
             escape {event generate $book <Escape>}
             reprotect {$m constraints [$m root $b] -nodestroy 1}
         }
+        if {$end ne $start} {::sltest::movePointer $end}
         ::sltest::dockevent $book <B1-Motion> $end
         ::sltest::dockevent $book <ButtonRelease-1> $end
         set expected [expr {$finish eq {close} ? [list $a] : [list $a $b]}]
         list [expr {[$m tabs] eq $expected}] [expr {[$m selecttab] eq $a}] [grab current $m]
-    } -cleanup {::sltest::cleanup} -result {1 1 {}}
+    } -cleanup {
+        ::sltest::cleanup
+        ::sltest::movePointer $savedPointer
+    } -result {1 1 {}}
 }
 
 test splitlayout-tabdelete-45.4 {close button modes and removal of the tab menu binding} -setup {
