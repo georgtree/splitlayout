@@ -6031,6 +6031,44 @@ test splitlayout-tabs-48.5 {docking to another page transfers protection without
     unset -nocomplain ::sltest::unmaps
 } -result {0 1 1 1}
 
+test splitlayout-tabs-48.6 {bulk close-image refresh and deletion agree on each page's protected member} -setup {
+    set m [::sltest::setup -tabclosebutton always]
+    set normal [$m addtab Normal]
+    set book [winfo parent $normal]
+    set pages {}
+    foreach kind {split leaf hidden floating} {
+        set page [$m addtab $kind]
+        set root [$m root $page]
+        lassign [$m split $root] a b
+        switch $kind {
+            split {
+                $m split $a
+                set id $a
+            }
+            leaf     {set id $a}
+            hidden   {set id [$m hide $a]}
+            floating {set id [$m undock $a]}
+        }
+        $m constraints $id -nodestroy true
+        dict set pages $page $id
+    }
+    $m configure -tabclosebutton none
+    $m configure -tabclosebutton always
+} -body {
+    set results {}
+    set enabled [$book tab $normal -image]
+    dict for {page id} $pages {
+        set refused [catch {$m deletetab $page} message options]
+        lappend results [expr {$refused && [$book tab $page -image] ne $enabled &&
+                [dict get $options -errorcode] eq [list SPLITLAYOUT CONSTRAINT -nodestroy $id]}]
+        $m constraints $id -nodestroy false
+        update idletasks
+        lappend results [expr {[$book tab $page -image] eq $enabled}]
+        $m deletetab $page
+    }
+    lappend results [expr {[$m tabs] eq [list $normal]}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

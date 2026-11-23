@@ -2283,11 +2283,12 @@ oo::configurable create ::splitlayout::splitlayout {
             {tab -help {Page to delete}}
         }
         my CheckTab $tab
-        set frames [my TabDeletionFrames $tab]
+        set detached [dict get [my DetachedByPage [list $tab]] $tab]
+        my CheckTabDeletion $tab $detached
         my CancelDrag
         my FinishTabEdit [expr {$tab ne $EditTab}]
         set root [dict get $Roots $tab]
-        foreach frame $frames {
+        foreach frame [dict values $detached] {
             destroy $frame
         }
         if {$root ne {}} {
@@ -3748,26 +3749,38 @@ oo::configurable create ::splitlayout::splitlayout {
         bind ${Tag}TabDrag <FocusOut> [namespace code {my TabFocusOut %W}]
         bindtags $Book [linsert [bindtags $Book] 0 ${Tag}TabDrag]
     }
-    method TabDeletionFrames {tab} {
-        # Preflight the complete deletion and collect detached frames owned by this page.
-        set root [dict get $Roots $tab]
-        if {$root ne {}} {
-            my ValidateOperation remove $root
+    method DetachedByPage {pages} {
+        # Collect detached IDs and frames for all requested pages in one pass.
+        set result {}
+        foreach page $pages {
+            dict set result $page {}
         }
-        set frames {}
         dict for {frame placement} $Hidden {
-            if {[dict get $placement page] eq $tab} {
-                my ValidateOperation remove $frame
-                lappend frames $frame
+            set page [dict get $placement page]
+            if {[dict exists $result $page]} {
+                dict set result $page $frame $frame
             }
         }
         dict for {token data} $Floating {
-            if {[dict get $data placement page] eq $tab} {
-                my ValidateOperation remove $token
-                lappend frames [dict get $data frame]
+            set page [dict get $data placement page]
+            if {[dict exists $result $page]} {
+                dict set result $page $token [dict get $data frame]
             }
         }
-        return $frames
+        return $result
+    }
+    method CheckTabDeletion {tab detached} {
+        # Deleting an entire root has no surviving ancestor whose subtree limits could change.
+        if {![dict size $NodeRules] && ![dict size $ContentRules]} {
+            return
+        }
+        dict for {id data} [my PageNodes [list $tab]] {
+            my CheckDestroy $id [dict get $data type] [dict get $data widget]
+        }
+        dict for {id frame} $detached {
+            set kind [expr {[dict exists $Hidden $id] ? {hidden} : {floating}}]
+            my CheckDestroy $id $kind $frame
+        }
     }
     method TabAddWidget {} {
         set button $W.tabAdd
@@ -3980,9 +3993,12 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return [list $xlow $ylow [expr {$xhigh-$xlow+1}] [expr {$yhigh-$ylow+1}]]
     }
-    method TabCloseAllowed {tab} {
+    method TabCloseAllowed {tab {detachedByPage {}}} {
+        if {$detachedByPage eq {}} {
+            set detachedByPage [my DetachedByPage [list $tab]]
+        }
         try {
-            my TabDeletionFrames $tab
+            my CheckTabDeletion $tab [dict get $detachedByPage $tab]
         } trap {SPLITLAYOUT CONSTRAINT} {} {
             return 0
         }
@@ -4059,8 +4075,11 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method UpdateTabClose {pages} {
         # Apply the current theme's images to pages whose deletion eligibility changed.
-        if {![winfo exists $Book]} {
+        if {![llength $pages] || ![winfo exists $Book]} {
             return
+        }
+        if {[dict size $TabCloseSpecs]} {
+            set detachedByPage [my DetachedByPage $pages]
         }
         foreach tab $pages {
             if {![dict exists $Roots $tab]} {
@@ -4068,7 +4087,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             set spec {}
             if {[dict size $TabCloseSpecs]} {
-                set state [expr {[my TabCloseAllowed $tab] ? {normal} : {disabled}}]
+                set state [expr {[my TabCloseAllowed $tab $detachedByPage] ? {normal} : {disabled}}]
                 set spec [dict get $TabCloseSpecs $state]
             }
             if {[$Book tab $tab -image] ne $spec} {
@@ -4679,6 +4698,26 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Error with code SPLITLAYOUT CONSTRAINT option id.
         return -code error -errorcode [list SPLITLAYOUT CONSTRAINT $option $id] "$option on '$id': $message"
     }
+    method CheckDestroy {id kind frame} {
+        # Splits carry their own protection. Leaf, hidden and floating protection follows the frame.
+        if {$kind eq {split}} {
+            if {[dict exists $NodeRules $id -nodestroy] && [dict get $NodeRules $id -nodestroy]} {
+                my ConstraintError $id -nodestroy {operation would delete or collapse this split}
+            }
+        } elseif {[dict exists $ContentRules $frame -nodestroy] && [dict get $ContentRules $frame -nodestroy]} {
+            switch $kind {
+                leaf {
+                    my ConstraintError $id -nodestroy {operation would destroy protected content}
+                }
+                floating {
+                    my ConstraintError $id -nodestroy {operation would destroy protected floating content}
+                }
+                hidden {
+                    my ConstraintError $id -nodestroy {deletion of hidden content is disabled}
+                }
+            }
+        }
+    }
     method ModelStats {model id} {
         # Calculates logical subtree size without consulting Tk geometry.
         #  model - Node dictionary, real or proposed.
@@ -5079,20 +5118,21 @@ oo::configurable create ::splitlayout::splitlayout {
         dict for {node data} $Nodes {
             if {[dict get $data type] eq {leaf}} {
                 set frame [dict get $data widget]
-                if {![dict exists $surviving $frame] && [my constraints $node -nodestroy]} {
-                    my ConstraintError $node -nodestroy {operation would destroy protected content}
+                if {![dict exists $surviving $frame]} {
+                    my CheckDestroy $node leaf $frame
                 }
-            } elseif {![dict exists $model $node] && [my constraints $node -nodestroy]} {
-                my ConstraintError $node -nodestroy {operation would delete or collapse this split}
+            } elseif {![dict exists $model $node]} {
+                my CheckDestroy $node split {}
             }
         }
         dict for {token data} $Floating {
-            if {![dict exists $surviving [dict get $data frame]] && [my constraints $token -nodestroy]} {
-                my ConstraintError $token -nodestroy {operation would destroy protected floating content}
+            set frame [dict get $data frame]
+            if {![dict exists $surviving $frame]} {
+                my CheckDestroy $token floating $frame
             }
         }
-        if {($operation eq {remove}) && [dict exists $Hidden $id] && [my constraints $id -nodestroy]} {
-            my ConstraintError $id -nodestroy {deletion of hidden content is disabled}
+        if {($operation eq {remove}) && [dict exists $Hidden $id]} {
+            my CheckDestroy $id hidden $id
         }
         my ValidateLimits $model $NodeRules $replacements
     }
