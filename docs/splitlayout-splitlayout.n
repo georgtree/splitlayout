@@ -5,10 +5,6 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBCreationArguments\fP
-.br
-\fBCreationHelp\fP \fI?args?\fP
-.br
 \fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
 \fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
@@ -1362,42 +1358,6 @@ Floating content is described separately by floating; widgets still includes its
 .PP
 Both snapshots are for inspection\&. They do not serialize application widget state or provide a restore
 operation\&.
-.SH COMMANDS
-.PP
-.RS -4n
-\fBCreationArguments\fR (::splitlayout)
-.RE
-.PP
-Supplies the constructor argument definitions, shared by creation and side-effect-free help\&.
-.RS 4n
-\fBCreationArguments\fP
-.br
-.RE
-.PP
-\fBReturn value\fR
-.PP
-An argparse definition list with per-argument descriptions\&.
-.PP
-.RS -4n
-\fBCreationHelp\fR (::splitlayout)
-.RE
-.PP
-Prints creation help without allocating an object or a Tk window\&.
-.RS 4n
-\fBCreationHelp\fP \fI?args?\fP
-.br
-.RE
-.PP
-\fBParameters\fR
-.RS 4n
-.TP
-args
-Constructor arguments including -help; other arguments are ignored by argparse help\&.
-.RE
-.PP
-\fBReturn value\fR
-.PP
-Nothing\&. The normal argparse help completion returns from this procedure\&.
 .SH CLASSES
 .PP
 .RS -4n

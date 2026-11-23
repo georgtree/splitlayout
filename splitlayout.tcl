@@ -265,6 +265,7 @@ namespace eval ::splitlayout {
     variable _ruff_ns_opts {
         -heading {splitlayout}
         -includeprivate false
+        -excludeprocs {^(CreationArguments|CreationHelp.*)$}
     }
 
     variable _ruff_preamble {
@@ -3487,12 +3488,9 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$parent eq {}} {
             my VacateRoot $id 1
         } else {
-            set children [my children $parent]
-            set at [lsearch -exact $children $id]
-            set children [lreplace $children $at $at]
+            set at [my UnlinkChild Nodes $parent $id]
             set weights [lreplace [dict get $Nodes $parent proportions] $at $at]
-            dict set Nodes $parent children $children
-            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
+            dict set Nodes $parent proportions [my Normalize $weights [llength [dict get $Nodes $parent children]]]
         }
     }
     method UnmanageFloating {token frame} {
@@ -4236,22 +4234,16 @@ oo::configurable create ::splitlayout::splitlayout {
         # When restoring to the original parent, division is relative to the whole split instead.
         set parent [my parent $target]
         lassign $division share other
-        set children [my children $parent]
-        set at [lsearch -exact $children $target]
+        lassign [my LinkSibling Nodes $parent $source $target $before] targetIndex at
         set weights [dict get $Nodes $parent proportions]
         if {$restoreParent} {
             set weights [lmap weight $weights {expr {$weight*$other}}]
         } else {
-            set weight [lindex $weights $at]
-            lset weights $at [expr {$weight*$other}]
+            set weight [lindex $weights $targetIndex]
+            lset weights $targetIndex [expr {$weight*$other}]
             set share [expr {$weight*$share}]
         }
-        if {!$before} {
-            incr at
-        }
         dict set Nodes $parent proportions [linsert $weights $at $share]
-        dict set Nodes $parent children [linsert $children $at $source]
-        dict set Nodes $source parent $parent
     }
     method NewWrapper {target orient} {
         # Allocate the panedwindow before the caller detaches the source. A leaf becomes the split
@@ -4269,18 +4261,51 @@ oo::configurable create ::splitlayout::splitlayout {
             set retained [my NewLeaf $wrapper [my frame $target]]
         } else {
             set retained $target
-            dict set Nodes $target parent $wrapper
-            if {$parent eq {}} {
-                my ReplaceRoot $target $wrapper
-            } else {
-                my ReplaceChild Nodes $parent $target $wrapper
-            }
         }
-        dict set Nodes $source parent $wrapper
-        set children [expr {$before ? [list $source $retained] : [list $retained $source]}]
         set weights [expr {$before ? $division : [lreverse $division]}]
-        dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
-                                         proportions $weights children $children]
+        set split [dict create type split parent $parent widget $pw orient $orient proportions $weights]
+        my LinkWrapper Nodes $source $target $wrapper $retained $before $split
+        if {($wrapper ne $target) && ($parent eq {})} {
+            my ReplaceRoot $target $wrapper
+        }
+    }
+    method UnlinkChild {modelVar parent child} {
+        # Remove only the parent's link. Return the old index for the live pane weights.
+        upvar 1 $modelVar model
+        set children [dict get $model $parent children]
+        set at [lsearch -exact $children $child]
+        dict set model $parent children [lreplace $children $at $at]
+        return $at
+    }
+    method LinkSibling {modelVar parent source target before} {
+        # Insert beside the target and return its original index and the source's insertion index.
+        upvar 1 $modelVar model
+        set children [dict get $model $parent children]
+        set targetIndex [lsearch -exact $children $target]
+        set at [expr {$before ? $targetIndex : $targetIndex+1}]
+        dict set model $parent children [linsert $children $at $source]
+        dict set model $source parent $parent
+        return [list $targetIndex $at]
+    }
+    method LinkWrapper {modelVar source target wrapper retained before split} {
+        # A converted leaf keeps the target ID. An existing split becomes a child of a new wrapper.
+        upvar 1 $modelVar model
+        set parent [dict get $split parent]
+        if {($wrapper ne $target) && ($parent ne {})} {
+            my ReplaceChild model $parent $target $wrapper
+        }
+        dict set model $source parent $wrapper
+        dict set model $retained parent $wrapper
+        dict set split children [expr {$before ? [list $source $retained] : [list $retained $source]}]
+        dict set model $wrapper $split
+    }
+    method LinkSurvivor {modelVar grand parent survivor} {
+        # Promote the survivor into its parent's former slot.
+        upvar 1 $modelVar model
+        dict set model $survivor parent $grand
+        if {$grand ne {}} {
+            my ReplaceChild model $grand $parent $survivor
+        }
     }
     method ReplaceChild {modelVar parent old new} {
         # Replace a child in the same pane slot in the live or proposed tree.
@@ -4643,11 +4668,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my ForgetNode $parent
         destroy $pw
-        dict set Nodes $survivor parent $grand
+        my LinkSurvivor Nodes $grand $parent $survivor
         if {$grand eq {}} {
             my ReplaceRoot $parent $survivor
-        } else {
-            my ReplaceChild Nodes $grand $parent $survivor
         }
     }
     method SplitConfigure {id} {
@@ -4788,14 +4811,13 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         dict unset model $id
     }
-    method ModelCollapse {modelVar rootVar replacementVar parent} {
+    method ModelCollapse {modelVar replacementVar parent} {
         # Promotes a singleton child in a proposed tree and records the vanished parent for validation.
         #  modelVar - Caller node dictionary variable.
-        #  rootVar - Caller root variable.
         #  replacementVar - Caller collapsed-parent dictionary variable.
         #  parent - Split to collapse if it has one child.
         # Returns: Nothing.
-        upvar 1 $modelVar model $rootVar root $replacementVar replacements
+        upvar 1 $modelVar model $replacementVar replacements
         if {($parent eq {}) || ![dict exists $model $parent]} {
             return
         }
@@ -4805,24 +4827,18 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set survivor [lindex $children 0]
         set grand [dict get $model $parent parent]
-        dict set model $survivor parent $grand
-        if {$grand eq {}} {
-            set root $survivor
-        } else {
-            my ReplaceChild model $grand $parent $survivor
-        }
+        my LinkSurvivor model $grand $parent $survivor
         dict unset model $parent
         dict set replacements $parent $survivor
     }
-    method ModelAttach {modelVar rootVar source target side} {
+    method ModelAttach {modelVar source target side} {
         # Inserts a proposed leaf using the same edge and sibling semantics as move/dock.
         #  modelVar - Caller node dictionary variable.
-        #  rootVar - Caller root variable.
         #  source - Detached leaf identifier.
         #  target - Existing target node.
         #  side - left, right, top, bottom, before, or after.
         # Returns: Nothing.
-        upvar 1 $modelVar model $rootVar root
+        upvar 1 $modelVar model
         lassign [my Placement $model $target $side] parent orient before wrap
         if {$wrap} {
             if {[dict get $model $target type] eq {leaf}} {
@@ -4831,25 +4847,11 @@ oo::configurable create ::splitlayout::splitlayout {
             } else {
                 set wrapper [my ModelLeaf model $parent]
                 set retained $target
-                dict set model $target parent $wrapper
-                if {$parent eq {}} {
-                    set root $wrapper
-                } else {
-                    my ReplaceChild model $parent $target $wrapper
-                }
             }
-            dict set model $wrapper [dict create type split parent $parent orient $orient widget @split\
-                                             children [expr {$before ? [list $source $retained] :\
-                                                                     [list $retained $source]}]]
-            dict set model $source parent $wrapper
+            set split [dict create type split parent $parent widget @split orient $orient]
+            my LinkWrapper model $source $target $wrapper $retained $before $split
         } else {
-            set children [dict get $model $parent children]
-            set at [lsearch -exact $children $target]
-            if {!$before} {
-                incr at
-            }
-            dict set model $parent children [linsert $children $at $source]
-            dict set model $source parent $parent
+            my LinkSibling model $parent $source $target $before
         }
     }
     method IsRootBoundary {model id orient end} {
@@ -4963,7 +4965,6 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         set model $Nodes
-        set root [dict get $Roots [my ActivePage]]
         set replacements {}
         set floats $Floating
         foreach frame [dict keys $Hidden] {dict set floats $frame [dict create frame $frame]}
@@ -4981,7 +4982,7 @@ oo::configurable create ::splitlayout::splitlayout {
             insert {
                 lassign $args id side
                 set source [my ModelLeaf model {}]
-                my ModelAttach model root $source $id $side
+                my ModelAttach model $source $id $side
             }
             move {
                 lassign $args source side target
@@ -4993,17 +4994,15 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
                 set parent [dict get $model $source parent]
                 if {$parent ne {}} {
-                    set children [dict get $model $parent children]
-                    set at [lsearch -exact $children $source]
-                    dict set model $parent children [lreplace $children $at $at]
+                    my UnlinkChild model $parent $source
                 }
                 if {$side eq {tab}} {
                     dict set model $source parent {}
                 } else {
                     my ValidatePlacement $model $target $side
-                    my ModelAttach model root $source $target $side
+                    my ModelAttach model $source $target $side
                 }
-                my ModelCollapse model root replacements $parent
+                my ModelCollapse model replacements $parent
             }
             swap {
                 lassign $args a b
@@ -5020,7 +5019,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 dict set model $b widget $fa
             }
             clear {
-                my ModelDrop model $root
+                my ModelDrop model [dict get $Roots [my ActivePage]]
             }
             retain {
                 set parent [dict get $model $id parent]
@@ -5033,7 +5032,7 @@ oo::configurable create ::splitlayout::splitlayout {
                     }
                 }
                 dict set model $parent children [list $id]
-                my ModelCollapse model root replacements $parent
+                my ModelCollapse model replacements $parent
             }
             remove - undock - hide {
                 if {($operation eq {hide}) && [my constraints $id -nohide]} {
@@ -5055,10 +5054,8 @@ oo::configurable create ::splitlayout::splitlayout {
                     set parent [dict get $model $id parent]
                     my ModelDrop model $id
                     if {$parent ne {}} {
-                        set children [dict get $model $parent children]
-                        set at [lsearch -exact $children $id]
-                        dict set model $parent children [lreplace $children $at $at]
-                        my ModelCollapse model root replacements $parent
+                        my UnlinkChild model $parent $id
+                        my ModelCollapse model replacements $parent
                     }
                 }
             }
@@ -5066,14 +5063,11 @@ oo::configurable create ::splitlayout::splitlayout {
                 lassign $args token side target replace
                 set source [my ModelLeaf model {} [dict get $floats $token frame]]
                 dict unset floats $token
-                if {$side eq {tab}} {
-                    set root $source
-                } elseif {$replace} {
+                if {$replace} {
                     my ModelDrop model $target
-                    set root $source
-                } else {
+                } elseif {$side ne {tab}} {
                     my ValidatePlacement $model $target $side
-                    my ModelAttach model root $source $target $side
+                    my ModelAttach model $source $target $side
                 }
             }
             default {
