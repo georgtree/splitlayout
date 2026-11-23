@@ -201,7 +201,7 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
 } -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -closeaction -cursor -dockopts\
 -draghandles -headerborderwidth -headerbuttons -headerrelief -height -leafborder -leafborderwidth -leafopts -leafrelief\
 -lockbuttonmode -opaqueresize -padding -relief -sashpreview -sashpreviewopts -showstructure -structureopts -style\
--tabclosebutton -takefocus -titlealign -tooltips -width} 800 1 1 {}}
+-tabaddbutton -tabaddcommand -tabclosebutton -tabrename -takefocus -titlealign -tooltips -width} 800 1 1 {}}
 
 test splitlayout-properties-1.2 {native ordered setters and rejected values} -setup {
     set m [::sltest::setup]
@@ -4801,7 +4801,7 @@ test splitlayout-locknames-37.1 {configuration and constraint discovery expose o
     list [dict exists $options -lockbuttonmode] [dict exists $options -pinbuttonmode]\
             [dict exists $constraints -locked] [dict exists $constraints -lockedside]\
             [dict exists $constraints -pinned] [dict exists $constraints -pinnedside]\
-            [expr {[lsort [dict keys $images]] eq {delete dock lock undock unlock}}]
+            [expr {[lsort [dict keys $images]] eq {delete dock lock tabadd tabclose tabclosedisabled undock unlock}}]
 } -cleanup {::sltest::cleanup} -result {1 0 1 1 0 0 1}
 
 test splitlayout-locknames-37.2 {former pin names are rejected without changing lock settings} -setup {
@@ -5449,14 +5449,14 @@ test splitlayout-emptytab-42.4 {moving to an empty tab honours source subtree an
 test splitlayout-emptytab-42.5 {rootless manager supports population, hiding and clearing before tabs exist} -setup {
     set m [::sltest::setup -empty]
 } -body {
-    set result [list [$m root] [$m tree] [$m leaves] [winfo children $m]]
+    set result [list [$m root] [$m tree] [$m leaves] [expr {[winfo children $m] eq [list $m.tabAdd]}]]
     set leaf [$m addleaf]
     set frame [$m frame $leaf]
     set hidden [$m hide $leaf]
     lappend result [$m root] [expr {[$m frame [$m show $hidden]] eq $frame}]
     $m clear
     lappend result [$m leaves] [winfo exists $frame]
-} -cleanup {::sltest::cleanup} -result {{} {} {} {} {} 1 {} 0}
+} -cleanup {::sltest::cleanup} -result {{} {} {} 1 {} 1 {} 0}
 
 foreach flag {{} -empty} {
     test splitlayout-emptytab-42.6-$flag {first tab inherits rootless policy even after populating the layout} -setup {
@@ -5743,6 +5743,179 @@ test splitlayout-tabdelete-45.5 {tab close element survives live theme changes} 
     ttk::style theme use $savedTheme
     ::sltest::cleanup
 } -result always
+
+test splitlayout-tabrename-46.1 {edit, cancel, commit on click and disable inline renaming} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab Alpha]
+    set b [$m addtab Bravo]
+    set book [winfo parent $a]
+    ::sltest::settle $m
+} -body {
+    set e [$m edittab $b]
+    $e delete 0 end
+    $e insert 0 {New name}
+    ::sltest::await {[focus] eq $e} {entry focus}
+    event generate $e <Return>
+    set result [list [$book tab $b -text] [expr {[$m selecttab] eq $a}]]
+    set e [$m edittab $b]
+    $e insert end { discarded}
+    ::sltest::await {[focus] eq $e} {entry focus}
+    event generate $e <Escape>
+    lappend result [$book tab $b -text]
+    set e [$m edittab $b]
+    $e insert end { committed}
+    event generate $a <ButtonPress-1>
+    lappend result [$book tab $b -text]
+    set e [$m edittab $a]
+    $m configure -tabrename false
+    lappend result [winfo exists $e] [catch {$m edittab $a}]
+    $m renametab $a {Manual title}
+    lappend result [$book tab $a -text]
+} -cleanup {::sltest::cleanup} -result {{New name} 1 {New name} {New name committed} 0 1 {Manual title}}
+
+test splitlayout-tabrename-46.2 {a double-click on the title respects the interactive option} -setup {
+    set m [::sltest::setup -tabrename false]
+    set a [$m addtab Alpha]
+    set book [winfo parent $a]
+    ::sltest::settle $m
+    set found 0
+    for {set y 0} {$y < [winfo height $book] && !$found} {incr y} {
+        for {set x 0} {$x < [winfo width $book]} {incr x} {
+            if {[$book identify element $x $y] eq {label}} {
+                set point [list -x $x -y $y]
+                set found 1
+                break
+            }
+        }
+    }
+} -body {
+    set result {}
+    foreach enabled {false true} time {1000 3000} {
+        $m configure -tabrename $enabled
+        foreach delta {0 120} {
+            event generate $book <ButtonPress-1> {*}$point -time [expr {$time+$delta}]
+            event generate $book <ButtonRelease-1> {*}$point -time [expr {$time+$delta+30}]
+        }
+        lappend result [winfo exists $book.tabEditor] [grab current $m]
+    }
+    $m deletetab $a
+    lappend result [bind .sltest <ButtonPress-1>]
+} -cleanup {::sltest::cleanup} -result {0 {} 1 {} {}}
+
+test splitlayout-tabadd-47.1 {default action fills gaps, selects empty pages and survives final deletion} -setup {
+    set m [::sltest::setup -empty]
+    set plus $m.tabAdd
+} -body {
+    set a [$plus invoke]
+    set book [winfo parent $a]
+    set b [$plus invoke]
+    set result [list [$book tab $a -text] [$book tab $b -text] [$m root $b] [expr {[$m selecttab] eq $b}]]
+    $m renametab $a Custom
+    set c [$plus invoke]
+    lappend result [$book tab $c -text]
+    foreach page [$m tabs] {$m deletetab $page}
+    update idletasks
+    lappend result [$m tabs] [winfo ismapped $plus]
+    set d [$plus invoke]
+    lappend result [[winfo parent $d] tab $d -text]
+} -cleanup {::sltest::cleanup} -result {{Tab 1} {Tab 2} {} 1 {Tab 1} {} 1 {Tab 1}}
+
+test splitlayout-tabadd-47.2 {visibility and callback are independent and explicit addtab bypasses the callback} -setup {
+    set callback [list apply {{prefix manager} {list $prefix $manager}} {custom action}]
+    set m [::sltest::setup -empty -tabaddbutton false -tabaddcommand $callback]
+} -body {
+    set plus $m.tabAdd
+    set result [list [winfo exists $plus]]
+    $m configure -tabaddbutton true
+    update idletasks
+    lappend result [expr {[$plus invoke] eq [list {custom action} $m]}] [$m tabs]
+    set a [$m addtab Direct]
+    $m configure -tabaddbutton false
+    update idletasks
+    lappend result [winfo exists $plus] [expr {[$m configure -tabaddcommand] eq $callback}]
+    $m configure -tabaddcommand {} -tabaddbutton true
+    update idletasks
+    set b [$plus invoke]
+    lappend result [[winfo parent $b] tab $b -text] [llength [$m tabs]]
+} -cleanup {::sltest::cleanup} -result {0 1 {} 0 1 {Tab 1} 2}
+
+test splitlayout-tabadd-47.3 {button follows the last tab after renaming, reordering and squeezing the strip} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab Alpha]
+    set b [$m addtab Bravo]
+    set book [winfo parent $a]
+    set plus $m.tabAdd
+} -body {
+    set result {}
+    foreach action {normal rename move resize} {
+        switch $action {
+            rename {$m renametab $b {A substantially longer title}}
+            move {$m movetab $a -after $b}
+            resize {wm geometry .sltest 200x180}
+        }
+        ::sltest::settle $m
+        set x [expr {[winfo rootx $plus]-[winfo rootx $book]}]
+        set y [expr {[winfo rooty $plus]-[winfo rooty $book]+[winfo height $plus]/2}]
+        lappend result [expr {[winfo ismapped $plus] && [$book index @[expr {$x-1}],$y] eq ([$book index end]-1)
+                && [$book index @$x,$y] eq {} && $x+[winfo width $plus] <= [winfo width $book]}]
+    }
+    return $result
+} -cleanup {::sltest::cleanup} -result {1 1 1 1}
+
+test splitlayout-tabadd-47.4 {an application callback can open the new page editor immediately} -setup {
+    set m [::sltest::setup -empty -tabaddcommand [list apply {{layout} {
+        set page [$layout addtab {New plot} -empty]
+        $layout selecttab $page
+        $layout edittab $page
+    }}]]
+} -body {
+    set e [$m.tabAdd invoke]
+    ::sltest::await {[focus] eq $e} {new page editor focus}
+    list [$e get] [llength [$m tabs]] [$m root]
+} -cleanup {::sltest::cleanup} -result {{New plot} 1 {}}
+
+test splitlayout-tabadd-47.5 {add button uses a compact image and releases it with the button} -setup {
+    set m [::sltest::setup -empty]
+    set button $m.tabAdd
+} -body {
+    set icon [$button cget -image]
+    place configure $button -width 20 -height 18
+    update idletasks
+    # A 15x7 image centered on a 20x18 face starts at (2,5), rounded down.
+    set result [list [$button identify 2 5] [$button identify 16 11] [image width $icon] [image height $icon]]
+    $m configure -tabaddbutton false
+    update idletasks
+    lappend result [expr {$icon ni [image names]}]
+} -cleanup {::sltest::cleanup} -result {image image 15 7 1}
+
+test splitlayout-buttonimages-47.6 {custom notebook artwork, hover sizing, protection and ownership} -setup {
+    set plus [image create photo {my plus} -width 24 -height 13]
+    set cross [image create photo {my cross} -width 19 -height 17]
+    set gray [image create photo -width 15 -height 11]
+    set m [::sltest::setup -empty -buttonimages [dict create tabadd $plus tabclose $cross]]
+    set button $m.tabAdd
+} -body {
+    set result [list [expr {[lindex [$button cget -image] 0] eq $plus}]]
+    set a [$m addtab A]
+    set b [$m addtab B]
+    set book [winfo parent $a]
+    $m constraints [$m root $b] -nodestroy 1
+    $m configure -buttonimages [dict create tabclosedisabled $gray]
+    foreach tab [list $a $b] img [list $cross $gray] {
+        lassign [$book tab $tab -image] blank state icon
+        lappend result [expr {$icon eq $img && $state eq {active}}] [image width $blank] [image height $blank]
+    }
+    $m configure -tabclosebutton always
+    lappend result [expr {[lindex [$book tab $a -image] 0] eq $cross}]
+    $m configure -buttonimages {tabadd {} tabclose {}}
+    update idletasks
+    lappend result [expr {[lindex [$button cget -image] 0] ne $plus}] [expr {[lindex [$book tab $a -image] 0] ne $cross}]
+    destroy $m
+    lappend result [image type $plus] [image type $cross] [image type $gray]
+} -cleanup {
+    ::sltest::cleanup
+    image delete $plus $cross $gray
+} -result {1 1 19 17 1 15 11 1 1 1 photo photo photo}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

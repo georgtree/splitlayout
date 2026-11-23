@@ -861,7 +861,8 @@ namespace eval ::splitlayout {
         none` disables the cross regardless of constraints. Use `inherit` for either per-content option to resume
         following its manager default. Overrides survive hide/show and undock/dock.
 
-        `-buttonimages` is a dictionary with `dock`, `undock`, `delete`, `lock`, and `unlock` keys. Values are existing
+        `-buttonimages` accepts `dock`, `undock`, `delete`, `lock`, and `unlock` for pane headers, and
+        `tabadd`, `tabclose`, and `tabclosedisabled` for the notebook. Values are existing
         Tk image names, not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:
         ```tcl
         set undockImage [image create photo -file undock.png]
@@ -1011,10 +1012,13 @@ namespace eval ::splitlayout {
         | `-lockbuttonmode`    | `all`           | Lock-button side policy: all edges or immediate parent split boundaries.   |
         | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
         | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
+        | `-tabaddbutton`      | true            | Show the add button on the tab strip or in a rootless layout.              |
+        | `-tabaddcommand`     | Empty prefix    | Replace the built-in action when the add button is invoked.               |
+        | `-tabrename`         | true            | Enable interactive tab title editing.                                     |
         | `-tabclosebutton`    | hover           | Tab close cross visibility: hover, always or none.                         |
         | `-headerbuttons`     | lock dock close | Visible header buttons for content that inherits the default.              |
         | `-closeaction`       | destroy         | Default cross action: destroy, hide or none.                               |
-        | `-buttonimages`      | Empty values    | Optional dock, undock, delete, lock, and unlock Tk image overrides.        |
+        | `-buttonimages`      | Empty values    | Custom Tk images for pane header and notebook tab buttons.        |
         | `-headerrelief`      | `flat`          | Rectangular header relief.                                                 |
         | `-leafborder`        | `false`         | Outline each leaf, including floating windows.                             |
         | `-leafborderwidth`   | `1`             | Nonnegative leaf outline thickness in pixels.                              |
@@ -1258,6 +1262,41 @@ namespace eval ::splitlayout {
         both trees intact; Escape restores the starting page. The usual movement, boundary and subtree constraints
         apply to both trees before a drop commits.
 
+        ### Adding tabs with the + button
+        The + button follows the last notebook tab. Clicking it selects a new empty page with the first available title
+        in the sequence Tab 1, Tab 2, and so on. A rootless layout also shows +, including after deletion of the last
+        tab. A populated plain layout enters notebook mode with `addtab`.
+
+        Set `-tabaddbutton false` to hide the button. Set `-tabaddcommand` to a Tcl command prefix to replace the whole
+        action. The prefix runs in the global namespace with the layout pathname appended. It controls creation,
+        naming and selection. An empty prefix restores the built-in action. For example, to start editing a custom
+        page title immediately:
+        ```tcl
+        proc addPlotTab {layout} {
+            set page [$layout addtab "New plot" -empty]
+            $layout selecttab $page
+            $layout edittab $page
+        }
+        $layout configure -tabaddcommand addPlotTab
+        ```
+
+        Use `-buttonimages` to set the notebook artwork independently of the pane header buttons:
+        ```tcl
+        $layout configure -buttonimages [dict create tabadd $plusImage tabclose $closeImage]
+        $layout configure -buttonimages [dict create tabclosedisabled $disabledCloseImage]
+        $layout configure -buttonimages {tabadd {} tabclose {} tabclosedisabled {}}
+        ```
+
+        Each empty value restores that symbol's built-in image. Protected tabs use the disabled symbol. Hover mode
+        reserves the dimensions of the corresponding close image. Choose an add image that fits the tab strip height
+        (or its width for a vertical strip). The application owns the supplied images.
+
+        ### Renaming a tab
+        Double-click the tab title to edit it in place. Return or a click elsewhere commits the text. Escape
+        cancels. Use `edittab $page` to open the same editor from application code. Set `-tabrename false` to disable
+        interactive editing and discard an open edit. The application can always set a title with `renametab $page
+        $title`. Changing the title preserves the page pathname and its content.
+
         ### Deleting a tab
         `deletetab $page` destroys its docked tree and every hidden or individually floating pane whose
         remembered home is that page. A pane already moved or redocked into another page belongs to that
@@ -1274,7 +1313,7 @@ namespace eval ::splitlayout {
         Set `-tabclosebutton` to `hover` (default), `always`, or `none` at construction or with `configure`. Hover
         reserves the same space as always so labels stay still. None removes that space.  Deleting the last tab leaves
         a plain, rootless manager. Use `addleaf` to populate it directly, or `addtab title` to start a new
-        notebook. The application supplies tab names through `addtab`.
+        notebook.
 
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1371,10 +1410,14 @@ proc ::splitlayout::CreationArguments {} {
         {-lockbuttonmode= -default all -enum {all outer}\
                 -help {Lock all edges or only edges touching the immediate parent split boundary}}
         {-titlealign= -default center -enum {left center right} -help {Header title alignment}}
+        {-tabaddbutton= -default true -type boolean -help {Show the notebook add button}}
+        {-tabaddcommand= -default {} -help {Command prefix to invoke with the layout when adding a tab}}
+        {-tabrename= -default true -type boolean -help {Enable interactive tab renaming}}
         {-tabclosebutton= -default hover -enum {hover always none} -help {Visibility of notebook tab close buttons}}
         {-headerbuttons= -default {lock dock close} -help {Visible header buttons from lock, dock and close}}
         {-closeaction= -default destroy -enum {destroy hide none} -help {Default header close button action}}
-        {-buttonimages= -default {} -help {Application-owned images keyed by dock, undock, delete, lock, or unlock}}
+        {-buttonimages= -default {} -help {Application-owned images for dock, undock, delete, lock, unlock, tabadd,\
+                                                   tabclose and tabclosedisabled}}
         {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid} -help {Header border relief}}
         {-headerborderwidth= -default 1 -type integer -help {Nonnegative header border width in pixels}}
         {-tooltips= -default true -type boolean\
@@ -1393,11 +1436,12 @@ proc ::splitlayout::CreationHelp {args} {
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book TabOrder TabCloseButton TabCloseImages Serial Pending Tag\
-            Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating\
-            Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers\
-            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums\
-            NodeRules ContentRules LivePress
+    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book EditTab TabRename TabAddButton TabAddCommand TabAddDefault\
+            TabAddIdle TabOrder TabCloseButton TabCloseImages Serial Pending Tag Closing Owned Opaque Drag Preview\
+            Owner Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide\
+            LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions\
+            TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules\
+            LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1446,6 +1490,9 @@ oo::configurable create ::splitlayout::splitlayout {
                     Header title alignment: left, center, or right; default center. Independent of buttonside.
                     Applies to docked and floating headers. Titles are truncated within the space clear of buttons.
                 }
+                -tabaddbutton {Show the notebook add button; default true.}
+                -tabaddcommand {Override the built-in add action with a command prefix receiving the layout pathname.}
+                -tabrename {Enable interactive tab title editing; default true.}
                 -tabclosebutton {
                     Notebook tab close cross visibility: hover (default), always, or none.
                 }
@@ -1456,11 +1503,11 @@ oo::configurable create ::splitlayout::splitlayout {
                     Default action for the header close button: destroy, hide or none.
                 }
                 -buttonimages {
-                    Dictionary mapping dock, undock, delete, lock, and unlock to existing Tk image names. Empty values
-                    select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one
-                    default. Supplied images are application-owned. Buttons and header height accommodate image
-                    dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides
-                    unchanged.
+                    Dictionary mapping dock, undock, delete, lock, unlock, tabadd, tabclose, and tabclosedisabled to Tk
+                    images. Empty values select built-in bitmaps and are the default. Updates merge atomically; an
+                    empty value restores one default. Supplied images are application-owned. Buttons and header height
+                    accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave
+                    existing overrides unchanged.
                 }
                 -headerrelief {
                     Header relief: flat, raised, sunken, ridge, groove, or solid; default flat.
@@ -1619,6 +1666,35 @@ oo::configurable create ::splitlayout::splitlayout {
             my RefreshHeaders
         }
     }
+    property tabaddbutton -get {
+        return $TabAddButton
+    } -set {
+        if {![string is boolean -strict $value]} {
+            return -code error "expected boolean value but got '$value'"
+        }
+        set TabAddButton [expr {!!$value}]
+        if {[dict size $Roots]} {
+            my SyncTabClose
+            my ScheduleTabAdd
+        }
+    }
+    property tabaddcommand -get {
+        return $TabAddCommand
+    } -set {
+        llength $value
+        set TabAddCommand $value
+    }
+    property tabrename -get {
+        return $TabRename
+    } -set {
+        if {![string is boolean -strict $value]} {
+            return -code error "expected boolean value but got '$value'"
+        }
+        set TabRename [expr {!!$value}]
+        if {!$TabRename} {
+            my FinishTabEdit 0
+        }
+    }
     property tabclosebutton -get {
         return $TabCloseButton
     } -set {
@@ -1659,7 +1735,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error {buttonimages must be a dictionary}
         }
         dict for {action image} $value {
-            if {$action ni {dock undock delete lock unlock}} {
+            if {![dict exists $ButtonImages $action]} {
                 return -code error "unknown button image action '$action'"
             }
             if {($image ne {}) && [catch {image type $image}]} {
@@ -1669,6 +1745,8 @@ oo::configurable create ::splitlayout::splitlayout {
         my CancelDrag
         set ButtonImages [dict merge $ButtonImages $value]
         if {[dict size $Roots]} {
+            my SyncTabClose
+            my ScheduleTabAdd
             my RefreshHeaders
         }
     }
@@ -1892,10 +1970,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -lockbuttonmode mode - Lock-button side policy all or outer; default all.
         #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
         #  -titlealign alignment - Header title alignment: left, center, or right; default center.
+        #  -tabaddbutton boolean - Show the notebook add button; default true.
+        #  -tabaddcommand prefix - Override the built-in tab creation action.
+        #  -tabrename boolean - Enable interactive editing of tab titles; default true.
         #  -tabclosebutton mode - Show the notebook tab close cross on hover, always, or never (none).
         #  -headerbuttons buttons - Visible buttons from lock, dock and close; defaults to all three.
         #  -closeaction action - Default header close action: destroy, hide or none.
-        #  -buttonimages dictionary - Optional dock, undock, delete, lock, and unlock images; default built-in bitmaps.
+        #  -buttonimages dictionary - Optional pane header and notebook tab images; default built-in bitmaps.
         #  -headerrelief relief - Header border: flat, raised, sunken, ridge, groove, or solid; default flat.
         #  -leafborder boolean - Enable independent leaf outlines; default false.
         #  -leafborderwidth pixels - Nonnegative leaf outline thickness; default 1.
@@ -1918,21 +1999,24 @@ oo::configurable create ::splitlayout::splitlayout {
         # dictionary? ?-sashpreviewopts dictionary?  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief
         # relief? ?-leafopts dictionary?  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
         # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
-        # ?-lockbuttonmode mode? ?-tabclosebutton mode?
+        # ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand
+        # prefix?
         foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
-                             Floating Roots EmptyTabs Book TabOrder TabCloseImages Vacancies Settings Drag Dock Borders\
-                             Panels Pending Nodes} {
+                             Floating Roots EmptyTabs Book EditTab TabAddIdle TabOrder TabCloseImages Vacancies\
+                             Settings Drag Dock Borders Panels Pending Nodes} {
             set $var {}
         }
-        set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
+        set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {} tabadd {} tabclose {}\
+                                  tabclosedisabled {}]
         set TooltipReady 0
         set Closing 0
         set Owned 0
         set Serial 0
         set options [argparse -inline -pfirst [::splitlayout::CreationArguments]]
         foreach option {opaqueresize sashpreview leafborder leafborderwidth leafrelief showstructure draghandles\
-                                buttonside lockbuttonmode titlealign tabclosebutton headerbuttons closeaction\
-                                buttonimages headerrelief headerborderwidth tooltips} {
+                                buttonside lockbuttonmode titlealign tabaddbutton tabaddcommand tabclosebutton\
+                                tabrename headerbuttons closeaction buttonimages headerrelief headerborderwidth\
+                                tooltips} {
             my configure -$option [dict get $options $option]
         }
         set W [dict get $options path]
@@ -1985,6 +2069,10 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         set Closing 1
+        if {[info exists TabAddIdle] && $TabAddIdle ne {}} {
+            after cancel $TabAddIdle
+        }
+        my FinishTabEdit 0
         if {[info exists HeaderRefresh] && ($HeaderRefresh ne {})} {
             after cancel $HeaderRefresh
         }
@@ -2080,11 +2168,22 @@ oo::configurable create ::splitlayout::splitlayout {
             # Label gestures start only on the notebook. Pane drags have their own bindings and state.
             bind $Book <<ThemeChanged>> [namespace code {my SyncTabClose 1}]
             bind $Book <ButtonPress-1> [namespace code {my TabOrderPress %X %Y}]
+            bind $Book <Double-ButtonPress-1> [namespace code {my TabDoublePress %x %y %X %Y}]
             bind $Book <Escape> [namespace code {my CancelTabOrder}]
-            bind $Book <FocusOut> [namespace code {if {[focus -displayof $Book] ne $Book} {
+            bind $Book <FocusOut> [namespace code {
+                if {[focus -displayof $Book] ne $Book} {
+                    my CancelTabOrder
+                }
+            }]
+            bind $Book <Unmap> [namespace code {
                 my CancelTabOrder
-            }}]
-            bind $Book <Unmap> [namespace code {my CancelTabOrder}]
+                my FinishTabEdit 1
+            }]
+            bind $Book <Configure> [namespace code {
+                my FinishTabEdit 1
+                my ScheduleTabAdd
+            }]
+            bind $Book <<NotebookTabChanged>> [namespace code {my ScheduleTabAdd}]
             bind ${Tag}TabDrag <B1-Motion> [namespace code {
                 if {$TabOrder ne {}} {
                     my TabOrderMotion %X %Y
@@ -2118,6 +2217,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         bindtags $page [linsert [bindtags $page] 0 ${Tag}TabDrag]
+        bind $page <Map> [namespace code {my ScheduleTabAdd}]
         pack propagate $page 0
         $Book add $page -text $title
         dict set Roots $page $root
@@ -2153,6 +2253,68 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return {}
     }
+    method renametab {args} {
+        # Changes a tab title without changing its page or selection.
+        #  tab - Page returned by addtab.
+        #  title - New tab label.
+        # Returns: The page pathname.
+        # Synopsis: tab title
+        argparse -pfirst -help {Set the title of a notebook page} {
+            {tab -help {Page to rename}}
+            {title -help {New tab label}}
+        }
+        my CheckTab $tab
+        my FinishTabEdit [expr {$tab ne $EditTab}]
+        $Book tab $tab -text $title
+        my ScheduleTabAdd
+        return $tab
+    }
+    method edittab {args} {
+        # Opens the inline title editor on a visible notebook tab.
+        #  tab - Page returned by addtab.
+        # Returns: The entry widget pathname.
+        # Synopsis: tab
+        argparse -pfirst -help {Edit the title of a visible notebook tab in place} {
+            {tab -help {Page to edit}}
+        }
+        my CheckTab $tab
+        if {!$TabRename} {
+            return -code error {interactive tab renaming is disabled}
+        }
+        set entry $Book.tabEditor
+        if {$EditTab eq $tab} {
+            return $entry
+        }
+        my FinishTabEdit 1
+        my CancelDrag
+        update idletasks
+        set bounds [my TabBounds $tab]
+        if {$bounds eq {}} {
+            return -code error "tab '$tab' is not visible"
+        }
+        lassign $bounds x y width height
+        set EditTab $tab
+        ttk::entry $entry
+        $entry insert 0 [$Book tab $tab -text]
+        $entry selection range 0 end
+        $entry icursor end
+        place $entry -x $x -y $y -width $width -height $height
+        raise $entry
+        update idletasks
+        bind $entry <Return> [namespace code {
+            my FinishTabEdit 1
+            break
+        }]
+        bind $entry <Escape> [namespace code {
+            my FinishTabEdit 0
+            break
+        }]
+        bind $entry <FocusOut> [namespace code {my FinishTabEdit 1}]
+        # A click on a frame need not change keyboard focus.
+        bind [winfo toplevel $Book] <ButtonPress-1> +[namespace code {my TabEditClick %W}]
+        focus $entry
+        return $entry
+    }
     method deletetab {args} {
         # Destroys the page and the docked, hidden and floating content belonging to it.
         #  tab - Page returned by addtab.
@@ -2166,6 +2328,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my CheckTab $tab
         set frames [my TabDeletionFrames $tab]
         my CancelDrag
+        my FinishTabEdit [expr {$tab ne $EditTab}]
         my CaptureAll
         set root [dict get $Roots $tab]
         foreach frame $frames {
@@ -2214,7 +2377,9 @@ oo::configurable create ::splitlayout::splitlayout {
             incr at [expr {$after - ($from < $at)}]
             if {$from != $at} {
                 my CancelDrag
+                my FinishTabEdit 1
                 $Book insert $at $tab
+                my ScheduleTabAdd
             }
         }
         return $tab
@@ -3545,6 +3710,216 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $frames
     }
+    method TabAddWidget {} {
+        set button $W.tabAdd
+        if {![winfo exists $button]} {
+            # A short, symmetric image stays centered even when the tab is shorter than a line of text.
+            ttk::button $button -style SplitlayoutTabAdd.TButton -width 2 -compound text -padding 1\
+                    -command [namespace code {my InvokeTabAdd}]
+            set TabAddDefault [image create bitmap -data {
+                #define plus_width 15
+                #define plus_height 7
+                static unsigned char plus_bits[] = {
+                    0x80,0x00, 0x80,0x00, 0x80,0x00, 0xf0,0x07, 0x80,0x00, 0x80,0x00, 0x80,0x00
+                };
+            }]
+            bind $button <Destroy> [list image delete $TabAddDefault]
+            bind $button <<ThemeChanged>> [namespace code [list my StyleTabAdd $button $TabAddDefault]]
+            my StyleTabAdd $button $TabAddDefault
+        }
+        set spec [list [my ButtonImage tabadd $TabAddDefault]]
+        if {[$button cget -image] ne $spec} {
+            $button configure -image $spec
+        }
+        return $button
+    }
+    method StyleTabAdd {button icon} {
+        # Draw the image centered in the entire face, independent of the theme's label padding.
+        set style [$button cget -style]
+        set layout [concat [ttk::style layout TButton] {image -sticky {}}]
+        if {[ttk::style layout $style] ne $layout} {
+            ttk::style layout $style $layout
+        }
+        $icon configure -foreground [ttk::style lookup $style -foreground {} black]
+    }
+    method InvokeTabAdd {} {
+        if {[llength $TabAddCommand]} {
+            return [uplevel #0 [list {*}$TabAddCommand $W]]
+        }
+        set titles {}
+        foreach tab [my tabs] {
+            dict set titles [$Book tab $tab -text] 1
+        }
+        set n 1
+        while {[dict exists $titles "Tab $n"]} {
+            incr n
+        }
+        return [my selecttab [my addtab "Tab $n" -empty]]
+    }
+    method ScheduleTabAdd {} {
+        if {!$Closing} {
+            after cancel $TabAddIdle
+            set TabAddIdle [after idle [namespace code {my PlaceTabAdd}]]
+        }
+    }
+    method PlaceTabAdd {} {
+        set TabAddIdle {}
+        set button $W.tabAdd
+        if {!$TabAddButton || (($Book eq {}) && ([dict get $Roots $W] ne {}))} {
+            if {[winfo exists $button]} {
+                destroy $button
+            }
+            return
+        }
+        set button [my TabAddWidget]
+        if {$Book eq {}} {
+            place $button -in $W -x 0 -y 0 -width {} -height {}
+        } else {
+            set tabs [$Book tabs]
+            set bounds [my TabBounds [lindex $tabs end]]
+            if {$bounds eq {}} {
+                place forget $button
+                return
+            }
+            lassign $bounds x y width height
+            set style [$Book cget -style]
+            set side [string index [ttk::style lookup $style -tabposition {} nw] 0]
+            if {$side in {e w}} {
+                place $button -in $Book -x $x -y [expr {$y+$height}] -width $width -height [winfo reqheight $button]
+            } else {
+                place $button -in $Book -x [expr {$x+$width}] -y $y -width [winfo reqwidth $button] -height $height
+            }
+        }
+        raise $button
+    }
+    method TabAddStyle {base} {
+        # Reserve space in the tab strip so the trailing button cannot cover a squeezed tab.
+        if {$base eq {}} {
+            set base TNotebook
+        }
+        set side [string index [ttk::style lookup $base -tabposition {} nw] 0]
+        set margins [ttk::style lookup $base -tabmargins {} 0]
+        lassign $margins left top right bottom
+        if {$top eq {}} {
+            set top $left
+        }
+        if {$right eq {}} {
+            set right $left
+        }
+        if {$bottom eq {}} {
+            set bottom $top
+        }
+        set button [my TabAddWidget]
+        if {$side in {e w}} {
+            set bottom [expr {[winfo pixels $Book $bottom]+[winfo reqheight $button]}]
+        } else {
+            set right [expr {[winfo pixels $Book $right]+[winfo reqwidth $button]}]
+        }
+        set margins [list $left $top $right $bottom]
+        set style SplitlayoutAdd[join $margins _].$base
+        if {[ttk::style lookup $style -tabmargins] ne $margins} {
+            ttk::style configure $style -tabmargins $margins
+        }
+        return $style
+    }
+    method TabDoublePress {x y rootX rootY} {
+        set tab [my TabAt $rootX $rootY]
+        if {$TabRename && ($tab ne {}) && ([$Book identify element $x $y] eq {label}) &&\
+                    ([$Book tab $tab -state] eq {normal}) && ([grab current $W] eq {})} {
+            my edittab $tab
+            return -code break
+        }
+        tailcall my TabOrderPress $rootX $rootY
+    }
+    method TabEditClick {widget} {
+        if {$widget ne "$Book.tabEditor"} {
+            my FinishTabEdit 1
+        }
+    }
+    method FinishTabEdit {commit} {
+        if {![info exists EditTab] || ($EditTab eq {})} {
+            return
+        }
+        set tab $EditTab
+        set EditTab {}
+        set entry $Book.tabEditor
+        set script [namespace code {my TabEditClick %W}]
+        if {[winfo exists $Owner]} {
+            set lines [split [bind $Owner <ButtonPress-1>] \n]
+            bind $Owner <ButtonPress-1> [join [lsearch -all -inline -not -exact $lines $script] \n]
+        }
+        if {[winfo exists $entry]} {
+            if {$commit && [dict exists $Roots $tab]} {
+                $Book tab $tab -text [$entry get]
+                my ScheduleTabAdd
+            }
+            if {[focus -displayof $entry] eq $entry} {
+                focus $Book
+            }
+            destroy $entry
+        }
+    }
+    method TabBounds {tab} {
+        # Find a point on the tab along the middle of the native tab strip.
+        set page [$Book select]
+        if {($page eq {}) || ![winfo ismapped $page]} {
+            return
+        }
+        set style [$Book cget -style]
+        if {$style eq {}} {
+            set style TNotebook
+        }
+        set side [string index [ttk::style lookup $style -tabposition {} nw] 0]
+        set width [winfo width $Book]
+        set height [winfo height $Book]
+        switch $side {
+            n {
+                set y [expr {[winfo y $page]/2}]
+            }
+            s {
+                set y [expr {($height+[winfo y $page]+[winfo height $page])/2}]
+            }
+            w {
+                set x [expr {[winfo x $page]/2}]
+            }
+            e {
+                set x [expr {($width+[winfo x $page]+[winfo width $page])/2}]
+            }
+        }
+        set vertical [expr {$side in {e w}}]
+        set axis [expr {$vertical ? {y} : {x}}]
+        set limit [expr {$vertical ? $height : $width}]
+        set index [$Book index $tab]
+        for {set i 0} {$i < $limit} {incr i} {
+            set $axis $i
+            if {[$Book index @$x,$y] eq $index} {
+                return [my TabRectAt $index $x $y]
+            }
+        }
+        return
+    }
+    method TabRectAt {index px py} {
+        # Find the label edges along both axes using its native hit region.
+        foreach axis {x y} coordinate [list $px $py] limit [list [winfo width $Book] [winfo height $Book]] {
+            foreach side {low high} outside [list -1 $limit] {
+                set inside $coordinate
+                while {abs($outside-$inside) > 1} {
+                    set mid [expr {($outside+$inside)/2}]
+                    set point [expr {$axis eq {x} ? "@$mid,$py" : "@$px,$mid"}]
+                    if {[$Book index $point] eq $index} {
+                        set inside $mid
+                    } else {
+                        set outside $mid
+                    }
+                }
+                set ${axis}${side} $inside
+            }
+            if {$axis eq {x}} {
+                set px [expr {($xlow+$xhigh)/2}]
+            }
+        }
+        return [list $xlow $ylow [expr {$xhigh-$xlow+1}] [expr {$yhigh-$ylow+1}]]
+    }
     method TabCloseAllowed {tab} {
         try {
             my TabDeletionFrames $tab
@@ -3585,7 +3960,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 foreach state {normal disabled} {
                     dict set TabCloseImages $state [image create bitmap -data $data]
                 }
-                dict set TabCloseImages blank [image create photo -width 12 -height 12]
+                foreach state {normal disabled} {
+                    dict set TabCloseImages blank-$state [image create photo]
+                }
             }
             foreach state {normal disabled} fallback {black #888888} {
                 set states [expr {$state eq {disabled} ? {disabled} : {}}]
@@ -3594,9 +3971,20 @@ oo::configurable create ::splitlayout::splitlayout {
                 if {[$icon cget -foreground] ne $color} {
                     $icon configure -foreground $color
                 }
+                set action [expr {$state eq {normal} ? {tabclose} : {tabclosedisabled}}]
+                set symbol($state) [my ButtonImage $action $icon]
+                set blank [dict get $TabCloseImages blank-$state]
+                set width [image width $symbol($state)]
+                set height [image height $symbol($state)]
+                if {([$blank cget -width] != $width) || ([$blank cget -height] != $height)} {
+                    $blank configure -width $width -height $height
+                }
             }
         }
         set style [expr {$TabCloseButton eq {none} ? {} : {Splitlayout.TNotebook}}]
+        if {$TabAddButton} {
+            set style [my TabAddStyle $style]
+        }
         if {$themeChanged || ([$Book cget -style] ne $style)} {
             $Book configure -style $style
         }
@@ -3604,15 +3992,16 @@ oo::configurable create ::splitlayout::splitlayout {
             set spec {}
             if {$TabCloseButton ne {none}} {
                 set state [expr {[my TabCloseAllowed $tab] ? {normal} : {disabled}}]
-                set spec [list [dict get $TabCloseImages $state]]
+                set spec [list $symbol($state)]
                 if {$TabCloseButton eq {hover}} {
-                    set spec [linsert $spec 0 [dict get $TabCloseImages blank] active]
+                    set spec [linsert $spec 0 [dict get $TabCloseImages blank-$state] active]
                 }
             }
             if {[$Book tab $tab -image] ne $spec} {
                 $Book tab $tab -image $spec -compound text
             }
         }
+        my ScheduleTabAdd
     }
     method OnTabClose {x y} {
         if {$TabCloseButton eq {none}} {
@@ -3878,6 +4267,7 @@ oo::configurable create ::splitlayout::splitlayout {
             pack [my widget $root] -in $page -fill both -expand 1
             my Stack $root
         }
+        my ScheduleTabAdd
         my RefreshHeaders
     }
     method Attach {id} {
@@ -5237,9 +5627,10 @@ oo::configurable create ::splitlayout::splitlayout {
         dict set Icons $kind $image
         return $image
     }
-    method ButtonImage {action} {
+    method ButtonImage {action {default {}}} {
         # Resolves an action's application-supplied image or the built-in monochrome bitmap.
-        #  action - dock, undock, delete, lock, or unlock.
+        #  action - Image key in the buttonimages dictionary.
+        #  default - Built-in tab image. Header actions resolve their built-in grip icon on demand.
         #
         # Supplied images remain application-owned and are never recolored or deleted. If one has been deleted
         # externally, the next redraw falls back to the built-in image rather than raising a background error.
@@ -5248,6 +5639,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {($image ne {}) && ![catch {image type $image}]} {
             return $image
         }
+        if {$default ne {}} {return $default}
         return [my GripIcon $action]
     }
     method CheckButtons {buttons} {
@@ -5290,7 +5682,11 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
         bind $grip <Escape> [namespace code {my DockEscape}]
         bind $grip <FocusOut> [namespace code [list my DockFocusOut $grip]]
-        bind $grip <Unmap> [namespace code {if {![my TabDragging]} {my CancelDock}}]
+        bind $grip <Unmap> [namespace code {
+            if {![my TabDragging]} {
+                my CancelDock
+            }
+        }]
         bind $grip <Destroy> [namespace code [list my HeaderDestroyed $grip]]
         my DrawGrip $grip
         my SyncHeaderTips
@@ -5870,22 +6266,9 @@ oo::configurable create ::splitlayout::splitlayout {
         set px [expr {$x - [winfo rootx $Book]}]
         set py [expr {$y - [winfo rooty $Book]}]
         set index [$Book index $tab]
-        # Find the label edges along both axes using its native hit region.
-        foreach axis {x y} coordinate [list $px $py] limit [list [winfo width $Book] [winfo height $Book]] {
-            foreach side {low high} outside [list -1 $limit] {
-                set inside $coordinate
-                while {abs($outside-$inside) > 1} {
-                    set mid [expr {($outside+$inside)/2}]
-                    set point [expr {$axis eq {x} ? "@$mid,$py" : "@$px,$mid"}]
-                    if {[$Book index $point] eq $index} {
-                        set inside $mid
-                    } else {
-                        set outside $mid
-                    }
-                }
-                set ${axis}${side} $inside
-            }
-        }
+        lassign [my TabRectAt $index $px $py] xlow ylow width height
+        set xhigh [expr {$xlow+$width-1}]
+        set yhigh [expr {$ylow+$height-1}]
         if {$vertical} {
             set before [expr {2*$py < $ylow+$yhigh}]
             set rect [list $xlow [expr {$before ? $ylow : $yhigh-1}] [expr {$xhigh-$xlow+1}] 2]
@@ -6193,6 +6576,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         if {[my TabAt $x $y] ne {}} {return}
         set hit [winfo containing -displayof $W $x $y]
+        if {$hit eq "$W.tabAdd"} {
+            return
+        }
         # The floating source may cover its destination while following the pointer.
         if {$floating && ($hit ne {}) && ([winfo toplevel $hit] eq [my FloatingFrame $source])} {
             set hit $W

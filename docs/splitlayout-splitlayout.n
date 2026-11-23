@@ -9,9 +9,9 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBCreationHelp\fP \fI?args?\fP
 .br
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -30,6 +30,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ deletetab\fP \fItab\fP
 .br
 \fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target|-tab page?\fP
+.br
+\fBSPLITLAYOUTOBJ edittab\fP \fItab\fP
 .br
 \fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
 .br
@@ -64,6 +66,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ ratio\fP \fInode ?value?\fP
 .br
 \fBSPLITLAYOUTOBJ remove\fP \fIid\fP
+.br
+\fBSPLITLAYOUTOBJ renametab\fP \fItab title\fP
 .br
 \fBSPLITLAYOUTOBJ requiredsize\fP \fIid\fP
 .br
@@ -781,7 +785,8 @@ its operation is prohibited\&. For example, -nohide disables a cross configured 
 none disables the cross regardless of constraints\&. Use inherit for either per-content option to resume
 following its manager default\&. Overrides survive hide/show and undock/dock\&.
 .PP
--buttonimages is a dictionary with dock, undock, delete, lock, and unlock keys\&. Values are existing
+-buttonimages accepts dock, undock, delete, lock, and unlock for pane headers, and
+tabadd, tabclose, and tabclosedisabled for the notebook\&. Values are existing
 Tk image names, not filenames or raw SVG data\&. PNG and SVG files/data can be loaded into Tk photo images first:
 .PP
 .RS 4n
@@ -957,10 +962,13 @@ widgets\&.
 │ -lockbuttonmode    │ all             │ Lock-button side policy: all edges or immediate parent split boundaries\&.   │
 │ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
 │ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
+│ -tabaddbutton      │ true            │ Show the add button on the tab strip or in a rootless layout\&.              │
+│ -tabaddcommand     │ Empty prefix    │ Replace the built-in action when the add button is invoked\&.                │
+│ -tabrename         │ true            │ Enable interactive tab title editing\&.                                      │
 │ -tabclosebutton    │ hover           │ Tab close cross visibility: hover, always or none\&.                         │
 │ -headerbuttons     │ lock dock close │ Visible header buttons for content that inherits the default\&.              │
 │ -closeaction       │ destroy         │ Default cross action: destroy, hide or none\&.                               │
-│ -buttonimages      │ Empty values    │ Optional dock, undock, delete, lock, and unlock Tk image overrides\&.        │
+│ -buttonimages      │ Empty values    │ Custom Tk images for pane header and notebook tab buttons\&.                 │
 │ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
 │ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
 │ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
@@ -1222,6 +1230,47 @@ Hold a dragged header over a tab label briefly to open that page\&. Drop inside 
 edge, outer rim and sash destinations\&. Hovering alone never commits a change\&. Releasing over a label leaves
 both trees intact; Escape restores the starting page\&. The usual movement, boundary and subtree constraints
 apply to both trees before a drop commits\&.
+.SS "ADDING TABS WITH THE + BUTTON"
+.PP
+The + button follows the last notebook tab\&. Clicking it selects a new empty page with the first available title
+in the sequence Tab 1, Tab 2, and so on\&. A rootless layout also shows +, including after deletion of the last
+tab\&. A populated plain layout enters notebook mode with addtab\&.
+.PP
+Set -tabaddbutton false to hide the button\&. Set -tabaddcommand to a Tcl command prefix to replace the whole
+action\&. The prefix runs in the global namespace with the layout pathname appended\&. It controls creation,
+naming and selection\&. An empty prefix restores the built-in action\&. For example, to start editing a custom
+page title immediately:
+.PP
+.RS 4n
+.nf
+proc addPlotTab {layout} {
+    set page [$layout addtab "New plot" -empty]
+    $layout selecttab $page
+    $layout edittab $page
+}
+$layout configure -tabaddcommand addPlotTab
+.fi
+.RE
+.PP
+Use -buttonimages to set the notebook artwork independently of the pane header buttons:
+.PP
+.RS 4n
+.nf
+$layout configure -buttonimages [dict create tabadd $plusImage tabclose $closeImage]
+$layout configure -buttonimages [dict create tabclosedisabled $disabledCloseImage]
+$layout configure -buttonimages {tabadd {} tabclose {} tabclosedisabled {}}
+.fi
+.RE
+.PP
+Each empty value restores that symbol's built-in image\&. Protected tabs use the disabled symbol\&. Hover mode
+reserves the dimensions of the corresponding close image\&. Choose an add image that fits the tab strip height
+(or its width for a vertical strip)\&. The application owns the supplied images\&.
+.SS "RENAMING A TAB"
+.PP
+Double-click the tab title to edit it in place\&. Return or a click elsewhere commits the text\&. Escape
+cancels\&. Use edittab $page to open the same editor from application code\&. Set -tabrename false to disable
+interactive editing and discard an open edit\&. The application can always set a title with renametab $page
+$title\&. Changing the title preserves the page pathname and its content\&.
 .SS "DELETING A TAB"
 .PP
 deletetab $page destroys its docked tree and every hidden or individually floating pane whose
@@ -1239,7 +1288,7 @@ only to individual panes\&.
 Set -tabclosebutton to hover (default), always, or none at construction or with configure\&. Hover
 reserves the same space as always so labels stay still\&. None removes that space\&.  Deleting the last tab leaves
 a plain, rootless manager\&. Use addleaf to populate it directly, or addtab title to start a new
-notebook\&. The application supplies tab names through addtab\&.
+notebook\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1377,6 +1426,9 @@ Destroys the page and the docked, hidden and floating content belonging to it\&.
 dock
 Returns owned floating content to a new leaf in the docked layout\&. The new docked leaf identifier\&.
 .TP
+edittab
+Opens the inline title editor on a visible notebook tab\&.
+.TP
 floating
 Lists floating content or describes one floating window owned by this manager\&.
 .TP
@@ -1428,6 +1480,9 @@ Queries or sets the first pane fraction of a two-child split\&.
 remove
 Removes a docked subtree or destroys owned floating content\&.
 .TP
+renametab
+Changes a tab title without changing its page or selection\&.
+.TP
 requiredsize
 Calculates a node's minimum outer size, including manager-owned decoration\&.
 .TP
@@ -1478,7 +1533,7 @@ Returns a recursive snapshot of the actual Tk widget hierarchy\&. A nested widge
 Readable, writable\&. Hull border width, delegated to the ttk frame\&.
 .TP
 -buttonimages
-Readable, writable\&. Dictionary mapping dock, undock, delete, lock, and unlock to existing Tk image names\&. Empty values select built-in bitmaps and are the default\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
+Readable, writable\&. Dictionary mapping dock, undock, delete, lock, unlock, tabadd, tabclose, and tabclosedisabled to Tk images\&. Empty values select built-in bitmaps and are the default\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
 .TP
 -buttonside
 Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. Title alignment is controlled independently by titlealign\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
@@ -1549,8 +1604,17 @@ Readable, writable\&. Dictionary of split outline settings: -color, -activecolor
 -style
 Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
 .TP
+-tabaddbutton
+Readable, writable\&. Show the notebook add button; default true\&.
+.TP
+-tabaddcommand
+Readable, writable\&. Override the built-in add action with a command prefix receiving the layout pathname\&.
+.TP
 -tabclosebutton
 Readable, writable\&. Notebook tab close cross visibility: hover (default), always, or none\&.
+.TP
+-tabrename
+Readable, writable\&. Enable interactive tab title editing; default true\&.
 .TP
 -takefocus
 Readable, writable\&. Hull focus traversal setting, delegated to the ttk frame\&.
@@ -1571,9 +1635,9 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one root leaf by default\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
 .RE
 .PP
@@ -1581,7 +1645,7 @@ Creates a split layout with one root leaf by default\&.
 .RS 4n
 .TP
 -buttonimages dictionary
-Optional dock, undock, delete, lock, and unlock images; default built-in bitmaps\&.
+Optional pane header and notebook tab images; default built-in bitmaps\&.
 .TP
 -buttonside side
 Align header buttons left or right in docked and floating content; default right\&.
@@ -1640,8 +1704,17 @@ Outline and inset all split regions; default false\&.
 -structureopts dictionary
 Split outline colors, border width, and spacing; option-database defaults\&.
 .TP
+-tabaddbutton boolean
+Show the notebook add button; default true\&.
+.TP
+-tabaddcommand prefix
+Override the built-in tab creation action\&.
+.TP
 -tabclosebutton mode
 Show the notebook tab close cross on hover, always, or never (none)\&.
+.TP
+-tabrename boolean
+Enable interactive editing of tab titles; default true\&.
 .TP
 -titlealign alignment
 Header title alignment: left, center, or right; default center\&.
@@ -1912,6 +1985,27 @@ not\&.
 .PP
 Returns owned floating content to a new leaf in the docked layout\&.
 The new docked leaf identifier\&.
+.PP
+.RS -4n
+\fBedittab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Opens the inline title editor on a visible notebook tab\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ edittab\fP \fItab\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+tab
+Page returned by addtab\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The entry widget pathname\&.
 .PP
 .RS -4n
 \fBfloating\fR (::splitlayout::splitlayout)
@@ -2396,6 +2490,30 @@ weights\&. If only one child remains, that child replaces the parent split\&. Su
 .PP
 The surviving parent split, its promoted child, or new root\&. Empty when no root remains or
 when removing floating content\&.
+.PP
+.RS -4n
+\fBrenametab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Changes a tab title without changing its page or selection\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ renametab\fP \fItab title\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+tab
+Page returned by addtab\&.
+.TP
+title
+New tab label\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The page pathname\&.
 .PP
 .RS -4n
 \fBrequiredsize\fR (::splitlayout::splitlayout)
