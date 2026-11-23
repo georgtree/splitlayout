@@ -22,7 +22,7 @@ without recreating the surviving application widgets.
 
 ## General concept
 
-A layout starts with one empty **leaf**. Each leaf owns a content frame into which the application places its widgets.
+By default a layout starts with one empty **leaf**. Each leaf owns a content frame into which the application places its widgets.
 Splitting a leaf converts its node into a **split** and creates two new leaf nodes. A split owns a panedwindow and
 has an ordered list of children. Each child can itself be a leaf or another split.
 

@@ -409,19 +409,19 @@ namespace eval ::splitlayout {
         $manager constraints $output -noresize true
         ```
 
-        | Option        | Default                   | Applies to                  | Meaning                                                                |
-        | ------------- | ------------------------- | --------------------------- | ---------------------------------------------------------------------- |
-        | `-nomove`     | false                     | Leaf / floating content     | Reject direct `move` and either operand of `swap`.                     |
-        | `-noundock`   | false                     | Leaf / floating content     | Reject undocking this content.                                         |
-        | `-nodestroy`  | false                     | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
-        | `-noresize`   | false                     | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
-        | `-locked`     | false                     | Leaf / floating content     | Set movement flags and block adjacent move/dock destinations.          |
-        | `-nohide` | `false` | Leaf / detached content | Prevent hiding this pane. |
-        | `-closeaction` | `destroy` | Leaf / detached content | Header cross action: destroy, hide, or none. |
-        | `-lockedside` | `{left right top bottom}` | Leaf / floating content     | Edges blocking incoming move/dock placement while locked.              |
-        | `-minleaves`  | 1                         | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
-        | `-maxleaves`  | -1                        | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
-        | `-maxdepth`   | -1                        | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
+        | Option         | Default                   | Applies to                  | Meaning                                                                |
+        |----------------|---------------------------|-----------------------------|------------------------------------------------------------------------|
+        | `-nomove`      | false                     | Leaf / floating content     | Reject direct `move` and either operand of `swap`.                     |
+        | `-noundock`    | false                     | Leaf / floating content     | Reject undocking this content.                                         |
+        | `-nodestroy`   | false                     | Any node / floating content | Reject deletion of protected content or an explicitly protected split. |
+        | `-noresize`    | false                     | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
+        | `-locked`      | false                     | Leaf / floating content     | Set movement flags and block adjacent move/dock destinations.          |
+        | `-nohide`      | `false`                   | Leaf / detached content     | Prevent hiding this pane.                                              |
+        | `-closeaction` | `destroy`                 | Leaf / detached content     | Header cross action: destroy, hide, or none.                           |
+        | `-lockedside`  | `{left right top bottom}` | Leaf / floating content     | Edges blocking incoming move/dock placement while locked.              |
+        | `-minleaves`   | 1                         | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
+        | `-maxleaves`   | -1                        | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
+        | `-maxdepth`    | -1                        | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
 
         ### Lock terminology and migration
         Locking replaces the former pin terminology throughout the API and user interface. Update existing scripts
@@ -540,9 +540,9 @@ namespace eval ::splitlayout {
         A leaf counts as one and has depth zero. A split containing only leaves has depth one; nesting adds one per
         edge. Thus `-maxdepth 0` prevents splitting that node or converting it into a split by moving or docking
         another leaf at its edge. Counts include all docked descendant leaves, not only immediate children. Floating
-        content is excluded. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1. The
-        layout always has at least one root leaf, including its empty placeholder. All numeric constraint values are
-        limited to 2147483647.
+        content is excluded. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1. A
+        default layout counts its placeholder as one leaf. A rootless layout has zero leaves and no node
+        constraints. All numeric constraint values are limited to 2147483647.
 
         The complete final layout is checked after planned insertion, source removal, and automatic collapse. Moving
         within one bounded subtree does not temporarily violate its count. Moving between subtrees must satisfy source
@@ -1145,17 +1145,17 @@ namespace eval ::splitlayout {
 
         With no destination, `dock` tries the sibling positions saved by `undock`, nearest first, with the original
         orientation and relative order (following siblings take precedence at equal distance). The first surviving
-        sibling node is used, including if it has become a split. Node identity represents a position: swapping its
+        sibling node is used, including if it has become a split. Node identity represents a position: swapping its\
         content does not invalidate it. If it has moved, docking follows that node at its current location. Deleted
         anchors are skipped. Returning to the original split restores the floating pane's share at undock time. The
         remaining panes divide the rest according to their current proportions. If the split collapsed, docking
         restores the saved division beside the promoted sibling. Minimum sizes may limit the resulting sash positions.
         Explicit destinations, relocated anchors in other splits, and fallback positions use ordinary insertion sizing.
-        If no anchor remains, `dock` places the content to the right of the current root. Undocking the sole root
-        creates an empty placeholder leaf to preserve the nonempty-tree invariant. An implicit dock replaces that
-        placeholder if it is still the root, has no header title, and its content frame has no child widgets. If you
-        populate it, both contents are retained. Explicit destinations always follow the requested placement instead of
-        replacing the placeholder.
+        If no anchor remains, `dock` places the content to the right of the current root. Undocking the sole root of a
+        layout that allows zero leaves makes it rootless. Implicit docking then makes the returning pane its root. An
+        ordinary layout creates an empty placeholder leaf. An implicit dock replaces that placeholder if it is still
+        the root, has no header title, and its content frame has no child widgets. If you populate it, both contents
+        are retained. Explicit destinations always follow the requested placement instead of replacing the placeholder.
 
         `undock` accepts `-title` (default `splitlayout`), `-geometry` (default current content size and position), and
         `-onclose dock|destroy` (default `dock`). The native close button therefore returns content to the current
@@ -1205,21 +1205,30 @@ namespace eval ::splitlayout {
         to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
         a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
 
-        Use `addtab title -empty` for a page that can have zero leaves. On a new manager this consumes the initial
-        blank root. Adopt an existing populated layout with ordinary `addtab` first. When a page has no tree,
-        `root` returns an empty string and the selected page's `leaves`, `tree` and `clear` return empty.
-        The whole page is a single drop target. Moving, hiding, undocking or deleting its last pane empties it
-        again. The page remains selectable. To populate one from code:
+        ### Starting without a root
+        `-empty` allows the layout to have zero leaves. With `splitlayout .layout -empty`, the hull exists
+        immediately. Before the first leaf is added, `root`, `leaves`, `tree` and `clear` return the empty string.
+        Use `addleaf` to create the first content frame. Once a root exists, use `split` or `insert` to add panes.
 
         ```tcl
-        set plots [.layout addtab Plots -empty]
-        set plot [.layout addleaf $plots]
-        set other [.layout addtab Comparison -empty]
-        .layout move $plot -tab $other
+        ::splitlayout::splitlayout .layout -empty
+        set plot [.layout addleaf]
+        set main [.layout addtab Main]
+        set comparison [.layout addtab Comparison -empty]
+        .layout move $plot -tab $comparison
+        # Main now has zero leaves. Comparison's root is the original plot.
         ```
 
-        A floating pane can likewise be placed with `dock $floating -tab $page`.
-        Both commands require the destination page to have zero leaves.
+        **The first tab inherits the layout.** It adopts the current tree, including pane IDs and content frames,
+        and inherits the constructor's permission to have zero leaves. You may also opt in when creating the
+        first tab with `addtab Main -empty` on an ordinary manager. A populated tree is adopted intact.
+        An unused default root leaf is discarded so a fresh manager can still create its first tab empty.
+
+        **Later tabs choose independently.** `addtab title` creates one root leaf and replaces the last departing
+        pane with a placeholder. `addtab title -empty` starts with zero leaves. Moving, hiding, undocking or
+        removing its last pane leaves the page empty and selectable. An empty page is a single drop target.
+        `move $leaf -tab $page` and `dock $floating -tab $page` place the incoming pane at its root.
+        `addleaf $page` creates a fresh leaf there without changing the selected tab.
 
         Hold a dragged header over a tab label briefly to open that page. Drop inside it using the ordinary centre,
         edge, outer rim and sash destinations. Hovering alone never commits a change. Releasing over a label leaves
@@ -1305,6 +1314,7 @@ proc ::splitlayout::CreationArguments {} {
     # Returns: An argparse definition list with per-argument descriptions.
     return {
         {path -help {New non-root Tk widget pathname}}
+        {-empty -boolean -help {Start without a root leaf and allow the initial layout to return to zero leaves}}
         {-dockopts= -default {} -help {Drag preview colors, line width, detection areas, and activation threshold}}
         {-structureopts= -default {} -help {Split outline colors, border width, and spacing}}
         {-leafopts= -default {} -help {Leaf outline colors}}
@@ -1335,14 +1345,14 @@ proc ::splitlayout::CreationHelp {args} {
     # Prints creation help without allocating an object or a Tk window.
     #  args - Constructor arguments including -help; other arguments are ignored by argparse help.
     # Returns: Nothing. The normal argparse help completion returns from this procedure.
-    argparse -pfirst -help {Create a splitlayout widget with one empty root leaf} [CreationArguments]
+    argparse -pfirst -help {Create a splitlayout widget, optionally starting without a root} [CreationArguments]
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots EmptyTabs Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock\
-            Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide LockButtonMode HeaderRelief\
-            HeaderBorder Tooltips TooltipReady Titles Headers TitleAlign ButtonImages HeaderRefresh LeafBorder\
-            LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
+    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner\
+            Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide LockButtonMode\
+            HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers TitleAlign ButtonImages HeaderRefresh\
+            LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1783,7 +1793,8 @@ oo::configurable create ::splitlayout::splitlayout {
                                           -lockedside {left right top bottom}}
     }
     constructor {args} {
-        # Creates a split layout with one empty root leaf.
+        # Creates a split layout with one root leaf by default.
+        #  -empty - Start with zero leaves. The first notebook page inherits this setting.
         #  path - New, non-root Tk widget pathname.
         #  -width width - Nonnegative requested hull width in pixels; default 800.
         #  -height height - Nonnegative requested hull height in pixels; default 600.
@@ -1811,7 +1822,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # commands at that pathname, invalid sizes, and invalid options raise an error.
         #
         # Returns: Nothing.
-        # Synopsis: path ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
+        # Synopsis: path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
         #  ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?
         #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
         #  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary?
@@ -1864,7 +1875,13 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $ownerTag <Configure> [namespace code {my OwnerChanged %W}]
         bind $ownerTag <Unmap> [namespace code {my OwnerUnmapped %W}]
         my SyncOwner
-        dict set Roots $W [my NewLeaf {}]
+        set InitialLeaf {}
+        if {[dict get $options empty]} {
+            dict set EmptyTabs $W 1
+        } else {
+            set InitialLeaf [my NewLeaf {}]
+        }
+        dict set Roots $W $InitialLeaf
         my Rebuild
         rename [self] ::$W
     }
@@ -1931,7 +1948,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method addtab {args} {
         # Adds a notebook tab. By default the first call adopts the existing tree, later calls create a root leaf.
-        #  -empty - Allow zero leaves and start without a root.
+        #  -empty - Allow zero leaves. The first tab adopts existing content. Later tabs with this flag start empty.
         #  title - Visible tab label.
         # Returns: Stable page pathname accepted by root and selecttab.
         # Synopsis: title ?-empty?
@@ -1939,24 +1956,27 @@ oo::configurable create ::splitlayout::splitlayout {
             {title -help {Tab label}}
             {-empty -boolean -help {Create a page that can hold zero leaves}}
         }
-        if {$empty && ($Book eq {})} {
-            set root [my root]
-            if {([my type $root] ne {leaf}) || [llength [winfo children [my frame $root]]] ||\
-                        [dict exists $ContentRules [my frame $root]] || [dict exists $NodeRules $root] ||\
-                        [dict exists $Titles [my frame $root]] || [dict exists $Minimums [my frame $root]]} {
-                return -code error {use addtab without -empty to adopt the existing layout first}
-            }
-        }
         my CancelDrag
         my CaptureAll
         if {$Book eq {}} {
             set Book [ttk::notebook $W.notebook]
             set root [dict get $Roots $W]
-            if {$empty} {
-                my Drop $root
-                dict unset Vacancies $root
-                set root {}
+            if {[dict exists $EmptyTabs $W]} {
+                set empty 1
+                dict unset EmptyTabs $W
+            } elseif {$empty && ($root eq $InitialLeaf) && ([my type $root] eq {leaf})} {
+                # Only the unused default leaf can be discarded when the first page opts in.
+                set frame [my frame $root]
+                if {![llength [winfo children $frame]] && ![llength [pack slaves $frame]] &&\
+                            ![llength [grid slaves $frame]] && ![llength [place slaves $frame]] &&\
+                            ![dict exists $ContentRules $frame] && ![dict exists $NodeRules $root] &&\
+                            ![dict exists $Titles $frame] && ![dict exists $Minimums $frame]} {
+                    my Drop $root
+                    dict unset Vacancies $root
+                    set root {}
+                }
             }
+            unset InitialLeaf
             dict unset Roots $W
             pack $Book -fill both -expand 1
             bind ${Tag}TabDrag <B1-Motion> [namespace code {my DockMotion %X %Y}]
@@ -1981,12 +2001,15 @@ oo::configurable create ::splitlayout::splitlayout {
         return $page
     }
     method addleaf {args} {
-        # Creates the first leaf on an empty notebook page.
-        #  tab - Page returned by addtab.
+        # Creates the first leaf in a layout or page with zero leaves.
+        #  tab - Optional target page. Defaults to the selected page or the plain layout.
         # Returns: The new root leaf identifier.
-        # Synopsis: tab
-        argparse -pfirst -help {Create a root leaf on an empty page} {
-            {tab -help {Empty notebook page}}
+        # Synopsis: ?tab?
+        argparse -pfirst -help {Create the first leaf in the current layout or a specified empty page} {
+            {tab -optional -default {} -help {Empty page to populate; defaults to the current layout}}
+        }
+        if {$tab eq {}} {
+            set tab [my ActivePage]
         }
         my CheckEmptyTab $tab
         set root [my NewLeaf {}]
@@ -2988,7 +3011,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -onclose action - Window close action: dock or destroy; default dock.
         #
         # Content widgets and their pathnames survive. The former leaf identifier expires and single-child parents
-        # collapse. Undocking the sole root leaves an empty placeholder leaf. Only this manager's content is accepted.
+        # collapse. Undocking the sole root leaves either zero leaves or the ordinary placeholder.
         # The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows.
         # Returns: An opaque floating token, accepted by dock, floating, frame, and remove.
         # Synopsis: leaf ?-title title? ?-geometry geometry? ?-onclose action?
@@ -3277,9 +3300,9 @@ oo::configurable create ::splitlayout::splitlayout {
         return [my PageOfRoot $id]
     }
     method CheckEmptyTab {page} {
-        # Require an owned notebook page with no current tree.
+        # Require the plain layout or an owned page with no current tree.
         if {![dict exists $EmptyTabs $page] || ([dict get $Roots $page] ne {})} {
-            return -code error "expected an empty notebook page, got '$page'"
+            return -code error "expected a layout or notebook page with zero leaves, got '$page'"
         }
     }
     method VacateRoot {id {remember 0}} {

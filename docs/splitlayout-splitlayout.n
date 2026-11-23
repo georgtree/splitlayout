@@ -9,13 +9,13 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBCreationHelp\fP \fI?args?\fP
 .br
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
-\fBSPLITLAYOUTOBJ addleaf\fP \fItab\fP
+\fBSPLITLAYOUTOBJ addleaf\fP \fI?tab?\fP
 .br
 \fBSPLITLAYOUTOBJ addtab\fP \fItitle ?-empty?\fP
 .br
@@ -399,9 +399,9 @@ minimum dimensions; the manager must still compress allocations when its parent 
 A leaf counts as one and has depth zero\&. A split containing only leaves has depth one; nesting adds one per
 edge\&. Thus -maxdepth 0 prevents splitting that node or converting it into a split by moving or docking
 another leaf at its edge\&. Counts include all docked descendant leaves, not only immediate children\&. Floating
-content is excluded\&. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1\&. The
-layout always has at least one root leaf, including its empty placeholder\&. All numeric constraint values are
-limited to 2147483647\&.
+content is excluded\&. Minimum counts are nonnegative integers; maxima accept nonnegative integers or -1\&. A
+default layout counts its placeholder as one leaf\&. A rootless layout has zero leaves and no node
+constraints\&. All numeric constraint values are limited to 2147483647\&.
 .PP
 The complete final layout is checked after planned insertion, source removal, and automatic collapse\&. Moving
 within one bounded subtree does not temporarily violate its count\&. Moving between subtrees must satisfy source
@@ -1091,17 +1091,16 @@ hidden\&. Floating headers follow the same rules; the native window close button
 .PP
 With no destination, dock tries the sibling positions saved by undock, nearest first, with the original
 orientation and relative order (following siblings take precedence at equal distance)\&. The first surviving
-sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its
-content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
+sibling node is used, including if it has become a split\&. Node identity represents a position: swapping its content does not invalidate it\&. If it has moved, docking follows that node at its current location\&. Deleted
 anchors are skipped\&. Returning to the original split restores the floating pane's share at undock time\&. The
 remaining panes divide the rest according to their current proportions\&. If the split collapsed, docking
 restores the saved division beside the promoted sibling\&. Minimum sizes may limit the resulting sash positions\&.
 Explicit destinations, relocated anchors in other splits, and fallback positions use ordinary insertion sizing\&.
-If no anchor remains, dock places the content to the right of the current root\&. Undocking the sole root
-creates an empty placeholder leaf to preserve the nonempty-tree invariant\&. An implicit dock replaces that
-placeholder if it is still the root, has no header title, and its content frame has no child widgets\&. If you
-populate it, both contents are retained\&. Explicit destinations always follow the requested placement instead of
-replacing the placeholder\&.
+If no anchor remains, dock places the content to the right of the current root\&. Undocking the sole root of a
+layout that allows zero leaves makes it rootless\&. Implicit docking then makes the returning pane its root\&. An
+ordinary layout creates an empty placeholder leaf\&. An implicit dock replaces that placeholder if it is still
+the root, has no header title, and its content frame has no child widgets\&. If you populate it, both contents
+are retained\&. Explicit destinations always follow the requested placement instead of replacing the placeholder\&.
 .PP
 undock accepts -title (default splitlayout), -geometry (default current content size and position), and
 -onclose dock|destroy (default dock)\&. The native close button therefore returns content to the current
@@ -1152,24 +1151,33 @@ set ac [\&.layout addtab AC]
 Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply
 to the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if
 a different tab is selected\&. Ordinary pages receive a fresh root leaf when their last pane leaves\&.
+.SS "STARTING WITHOUT A ROOT"
 .PP
-Use addtab title -empty for a page that can have zero leaves\&. On a new manager this consumes the initial
-blank root\&. Adopt an existing populated layout with ordinary addtab first\&. When a page has no tree,
-root returns an empty string and the selected page's leaves, tree and clear return empty\&.
-The whole page is a single drop target\&. Moving, hiding, undocking or deleting its last pane empties it
-again\&. The page remains selectable\&. To populate one from code:
+-empty allows the layout to have zero leaves\&. With splitlayout \&.layout -empty, the hull exists
+immediately\&. Before the first leaf is added, root, leaves, tree and clear return the empty string\&.
+Use addleaf to create the first content frame\&. Once a root exists, use split or insert to add panes\&.
 .PP
 .RS 4n
 .nf
-set plots [\&.layout addtab Plots -empty]
-set plot [\&.layout addleaf $plots]
-set other [\&.layout addtab Comparison -empty]
-\&.layout move $plot -tab $other
+::splitlayout::splitlayout \&.layout -empty
+set plot [\&.layout addleaf]
+set main [\&.layout addtab Main]
+set comparison [\&.layout addtab Comparison -empty]
+\&.layout move $plot -tab $comparison
+# Main now has zero leaves\&. Comparison's root is the original plot\&.
 .fi
 .RE
 .PP
-A floating pane can likewise be placed with dock $floating -tab $page\&.
-Both commands require the destination page to have zero leaves\&.
+\fBThe first tab inherits the layout\&.\fP It adopts the current tree, including pane IDs and content frames,
+and inherits the constructor's permission to have zero leaves\&. You may also opt in when creating the
+first tab with addtab Main -empty on an ordinary manager\&. A populated tree is adopted intact\&.
+An unused default root leaf is discarded so a fresh manager can still create its first tab empty\&.
+.PP
+\fBLater tabs choose independently\&.\fP addtab title creates one root leaf and replaces the last departing
+pane with a placeholder\&. addtab title -empty starts with zero leaves\&. Moving, hiding, undocking or
+removing its last pane leaves the page empty and selectable\&. An empty page is a single drop target\&.
+move $leaf -tab $page and dock $floating -tab $page place the incoming pane at its root\&.
+addleaf $page creates a fresh leaf there without changing the selected tab\&.
 .PP
 Hold a dragged header over a tab label briefly to open that page\&. Drop inside it using the ordinary centre,
 edge, outer rim and sash destinations\&. Hovering alone never commits a change\&. Releasing over a label leaves
@@ -1289,7 +1297,7 @@ Destructor for the class\&.
 Configure properties\&. See \fI::oo::configuresupport::configurable\fP [URL: https://www\&.tcl-lang\&.org/man/tcl9\&.0/TclCmd/index\&.html]\&.
 .TP
 addleaf
-Creates the first leaf on an empty notebook page\&.
+Creates the first leaf in a layout or page with zero leaves\&.
 .TP
 addtab
 Adds a notebook tab\&. By default the first call adopts the existing tree, later calls create a root leaf\&.
@@ -1486,11 +1494,11 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 \fBconstructor\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Creates a split layout with one empty root leaf\&.
+Creates a split layout with one root leaf by default\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
 .br
 .RE
 .PP
@@ -1508,6 +1516,9 @@ Docking colors, preview line width, and detection distances; option-database def
 .TP
 -draghandles boolean
 Enable rectangular docking headers on all leaves; default false\&.
+.TP
+-empty
+Start with zero leaves\&. The first notebook page inherits this setting\&.
 .TP
 -headerborderwidth pixels
 Nonnegative header border thickness; default 1\&.
@@ -1594,9 +1605,9 @@ Nothing\&.
 \fBaddleaf\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Creates the first leaf on an empty notebook page\&.
+Creates the first leaf in a layout or page with zero leaves\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ addleaf\fP \fItab\fP
+\fBSPLITLAYOUTOBJ addleaf\fP \fI?tab?\fP
 .br
 .RE
 .PP
@@ -1604,7 +1615,7 @@ Creates the first leaf on an empty notebook page\&.
 .RS 4n
 .TP
 tab
-Page returned by addtab\&.
+Optional target page\&. Defaults to the selected page or the plain layout\&.
 .RE
 .PP
 \fBReturn value\fR
@@ -1625,7 +1636,7 @@ Adds a notebook tab\&. By default the first call adopts the existing tree, later
 .RS 4n
 .TP
 -empty
-Allow zero leaves and start without a root\&.
+Allow zero leaves\&. The first tab adopts existing content\&. Later tabs with this flag start empty\&.
 .TP
 title
 Visible tab label\&.
@@ -2536,7 +2547,7 @@ Existing docked leaf identifier\&.
 \fBDescription\fR
 .PP
 Content widgets and their pathnames survive\&. The former leaf identifier expires and single-child parents
-collapse\&. Undocking the sole root leaves an empty placeholder leaf\&. Only this manager's content is accepted\&.
+collapse\&. Undocking the sole root leaves either zero leaves or the ordinary placeholder\&.
 The floating frame keeps its actual parent, so destroying the hull also destroys its floating windows\&.
 .PP
 \fBReturn value\fR

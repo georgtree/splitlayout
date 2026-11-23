@@ -88,7 +88,10 @@
 <li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#options">Options</a></li>
 <li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#appearance-and-drag-detection">Appearance and drag detection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#floating-managed-content">Floating managed content</a></li>
-<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#notebook-workspaces">Notebook workspaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#notebook-workspaces">Notebook workspaces</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#starting-without-a-root">Starting without a root</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#inspecting-the-layout">Inspecting the layout</a></li>
 <li class="toctree-l2"><a class="reference internal" href="splitlayout-splitlayout.html#commands">Commands</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="splitlayout-splitlayout.html#creationarguments"><code class="docutils literal notranslate"><span class="pre">CreationArguments</span></code></a></li>
@@ -191,7 +194,7 @@ without recreating the surviving application widgets.</p>
 </section>
 <section id="general-concept">
 <span id="r-general-concept"></span><span id="r-general20concept"></span><h2>General concept<a class="headerlink" href="#general-concept" title="Link to this heading"></a></h2>
-<p>A layout starts with one empty <strong>leaf</strong>. Each leaf owns a content frame into which the application places its widgets.
+<p>By default a layout starts with one empty <strong>leaf</strong>. Each leaf owns a content frame into which the application places its widgets.
 Splitting a leaf converts its node into a <strong>split</strong> and creates two new leaf nodes. A split owns a panedwindow and
 has an ordered list of children. Each child can itself be a leaf or another split.</p>
 <p>A split can contain more than two children. Use <code class="docutils literal notranslate"><span class="pre">insert</span></code> to add an empty leaf beside an existing child without

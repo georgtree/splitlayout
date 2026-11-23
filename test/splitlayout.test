@@ -94,11 +94,11 @@ namespace eval ::sltest {
             vwait ::sltest::wake
         }
     }
-    proc setup {} {
+    proc setup {args} {
         cleanup
         toplevel .sltest
         wm geometry .sltest 800x600+20+20
-        splitlayout .sltest.layout -width 800 -height 600
+        splitlayout .sltest.layout -width 800 -height 600 {*}$args
         pack .sltest.layout -fill both -expand 1
         settle .sltest
         activate .sltest
@@ -5397,13 +5397,17 @@ test splitlayout-emptytab-42.1 {empty pages have no nodes and accept an initial 
     lappend result [expr {[$m root $normal] ne {}}]
 } -cleanup {::sltest::cleanup} -result {{} {} {} {} 1 1 {} 1 retained {} {} 0 1}
 
-test splitlayout-emptytab-42.2 {a populated plain layout must be adopted before adding an empty page} -setup {
+test splitlayout-emptytab-42.2 {first tab can adopt populated content and allow zero leaves} -setup {
     set m [::sltest::setup]
     set leaf [$m root]
-    set frame [::sltest::fill $m $leaf trace]
+    set text [::sltest::fill $m $leaf trace]
 } -body {
-    list [catch {$m addtab Plots -empty}] [$m tabs] [expr {[$m root] eq $leaf}] [winfo exists [$m frame $leaf]]
-} -cleanup {::sltest::cleanup} -result {1 {} 1 1}
+    set home [$m addtab Main -empty]
+    set other [$m addtab Other -empty]
+    set adopted [expr {[$m root $home] eq $leaf}]
+    $m move $leaf -tab $other
+    list $adopted [$m root $home] [expr {[$m root $other] eq $leaf}] [$text get 1.0 end-1c]
+} -cleanup {::sltest::cleanup} -result {1 {} 1 trace}
 
 test splitlayout-emptytab-42.3 {hide, show, dock and remove use the correct empty page when several exist} -setup {
     set m [::sltest::setup]
@@ -5439,6 +5443,49 @@ test splitlayout-emptytab-42.4 {moving to an empty tab honours source subtree an
     $m move $a -tab $empty
     lappend result [expr {[$m root $home] eq $b && [$m root $empty] eq $a}]
 } -cleanup {::sltest::cleanup} -result {1 1 {} 1}
+
+test splitlayout-emptytab-42.5 {rootless manager supports population, hiding and clearing before tabs exist} -setup {
+    set m [::sltest::setup -empty]
+} -body {
+    set result [list [$m root] [$m tree] [$m leaves] [winfo children $m]]
+    set leaf [$m addleaf]
+    set frame [$m frame $leaf]
+    set hidden [$m hide $leaf]
+    lappend result [$m root] [expr {[$m frame [$m show $hidden]] eq $frame}]
+    $m clear
+    lappend result [$m leaves] [winfo exists $frame]
+} -cleanup {::sltest::cleanup} -result {{} {} {} {} {} 1 {} 0}
+
+foreach flag {{} -empty} {
+    test splitlayout-emptytab-42.6-$flag {first tab inherits rootless policy even after populating the layout} -setup {
+        set m [::sltest::setup -empty]
+        set leaf [$m addleaf]
+        set frame [$m frame $leaf]
+    } -body {
+        set first [$m addtab First {*}$flag]
+        set target [$m addtab Target -empty]
+        set ordinary [$m addtab Ordinary]
+        set adopted [expr {[$m root $first] eq $leaf && [$m frame $leaf] eq $frame}]
+        $m move $leaf -tab $target
+        set result [list $adopted [$m root $first] [expr {[$m root $ordinary] ne {}}]]
+        set replacement [$m addleaf]
+        lappend result [expr {[$m root $first] eq $replacement && [$m frame $leaf] eq $frame}]
+    } -cleanup {::sltest::cleanup} -result {1 {} 1 1}
+}
+
+test splitlayout-emptytab-42.7 {first tab adopts an empty layout and retains floating content's home} -setup {
+    set m [::sltest::setup -empty]
+    set leaf [$m addleaf]
+    set frame [$m frame $leaf]
+    set floating [$m undock $leaf]
+} -body {
+    set home [$m addtab Main]
+    set other [$m addtab Other -empty]
+    $m selecttab $other
+    set before [$m root $home]
+    set leaf [$m dock $floating]
+    list $before [expr {[$m root $home] eq $leaf && [$m frame $leaf] eq $frame}] [$m root]
+} -cleanup {::sltest::cleanup} -result {{} 1 {}}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
