@@ -4273,9 +4273,7 @@ oo::configurable create ::splitlayout::splitlayout {
             if {$parent eq {}} {
                 my ReplaceRoot $target $wrapper
             } else {
-                set children [my children $parent]
-                set at [lsearch -exact $children $target]
-                dict set Nodes $parent children [lreplace $children $at $at $wrapper]
+                my ReplaceChild Nodes $parent $target $wrapper
             }
         }
         dict set Nodes $source parent $wrapper
@@ -4283,6 +4281,13 @@ oo::configurable create ::splitlayout::splitlayout {
         set weights [expr {$before ? $division : [lreverse $division]}]
         dict set Nodes $wrapper [dict create type split parent $parent widget $pw orient $orient\
                                          proportions $weights children $children]
+    }
+    method ReplaceChild {modelVar parent old new} {
+        # Replace a child in the same pane slot in the live or proposed tree.
+        upvar 1 $modelVar model
+        set children [dict get $model $parent children]
+        lset children [lsearch -exact $children $old] $new
+        dict set model $parent children $children
     }
     method Placement {model target side} {
         # Determines how a live or proposed tree accepts a pane beside target.
@@ -4643,9 +4648,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$grand eq {}} {
             my ReplaceRoot $parent $survivor
         } else {
-            set children [dict get $Nodes $grand children]
-            set pos [lsearch -exact $children $parent]
-            dict set Nodes $grand children [lreplace $children $pos $pos $survivor]
+            my ReplaceChild Nodes $grand $parent $survivor
         }
     }
     method SplitConfigure {id} {
@@ -4807,9 +4810,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$grand eq {}} {
             set root $survivor
         } else {
-            set siblings [dict get $model $grand children]
-            set at [lsearch -exact $siblings $parent]
-            dict set model $grand children [lreplace $siblings $at $at $survivor]
+            my ReplaceChild model $grand $parent $survivor
         }
         dict unset model $parent
         dict set replacements $parent $survivor
@@ -4835,9 +4836,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 if {$parent eq {}} {
                     set root $wrapper
                 } else {
-                    set children [dict get $model $parent children]
-                    set at [lsearch -exact $children $target]
-                    dict set model $parent children [lreplace $children $at $at $wrapper]
+                    my ReplaceChild model $parent $target $wrapper
                 }
             }
             dict set model $wrapper [dict create type split parent $parent orient $orient widget @split\
