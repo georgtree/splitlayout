@@ -6090,6 +6090,30 @@ test splitlayout-tabs-48.7 {background title and button edits leave the selected
     list $preserved [$edited itemcget heading -text] [winfo exists $edited.delete] [winfo exists $edited.toggle]
 } -cleanup {::sltest::cleanup} -result {1 Changed 1 0}
 
+foreach operation {move dock} {
+    test splitlayout-tabs-48.8-$operation {cross-tab placement respects the destination split's depth limit} -setup {
+        set m [::sltest::setup]
+        set home [$m addtab Home -empty]
+        set dest [$m addtab Destination]
+        set root [$m root $dest]
+        lassign [$m split $root -orient horizontal] left right
+        $m constraints $root -maxdepth 1
+        set pane [$m addleaf $home]
+        if {$operation eq {dock}} {set pane [$m undock $pane]}
+        set frame [$m frame $pane]
+    } -body {
+        set placed [$m $operation $pane -right $left]
+        set reused [expr {[$m children $root] eq [list $left $placed $right] && [$m frame $placed] eq $frame}]
+        set pane [$m addleaf $home]
+        if {$operation eq {dock}} {set pane [$m undock $pane]}
+        set before [list [$m tree $root] [$m root $home] [$m floating] [$m frame $pane]]
+        set code [catch {$m $operation $pane -top $left} message options]
+        set after [list [$m tree $root] [$m root $home] [$m floating] [$m frame $pane]]
+        list $reused $code [expr {[dict get $options -errorcode] eq [list SPLITLAYOUT CONSTRAINT -maxdepth $root]}]\
+                [expr {$after eq $before}]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 1}
+}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

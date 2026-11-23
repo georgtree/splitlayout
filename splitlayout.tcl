@@ -3097,18 +3097,14 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my Check $target
         set pages [lsort -unique [list [my NodePage $source] [my NodePage $target]]]
-        set edge [expr {$where in {left right top bottom}}]
         # A self-drop is a no-op even for the sole root leaf.
         if {$source eq $target} {
             return $source
         }
-        set destination [my parent $target]
-        if {!$edge && ($destination eq {})} {
+        if {($where in {before after}) && ([my parent $target] eq {})} {
             return -code error {cannot move beside root; use an edge destination}
         }
-        set before [expr {$where in {left top before}}]
-        set orient [expr {$where in {left right} ? {horizontal} : {vertical}}]
-        set wrap [expr {$edge && (($destination eq {}) || ([dict get $Nodes $destination orient] ne $orient))}]
+        lassign [my Placement $Nodes $target $where] destination orient before wrap
         set oldParent [my parent $source]
         # Reordering siblings requires neither removal nor parent collapse. Preserve weights by node.
         if {!$wrap && $oldParent eq $destination} {
@@ -3573,14 +3569,13 @@ oo::configurable create ::splitlayout::splitlayout {
         set frame [my frame $token]
         lassign [my DockDestination $token $opts] side target replace division
         my ValidateOperation dock $token $side $target $replace
-        set parent [expr {$side eq {tab} ? {} : [my parent $target]}]
-        set edge [expr {$side in {left right top bottom}}]
-        if {($side in {before after}) && ($parent eq {})} {
-            return -code error {cannot dock beside root; use an edge destination}
+        if {($side eq {tab}) || $replace} {
+            # Filling an empty page or replacing its root creates no split.
+            set parent {}
+            set wrap 0
+        } else {
+            lassign [my Placement $Nodes $target $side] parent orient before wrap
         }
-        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
-        set before [expr {$side in {left top before}}]
-        set wrap [expr {!$replace && $edge && (($parent eq {}) || ([dict get $Nodes $parent orient] ne $orient))}]
         set wrapper {}
         if {$wrap} {
             set wrapper $target
@@ -4321,6 +4316,23 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
+    method Placement {model target side} {
+        # Determines how a live or proposed tree accepts a pane beside target.
+        #  model - Node dictionary before insertion.
+        #  target - Leaf or split. A before/after target must have a parent.
+        #  side - left, right, top, bottom, before, or after.
+        # Returns: Parent, split orientation, whether the source comes first, and whether to wrap the target.
+        set parent [dict get $model $target parent]
+        set before [expr {$side in {left top before}}]
+        if {$side in {before after}} {
+            set orient [dict get $model $parent orient]
+            set wrap 0
+        } else {
+            set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
+            set wrap [expr {($parent eq {}) || ([dict get $model $parent orient] ne $orient)}]
+        }
+        return [list $parent $orient $before $wrap]
+    }
     method PageNodes {pages} {
         # Return node records for the requested pages, or the whole layout.
         if {$pages eq {*}} {
@@ -4830,11 +4842,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  side - left, right, top, bottom, before, or after.
         # Returns: Nothing.
         upvar 1 $modelVar model $rootVar root
-        set parent [dict get $model $target parent]
-        set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
-        set before [expr {$side in {left top before}}]
-        set wrap [expr {($side in {left right top bottom}) &&\
-                                (($parent eq {}) || ([dict get $model $parent orient] ne $orient))}]
+        lassign [my Placement $model $target $side] parent orient before wrap
         if {$wrap} {
             if {[dict get $model $target type] eq {leaf}} {
                 set wrapper $target
@@ -4940,15 +4948,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # A shared insertion slot checks its two direct neighbors, regardless of which one is named.
         # Descendant locks propagate only where this boundary coincides with an outer root edge.
         # Returns: Nothing, or a structured -locked constraint error identifying the blocking leaf.
-        set parent [dict get $model $target parent]
-        set before [expr {$side in {left top before}}]
-        if {$side in {before after}} {
-            set orient [dict get $model $parent orient]
-            set wrap 0
-        } else {
-            set orient [expr {$side in {left right} ? {horizontal} : {vertical}}]
-            set wrap [expr {($parent eq {}) || ([dict get $model $parent orient] ne $orient)}]
-        }
+        lassign [my Placement $model $target $side] parent orient before wrap
         if {$wrap} {
             set boundaries [list $target [expr {$before ? {first} : {last}}]]
         } else {
