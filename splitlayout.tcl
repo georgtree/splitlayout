@@ -1222,11 +1222,13 @@ namespace eval ::splitlayout {
         .layout move $plot -right [.layout root $ac]
         ```
 
-        Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply
-        to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
-        a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
-        Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes.
-        Moving or swapping panes rebuilds only the source and destination pages.
+        Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply to
+        the selected page. Hidden and floating content remembers its home page for implicit restoration, even if a
+        different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.  Once the
+        notebook exists, adding a page or its first leaf preserves the mapping of existing panes.  Tree edits rebuild
+        the affected pages. For example, splitting a pane on a background tab or deleting that tab keeps panes on the
+        selected tab mapped. Docking a floating pane into another tab updates the destination tree and both tabs' close
+        buttons.
 
         ### Starting without a root
         `-empty` allows the layout to have zero leaves. With `splitlayout .layout -empty`, the hull exists
@@ -1300,10 +1302,10 @@ namespace eval ::splitlayout {
         $title`. Changing the title preserves the page pathname and its content.
 
         ### Deleting a tab
-        `deletetab $page` destroys its docked tree and every hidden or individually floating pane whose
-        remembered home is that page. A pane already moved or redocked into another page belongs to that
-        page. All affected content frames and split nodes are checked for `-nodestroy` before deletion.
-        If any are protected, the command raises a constraint error and the entire tab survives.
+        `deletetab $page` destroys its docked tree and every hidden or individually floating pane whose remembered home
+        is that page. A pane already moved or redocked into another page belongs to that page. All affected content
+        frames and split nodes are checked for `-nodestroy` before deletion. If any are protected, the command raises
+        a constraint error and the entire tab survives.
 
         By default, hovering over a tab reveals a close cross at the trailing edge of its label. Press and release on
         the same cross to delete that page, including when another page is selected. Releasing elsewhere or pressing
@@ -2284,7 +2286,6 @@ oo::configurable create ::splitlayout::splitlayout {
         set frames [my TabDeletionFrames $tab]
         my CancelDrag
         my FinishTabEdit [expr {$tab ne $EditTab}]
-        my CaptureAll
         set root [dict get $Roots $tab]
         foreach frame $frames {
             destroy $frame
@@ -2300,7 +2301,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {![dict size $Roots]} {
             my RestorePlainLayout
         }
-        my Rebuild
+        my ScheduleTabAdd
         my RefreshMinimums
         return
     }
@@ -2976,7 +2977,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set id [my Check [dict get $opts node] leaf]
         set fraction [my Fraction [dict get $opts ratio]]
         my ValidateOperation split $id [dict get $opts orient] [dict get $opts keep]
-        my CaptureAll
+        set page [my NodePage $id]
+        my CaptureAll [list $page]
         set old [my frame $id]
         set pw [my NewSplitWidget $id [dict get $opts orient]]
         if {[dict get $opts keep] eq {first}} {
@@ -2990,7 +2992,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my Detach $old
         dict set Nodes $id [dict create type split parent [my parent $id] widget $pw orient [dict get $opts orient]\
                                     proportions [list $fraction [expr {1.0-$fraction}]] children [list $first $second]]
-        my Rebuild
+        my Rebuild [list $page]
         return [list $first $second]
     }
     method insert {args} {
@@ -3014,7 +3016,8 @@ oo::configurable create ::splitlayout::splitlayout {
             return -code error {cannot insert beside root; split it first}
         }
         my ValidateOperation insert $id [dict get $opts side]
-        my CaptureAll
+        set page [my NodePage $id]
+        my CaptureAll [list $page]
         set children [my children $parent]
         set index [lsearch -exact $children $id]
         set weights [dict get $Nodes $parent proportions]
@@ -3026,7 +3029,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         dict set Nodes $parent children [linsert $children $index $new]
         dict set Nodes $parent proportions $weights
-        my Rebuild
+        my Rebuild [list $page]
         return $new
     }
     method move {args} {
@@ -3307,13 +3310,14 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my Check $id
         my ValidateOperation remove $id
+        set page [my NodePage $id]
         if {[my parent $id] eq {}} {
             my Drop $id
             set root [my VacateRoot $id]
-            my Rebuild
+            my Rebuild [list $page]
             return $root
         }
-        my CaptureAll
+        my CaptureAll [list $page]
         set parent [my parent $id]
         set children [my children $parent]
         set index [lsearch -exact $children $id]
@@ -3323,12 +3327,12 @@ oo::configurable create ::splitlayout::splitlayout {
         dict set Nodes $parent children $children
         if {[llength $children] >= 2} {
             dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
-            my Rebuild
+            my Rebuild [list $page]
             return $parent
         }
         set survivor [lindex $children 0]
         my Promote $parent $survivor
-        my Rebuild
+        my Rebuild [list $page]
         return $survivor
     }
     method retain {args} {
@@ -3349,14 +3353,15 @@ oo::configurable create ::splitlayout::splitlayout {
             return $id
         }
         my ValidateOperation retain $id
-        my CaptureAll
+        set page [my NodePage $id]
+        my CaptureAll [list $page]
         foreach sibling [my children $parent] {
             if {$sibling ne $id} {
                 my Drop $sibling
             }
         }
         my Promote $parent $id
-        my Rebuild
+        my Rebuild [list $page]
         return $id
     }
     method clear {args} {
@@ -3370,9 +3375,10 @@ oo::configurable create ::splitlayout::splitlayout {
             return {}
         }
         my ValidateOperation clear
+        set page [my ActivePage]
         my Drop $old
         set root [my VacateRoot $old]
-        my Rebuild
+        my Rebuild [list $page]
         return $root
     }
     method undock {args} {
@@ -3408,7 +3414,8 @@ oo::configurable create ::splitlayout::splitlayout {
             set geometry [dict get $opts geometry]
         }
         my CancelDrag
-        my CaptureAll
+        set page [my NodePage $id]
+        my CaptureAll [list $page]
         set placement [my RememberPlacement $id]
         my Detach $frame
         # Do not mutate the tree until the platform has accepted promotion and the window options.
@@ -3420,7 +3427,7 @@ oo::configurable create ::splitlayout::splitlayout {
             if {[winfo exists $frame] && ([winfo toplevel $frame] eq $frame)} {
                 wm forget $frame
             }
-            my Rebuild
+            my Rebuild [list $page]
             return -options $options $message
         }
         set token ${W}#f[incr Serial]
@@ -3429,7 +3436,7 @@ oo::configurable create ::splitlayout::splitlayout {
                                           placement $placement]
         bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
         wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
-        my ReleaseLeaf $id $parent
+        my ReleaseLeaf $id $parent $page
         wm deiconify $frame
         raise $frame
         my RefreshNestedOwners $frame
@@ -3496,10 +3503,11 @@ oo::configurable create ::splitlayout::splitlayout {
             my UnmanageFloating $id $frame
             dict unset Floating $id
         } else {
-            my CaptureAll
+            set page [my NodePage $id]
+            my CaptureAll [list $page]
             set placement [my RememberPlacement $id]
             my Detach $frame
-            my ReleaseLeaf $id [my parent $id]
+            my ReleaseLeaf $id [my parent $id] $page
         }
         dict set Hidden $frame $placement
         return $frame
@@ -3518,14 +3526,14 @@ oo::configurable create ::splitlayout::splitlayout {
     }
 
     ### Detached content management
-    method ReleaseLeaf {id parent} {
+    method ReleaseLeaf {id parent page} {
         # Removes an already detached leaf from the tree and promotes a sole survivor.
         dict unset Nodes $id
         my DetachFromTree $id $parent
         if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
             my Promote $parent [lindex [my children $parent] 0]
         }
-        my Rebuild
+        my Rebuild [list $page]
         my RefreshMinimums
     }
     method DetachFromTree {id parent} {
@@ -3586,7 +3594,8 @@ oo::configurable create ::splitlayout::splitlayout {
             set pw [my NewSplitWidget $wrapper $orient]
         }
         my CancelDrag
-        my CaptureAll
+        set page [expr {$side eq {tab} ? $target : [my NodePage $target]}]
+        my CaptureAll [list $page]
         if {$floating} {
             if {[catch {my UnmanageFloating $token $frame} message options]} {
                 if {$wrap} {
@@ -3647,7 +3656,11 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Nodes $parent proportions [linsert $weights $at $share]
             dict set Nodes $parent children [linsert $children $at $source]
         }
-        my Rebuild
+        # A transfer changes the home page's close button even though its tree stays intact.
+        if {$Book ne {}} {
+            dict set DirtyTabClose [dict get $placement page] 1
+        }
+        my Rebuild [list $page]
         my RefreshNestedOwners $frame
         return $source
     }
@@ -4592,6 +4605,7 @@ oo::configurable create ::splitlayout::splitlayout {
             destroy [dict get $Borders $id]
             dict unset Borders $id
         }
+        dict unset NodeRules $id
         dict unset Nodes $id
         destroy $path
     }

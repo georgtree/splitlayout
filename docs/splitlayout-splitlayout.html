@@ -1394,11 +1394,13 @@ returns the selected or specified root. For example:</p>
 <span class="nv">.layout</span><span class="w"> </span>move<span class="w"> </span><span class="nv">$plot</span><span class="w"> </span><span class="o">-</span>right<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>root<span class="w"> </span><span class="nv">$ac</span><span class="k">]</span>
 </pre></div>
 </div>
-<p>Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply
-to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
-a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
-Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes.
-Moving or swapping panes rebuilds only the source and destination pages.</p>
+<p>Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply to
+the selected page. Hidden and floating content remembers its home page for implicit restoration, even if a
+different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.  Once the
+notebook exists, adding a page or its first leaf preserves the mapping of existing panes.  Tree edits rebuild
+the affected pages. For example, splitting a pane on a background tab or deleting that tab keeps panes on the
+selected tab mapped. Docking a floating pane into another tab updates the destination tree and both tabs’ close
+buttons.</p>
 <section id="starting-without-a-root">
 <span id="r-splitlayout-starting-without-a-root"></span><span id="r-3a3asplitlayoutqzstarting20without20a20root"></span><h3>Starting without a root<a class="headerlink" href="#starting-without-a-root" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-empty</span></code> allows the layout to have zero leaves. With <code class="docutils literal notranslate"><span class="pre">splitlayout</span> <span class="pre">.layout</span> <span class="pre">-empty</span></code>, the hull exists
@@ -1469,10 +1471,10 @@ interactive editing and discard an open edit. The application can always set a t
 </section>
 <section id="deleting-a-tab">
 <span id="r-splitlayout-deleting-a-tab"></span><span id="r-3a3asplitlayoutqzdeleting20a20tab"></span><h3>Deleting a tab<a class="headerlink" href="#deleting-a-tab" title="Link to this heading"></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">deletetab</span> <span class="pre">$page</span></code> destroys its docked tree and every hidden or individually floating pane whose
-remembered home is that page. A pane already moved or redocked into another page belongs to that
-page. All affected content frames and split nodes are checked for <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code> before deletion.
-If any are protected, the command raises a constraint error and the entire tab survives.</p>
+<p><code class="docutils literal notranslate"><span class="pre">deletetab</span> <span class="pre">$page</span></code> destroys its docked tree and every hidden or individually floating pane whose remembered home
+is that page. A pane already moved or redocked into another page belongs to that page. All affected content
+frames and split nodes are checked for <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code> before deletion. If any are protected, the command raises
+a constraint error and the entire tab survives.</p>
 <p>By default, hovering over a tab reveals a close cross at the trailing edge of its label. Press and release on
 the same cross to delete that page, including when another page is selected. Releasing elsewhere or pressing
 Escape cancels. Drag the label text to reorder. Once the drag crosses the threshold, the cursor changes to the

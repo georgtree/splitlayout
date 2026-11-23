@@ -5978,6 +5978,59 @@ test splitlayout-tabs-48.3 {ending a nested editor after undocking preserves the
     expr {[bind .sltest <ButtonPress-1>] eq $original}
 } -cleanup {::sltest::cleanup} -result 1
 
+test splitlayout-tabs-48.4 {background tree edits and page deletion preserve the selected pane} -setup {
+    set m [::sltest::setup -draghandles true -showstructure true]
+    set visible [$m addtab Visible]
+    set background [$m addtab Background -empty]
+    set frame [$m frame [$m root $visible]]
+    set leaf [$m addleaf $background]
+    ::sltest::settle $frame
+    set ::sltest::unmaps 0
+    bind $frame <Unmap> {incr ::sltest::unmaps}
+} -body {
+    lassign [$m split $leaf] a b
+    set c [$m insert $b]
+    $m remove $c
+    $m retain $a
+    set hidden [$m hide $a]
+    set restored [$m show $hidden]
+    set floating [$m undock $restored]
+    set restored [$m dock $floating]
+    $m remove $restored
+    set empty [$m root $background]
+    $m addleaf $background
+    $m deletetab $background
+    update
+    list $empty $::sltest::unmaps [winfo ismapped $frame] [expr {[$m tabs] eq [list $visible]}]
+} -cleanup {
+    ::sltest::cleanup
+    unset -nocomplain ::sltest::unmaps
+} -result {{} 0 1 1}
+
+test splitlayout-tabs-48.5 {docking to another page transfers protection without unmapping the home tree} -setup {
+    set m [::sltest::setup -tabclosebutton always]
+    set home [$m addtab Home]
+    set dest [$m addtab Destination -empty]
+    set book [winfo parent $home]
+    set normal [$book tab $dest -image]
+    lassign [$m split [$m root $home]] a b
+    $m constraints $a -nodestroy true
+    set token [$m undock $a]
+    set frame [$m frame $b]
+    ::sltest::settle $frame
+    set protected [$book tab $home -image]
+    set ::sltest::unmaps 0
+    bind $frame <Unmap> {incr ::sltest::unmaps}
+} -body {
+    $m dock $token -tab $dest
+    update
+    list $::sltest::unmaps [expr {$protected ne $normal && [$book tab $home -image] eq $normal}]\
+            [expr {[$book tab $dest -image] eq $protected}] [catch {$m deletetab $dest}]
+} -cleanup {
+    ::sltest::cleanup
+    unset -nocomplain ::sltest::unmaps
+} -result {0 1 1 1}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

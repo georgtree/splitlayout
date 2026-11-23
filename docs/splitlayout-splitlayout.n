@@ -1189,11 +1189,13 @@ set ac [\&.layout addtab AC]
 .fi
 .RE
 .PP
-Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply
-to the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if
-a different tab is selected\&. Ordinary pages receive a fresh root leaf when their last pane leaves\&.
-Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes\&.
-Moving or swapping panes rebuilds only the source and destination pages\&.
+Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply to
+the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if a
+different tab is selected\&. Ordinary pages receive a fresh root leaf when their last pane leaves\&.  Once the
+notebook exists, adding a page or its first leaf preserves the mapping of existing panes\&.  Tree edits rebuild
+the affected pages\&. For example, splitting a pane on a background tab or deleting that tab keeps panes on the
+selected tab mapped\&. Docking a floating pane into another tab updates the destination tree and both tabs' close
+buttons\&.
 .SS "STARTING WITHOUT A ROOT"
 .PP
 -empty allows the layout to have zero leaves\&. With splitlayout \&.layout -empty, the hull exists
@@ -1275,10 +1277,10 @@ interactive editing and discard an open edit\&. The application can always set a
 $title\&. Changing the title preserves the page pathname and its content\&.
 .SS "DELETING A TAB"
 .PP
-deletetab $page destroys its docked tree and every hidden or individually floating pane whose
-remembered home is that page\&. A pane already moved or redocked into another page belongs to that
-page\&. All affected content frames and split nodes are checked for -nodestroy before deletion\&.
-If any are protected, the command raises a constraint error and the entire tab survives\&.
+deletetab $page destroys its docked tree and every hidden or individually floating pane whose remembered home
+is that page\&. A pane already moved or redocked into another page belongs to that page\&. All affected content
+frames and split nodes are checked for -nodestroy before deletion\&. If any are protected, the command raises
+a constraint error and the entire tab survives\&.
 .PP
 By default, hovering over a tab reveals a close cross at the trailing edge of its label\&. Press and release on
 the same cross to delete that page, including when another page is selected\&. Releasing elsewhere or pressing
