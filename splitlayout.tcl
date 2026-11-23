@@ -3014,17 +3014,8 @@ oo::configurable create ::splitlayout::splitlayout {
         my ValidateOperation insert $id [dict get $opts side]
         set page [my NodePage $id]
         my CaptureAll [list $page]
-        set children [my children $parent]
-        set index [lsearch -exact $children $id]
-        set weights [dict get $Nodes $parent proportions]
-        set half [expr {[lindex $weights $index]/2.0}]
-        set weights [lreplace $weights $index $index $half $half]
         set new [my NewLeaf $parent]
-        if {[dict get $opts side] eq {after}} {
-            incr index
-        }
-        dict set Nodes $parent children [linsert $children $index $new]
-        dict set Nodes $parent proportions $weights
+        my InsertSibling $new $id [expr {[dict get $opts side] eq {before}}]
         my Rebuild [list $page]
         return $new
     }
@@ -3147,17 +3138,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             my WrapTarget $source $target $wrapper $pw $orient $before {0.5 0.5}
         } else {
-            set children [my children $destination]
-            set at [lsearch -exact $children $target]
-            set weights [dict get $Nodes $destination proportions]
-            set half [expr {[lindex $weights $at]/2.0}]
-            set weights [lreplace $weights $at $at $half $half]
-            if {!$before} {
-                incr at
-            }
-            dict set Nodes $destination children [linsert $children $at $source]
-            dict set Nodes $destination proportions $weights
-            dict set Nodes $source parent $destination
+            my InsertSibling $source $target $before
         }
         # Delay collapse until destination links are installed, including moves beside an ancestor.
         if {($oldParent ne {}) && ([llength [my children $oldParent]] == 1)} {
@@ -3576,7 +3557,6 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$division eq {}} {
             set division {0.5 0.5}
         }
-        lassign $division share other
         set source [my NewLeaf $parent $frame]
         if {$side eq {tab}} {
             dict set Roots $target $source
@@ -3586,23 +3566,7 @@ oo::configurable create ::splitlayout::splitlayout {
         } elseif {$wrap} {
             my WrapTarget $source $target $wrapper $pw $orient $before $division
         } else {
-            set children [my children $parent]
-            set at [lsearch -exact $children $target]
-            set weights [dict get $Nodes $parent proportions]
-            if {$restoreParent} {
-                # Keep the surviving panes in their current proportions.
-                set weights [lmap weight $weights {expr {$weight*$other}}]
-            } else {
-                # Explicit insertion and docking beside a promoted sibling divide only the target slot.
-                set weight [lindex $weights $at]
-                lset weights $at [expr {$weight*$other}]
-                set share [expr {$weight*$share}]
-            }
-            if {!$before} {
-                incr at
-            }
-            dict set Nodes $parent proportions [linsert $weights $at $share]
-            dict set Nodes $parent children [linsert $children $at $source]
+            my InsertSibling $source $target $before $division $restoreParent
         }
         # A transfer changes the home page's close button even though its tree stays intact.
         if {$Book ne {}} {
@@ -4272,6 +4236,28 @@ oo::configurable create ::splitlayout::splitlayout {
                 }
             }
         }
+    }
+    method InsertSibling {source target before {division {0.5 0.5}} {restoreParent 0}} {
+        # Insert source beside target in an existing split. Normally they divide the target's share.
+        # When restoring to the original parent, division is relative to the whole split instead.
+        set parent [my parent $target]
+        lassign $division share other
+        set children [my children $parent]
+        set at [lsearch -exact $children $target]
+        set weights [dict get $Nodes $parent proportions]
+        if {$restoreParent} {
+            set weights [lmap weight $weights {expr {$weight*$other}}]
+        } else {
+            set weight [lindex $weights $at]
+            lset weights $at [expr {$weight*$other}]
+            set share [expr {$weight*$share}]
+        }
+        if {!$before} {
+            incr at
+        }
+        dict set Nodes $parent proportions [linsert $weights $at $share]
+        dict set Nodes $parent children [linsert $children $at $source]
+        dict set Nodes $source parent $parent
     }
     method NewWrapper {target orient} {
         # Allocate the panedwindow before the caller detaches the source. A leaf becomes the split
