@@ -198,8 +198,8 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
             [expr {{configure} ni [info class methods ::splitlayout::splitlayout]}]\
             [lsort [dict keys $values]] [dict get $values -width] [catch {$m cget -width}]\
             [catch {$m configure -class Other}] [$m configure -class]
-} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -cursor -dockopts\
--draghandles -headerborderwidth -headerrelief -height -leafborder -leafborderwidth -leafopts -leafrelief\
+} -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -closeaction -cursor -dockopts\
+-draghandles -headerborderwidth -headerbuttons -headerrelief -height -leafborder -leafborderwidth -leafopts -leafrelief\
 -lockbuttonmode -opaqueresize -padding -relief -sashpreview -sashpreviewopts -showstructure -structureopts -style\
 -takefocus -titlealign -tooltips -width} 800 1 1 {}}
 
@@ -5215,7 +5215,8 @@ test splitlayout-hide-40.1 {header hides protected content and show restores its
     set f [$m frame $b]
     entry $f.e
     $f.e insert 0 retained
-    $m constraints $b -closeaction hide -nodestroy true
+    $m header $b -closeaction hide
+    $m constraints $b -nodestroy true
 } -body {
     [::sltest::grip $m $b].delete invoke
     update
@@ -5229,12 +5230,14 @@ test splitlayout-hide-40.2 {nohide and inactive button have independent command 
     set m [::sltest::setup]
     $m configure -draghandles true
     set leaf [$m root]
-    $m constraints $leaf -closeaction hide -nohide true
+    $m header $leaf -closeaction hide
+    $m constraints $leaf -nohide true
 } -body {
     update
     set btn [::sltest::grip $m $leaf].delete
     set result [list [$btn instate disabled] [::sltest::blocked $m [list $m hide $leaf] -nohide]]
-    $m constraints $leaf -closeaction none -nohide false
+    $m header $leaf -closeaction none
+    $m constraints $leaf -nohide false
     update
     lappend result [$btn instate disabled]
     set f [$m hide $leaf]
@@ -5247,7 +5250,7 @@ test splitlayout-hide-40.3 {hidden content survives failed restoration and float
     $m configure -draghandles true
     lassign [$m split [$m root]] a b
     set token [$m undock $b]
-    $m constraints $token -closeaction hide
+    $m header $token -closeaction hide
     set frame [$m frame $token]
 } -body {
     [::sltest::floatgrip $m $token].delete invoke
@@ -5255,7 +5258,7 @@ test splitlayout-hide-40.3 {hidden content survives failed restoration and float
     set result [list [$m floating] [::sltest::blocked $m [list $m show $frame] -maxleaves] [expr {$frame in [$m hidden]}]]
     $m constraints [$m root] -maxleaves 2
     set leaf [$m show $frame]
-    lappend result [expr {[$m frame $leaf] eq $frame}] [$m constraints $leaf -closeaction]
+    lappend result [expr {[$m frame $leaf] eq $frame}] [$m header $leaf -closeaction]
 } -cleanup {::sltest::cleanup} -result {{} 1 1 1 hide}
 
 test splitlayout-tabs-41.1 {first tab adopts existing content and commands resolve page roots independently} -setup {
@@ -5486,6 +5489,56 @@ test splitlayout-emptytab-42.7 {first tab adopts an empty layout and retains flo
     set leaf [$m dock $floating]
     list $before [expr {[$m root $home] eq $leaf && [$m frame $leaf] eq $frame}] [$m root]
 } -cleanup {::sltest::cleanup} -result {{} 1 {}}
+
+test splitlayout-header-43.1 {button presence and action overrides follow the frame through swap and move} -setup {
+    set m [::sltest::setup -draghandles true -headerbuttons {dock} -closeaction none]
+    set page [$m addtab Home]
+    set other [$m addtab Other -empty]
+    lassign [$m split [$m root]] a b
+    $m header $a -buttons {close} -closeaction hide
+    $m constraints $a -nohide 1
+} -body {
+    $m swap $a $b
+    set g [::sltest::grip $m $b]
+    set result [list [$m header $a -buttons] [$m header $b -buttons] [winfo exists $g.toggle] [$g.delete instate disabled]]
+    $m move $b -tab $other
+    $m configure -headerbuttons {} -closeaction destroy
+    lappend result [$m header $a -buttons] [$m header $b -closeaction]
+    $m header $b -buttons inherit -closeaction inherit
+    set g [::sltest::grip $m $b]
+    lappend result [winfo exists $g.delete] [$m header $b -closeaction]
+    $m configure -headerbuttons {close}
+    lappend result [$g.delete instate !disabled]
+} -cleanup {::sltest::cleanup} -result {dock close 0 1 {} hide 0 destroy 1}
+
+test splitlayout-header-43.2 {invalid updates are atomic and closeaction is absent from constraints} -setup {
+    set m [::sltest::setup]
+    set leaf [$m root]
+} -body {
+    set invalid [catch {$m header $leaf -closeaction hide -buttons {lock invalid}}]
+    list $invalid [$m header $leaf -closeaction] [$m header $leaf -buttons] \
+            [dict exists [$m constraints $leaf] -closeaction] [catch {$m constraints $leaf -closeaction hide}] \
+            [catch {$m constraints $leaf -closeaction}]
+} -cleanup {::sltest::cleanup} -result {1 destroy {lock dock close} 0 1 1}
+
+test splitlayout-header-43.3 {omitted buttons reserve no space and stay absent on floating and restored content} -setup {
+    set m [::sltest::setup -draghandles true]
+    set leaf [$m root]
+    $m title $leaf Traces
+    set width [lindex [$m requiredsize $leaf] 0]
+    $m header $leaf -buttons {}
+} -body {
+    set token [$m undock $leaf]
+    set g [::sltest::floatgrip $m $token]
+    set result [list [winfo exists $g.toggle] [winfo exists $g.delete] [winfo exists $g.lock] \
+            [expr {[lindex [$m requiredsize $token] 0] < $width}]]
+    set hidden [$m hide $token]
+    $m header $hidden -buttons {dock}
+    set leaf [$m show $hidden]
+    $m constraints $leaf -noundock 1
+    set g [::sltest::grip $m $leaf]
+    lappend result [$g.toggle instate disabled] [winfo exists $g.delete] [$m title $leaf]
+} -cleanup {::sltest::cleanup} -result {0 0 0 1 1 0 Traces}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

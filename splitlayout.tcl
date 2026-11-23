@@ -417,26 +417,24 @@ namespace eval ::splitlayout {
         | `-noresize`    | false                     | Any node / floating content | Lock sash-driven allocation changes; this is not a fixed pixel size.   |
         | `-locked`      | false                     | Leaf / floating content     | Set movement flags and block adjacent move/dock destinations.          |
         | `-nohide`      | `false`                   | Leaf / detached content     | Prevent hiding this pane.                                              |
-        | `-closeaction` | `destroy`                 | Leaf / detached content     | Header cross action: destroy, hide, or none.                           |
         | `-lockedside`  | `{left right top bottom}` | Leaf / floating content     | Edges blocking incoming move/dock placement while locked.              |
         | `-minleaves`   | 1                         | Docked node                 | Minimum descendant leaf count while this subtree is retained.          |
         | `-maxleaves`   | -1                        | Docked node                 | Maximum descendant leaf count; -1 means unlimited.                     |
         | `-maxdepth`    | -1                        | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
 
-        ### Lock terminology and migration
-        Locking replaces the former pin terminology throughout the API and user interface. Update existing scripts
-        and custom image dictionaries using these names; the former names are not retained as aliases:
+        ### What follows a pane during swap and move
+        `swap a b` exchanges the two content frames. The leaf IDs stay in their original positions.
+        `move leaf ...` relocates the source leaf with its ID and frame. Both commands preserve the
+        application widgets inside each surviving frame.
 
-        | Former name       | Current name       |
-        | ----------------- | ------------------ |
-        | `-pinned`         | `-locked`          |
-        | `-pinnedside`     | `-lockedside`      |
-        | `-pinbuttonmode`  | `-lockbuttonmode`  |
-        | Image key `pin`   | Image key `lock`   |
-        | Image key `unpin` | Image key `unlock` |
-
-        The `all`/`outer` modes, side lists, constraint behavior, root-edge propagation, and interaction with
-        `-nomove` and `-noundock` are unchanged. Constraint errors now identify `-locked` when locking blocks placement.
+        | Setting                                                                                | During a swap                                                             | During a move                                                                |
+        |----------------------------------------------------------------------------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------|
+        | `-nomove`, `-noundock`, `-nohide`, `-locked`, `-lockedside`                            | Belong to the content frame. A move lock on either frame blocks the swap. | Follow the source frame when movement is allowed.                            |
+        | `-nodestroy`, `-noresize` on a leaf                                                    | Follow the content frame to the other leaf.                               | Travel with the source frame.                                                |
+        | `-nodestroy`, `-noresize` on a split                                                   | Stay on that split.                                                       | Stay on that split while it exists.                                          |
+        | `-minleaves`, `-maxleaves`, `-maxdepth`                                                | Stay on the logical node, including when set on a leaf.                   | Travel with the source leaf ID. Affected subtrees must satisfy their limits. |
+        | `title`, `minsize`, and per-content `header` options                                   | Follow the content frame to the other leaf.                               | Travel with the source frame, including across notebook pages.               |
+        | Manager defaults and appearance (e.g. `-headerbuttons`, `-closeaction`, `-titlealign`) | Apply throughout the manager.                                             | Apply throughout the manager.                                                |
 
         ### Movement and locked content
         `-nomove` checks only the directly moved leaf. It is not imposed on ancestors. In a swap, both existing flags
@@ -706,7 +704,7 @@ namespace eval ::splitlayout {
         position. Escape cancels and restores the starting position. Moving native window decorations only moves the
         window; it does not initiate docking.
 
-        Each grip has three monochrome bitmap buttons, with tooltips:
+        By default each grip shows three monochrome bitmap buttons with tooltips:
 
         | Button | Docked leaf                  | Floating content                                  |
         | ------ | ---------------------------- | ------------------------------------------------- |
@@ -749,12 +747,12 @@ namespace eval ::splitlayout {
         No extra package or C extension is required.
 
         ### Lock button
-        The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image
-        keys describe the next action: `lock` is displayed while unlocked, and `unlock` while locked. A dynamic
-        tooltip describes the action and current constraints. The button remains available when movement, undocking, or
-        deletion is blocked, so the user can release a lock.
-        Programmatic constraint changes update its image and tooltip. Like the other buttons it supports keyboard
-        activation, never starts a drag, and disappears when `-draghandles` is false.
+        The lock button shows an open padlock while unlocked and a closed padlock while locked. Custom image keys
+        describe the next action: `lock` is displayed while unlocked, and `unlock` while locked. A dynamic tooltip
+        describes the action and current constraints. The button remains available when movement, undocking, or
+        deletion is blocked, so the user can release a lock.  Programmatic constraint changes update its image and
+        tooltip. Like the other buttons it supports keyboard activation, never starts a drag, and disappears when
+        `-draghandles` is false.
 
         The lock tooltip reports layout movement and undocking as locked/unlocked from the explicit `-nomove`
         and `-noundock` flags, and lists the docking sides blocked by locking. It shows `none` when locking is off
@@ -810,20 +808,19 @@ namespace eval ::splitlayout {
         $manager configure -leafopts {-color #808080}
         ```
 
-        `-leafborder` defaults to false, `-leafborderwidth` to 1, and `-leafrelief` to solid.
-        Relief accepts flat, solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.
-        `-leafopts` accepts `-color`, the classic border's base color (default #909090); raised relief shades derive
-        from that color, while solid relief uses Tk's solid-border rendering. It does not override ttk styles.
-        Set the option database resource `*splitlayoutLeafColor` (class `SplitlayoutLeafColor`) before construction
-        to change the default. Dictionary updates are validated atomically and retain unspecified keys.
-        Changes cancel active gestures and preserve content, titles, and logical split proportions.
-        Floating borders temporarily use the content frame's background as their base color; the prior background
-        is restored when the border is disabled or the window is docked.
+        `-leafborder` defaults to false, `-leafborderwidth` to 1, and `-leafrelief` to solid.  Relief accepts flat,
+        solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.  `-leafopts` accepts
+        `-color`, the classic border's base color (default #909090); raised relief shades derive from that color, while
+        solid relief uses Tk's solid-border rendering. It does not override ttk styles.  Set the option database
+        resource `*splitlayoutLeafColor` (class `SplitlayoutLeafColor`) before construction to change the
+        default. Dictionary updates are validated atomically and retain unspecified keys.  Changes cancel active
+        gestures and preserve content, titles, and logical split proportions.  Floating borders temporarily use the
+        content frame's background as their base color; the prior background is restored when the border is disabled or
+        the window is docked.
 
         ### Header appearance and titles
-        The old three-line indicator is replaced by the header surface itself. The title and empty header area accept
-        dragging; the action buttons do not. Header colors and title font follow ttk theme defaults. Header relief and
-        thickness are global properties; they do not override ttk button styles:
+        The title and empty header area accept dragging; the action buttons do not. Header colors and title font follow
+        ttk theme defaults. Header relief and thickness are global properties; they do not override ttk button styles:
         ```tcl
         $manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
         $manager title $leaf "Waveforms"
@@ -846,6 +843,24 @@ namespace eval ::splitlayout {
         use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
         header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.
 
+        ### Choosing which header buttons appear
+        `-headerbuttons` selects the manager-wide set of visible buttons. The default is `{lock dock close}`.
+        The dock button toggles docking and undocking. The close button uses `-closeaction`, which defaults to
+        `destroy`. Use `header` to override either setting for one content frame:
+
+        ```tcl
+        $manager configure -headerbuttons {lock dock}
+        $manager header $leaf -buttons {dock close} -closeaction hide
+        $manager header $leaf -buttons {}           ;# Title and grip only.
+        $manager header $leaf -buttons inherit      ;# Use the manager's button selection again.
+        ```
+
+        An omitted button occupies no space and has no tooltip or keyboard focus. Hiding the dock button still permits
+        drag-to-undock or an explicit undock command when constraints allow it. A visible button is disabled whenever
+        its operation is prohibited. For example, `-nohide` disables a cross configured to hide, while `-closeaction
+        none` disables the cross regardless of constraints. Use `inherit` for either per-content option to resume
+        following its manager default. Overrides survive hide/show and undock/dock.
+
         `-buttonimages` is a dictionary with `dock`, `undock`, `delete`, `lock`, and `unlock` keys. Values are existing
         Tk image names, not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:
         ```tcl
@@ -858,12 +873,12 @@ namespace eval ::splitlayout {
         Overrides apply globally to existing and future docked and floating headers. Partial dictionaries preserve
         other entries; an empty value restores that action's built-in bitmap. An empty dictionary changes nothing.
         Invalid keys or missing image names reject the whole update. The toggle uses `undock` while docked and `dock`
-        while floating. The lock button uses `lock` or `unlock` according to the current constraint state. Button widths
-        and header height accommodate the images at their native pixel size; images
-        are not scaled or recolored. Supply appropriately sized icons and retain them while used. The manager never
-        deletes supplied images. To delete one, clear/replace its override first. If an image is deleted externally,
-        a subsequent refresh falls back to the built-in bitmap. After changing an image's dimensions in place, reapply
-        its override to refresh header sizing. Tk photo images hold rasterized SVG output, not editable vector data.
+        while floating. The lock button uses `lock` or `unlock` according to the current constraint state. Button
+        widths and header height accommodate the images at their native pixel size; images are not scaled or
+        recolored. Supply appropriately sized icons and retain them while used. The manager never deletes supplied
+        images. To delete one, clear/replace its override first. If an image is deleted externally, a subsequent
+        refresh falls back to the built-in bitmap. After changing an image's dimensions in place, reapply its override
+        to refresh header sizing. Tk photo images hold rasterized SVG output, not editable vector data.
 
         ### Optional tooltips
         `-tooltips true|false` defaults to `true`. When enabled, the manager attempts `package require tooltip` and
@@ -877,7 +892,6 @@ namespace eval ::splitlayout {
         when the package is unavailable.
 
         ## Nested managers
-
         A leaf can contain another splitlayout instance as ordinary application content:
 
         ```tcl
@@ -997,6 +1011,8 @@ namespace eval ::splitlayout {
         | `-lockbuttonmode`    | `all`           | Lock-button side policy: all edges or immediate parent split boundaries.   |
         | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
         | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
+        | `-headerbuttons`     | lock dock close | Visible header buttons for content that inherits the default.              |
+        | `-closeaction`       | destroy         | Default cross action: destroy, hide or none.                               |
         | `-buttonimages`      | Empty values    | Optional dock, undock, delete, lock, and unlock Tk image overrides.        |
         | `-headerrelief`      | `flat`          | Rectangular header relief.                                                 |
         | `-leafborder`        | `false`         | Outline each leaf, including floating windows.                             |
@@ -1138,7 +1154,7 @@ namespace eval ::splitlayout {
         one at its remembered position. Hidden content is outside the logical tree. Hiding and showing respect
         subtree limits. A refused show can be retried. Use `remove frame` to discard hidden content.
 
-        Use `constraints leaf -closeaction hide` to make its header cross hide the content, `destroy` (the default)
+        Use `header leaf -closeaction hide` to make its header cross hide the content, `destroy` (the default)
         to delete it, or `none` to disable the button. The setting follows the content. The separate `-nohide`
         flag blocks hiding from either the header or the command. A pane protected only by `-nodestroy` can be
         hidden. Floating headers follow the same rules; the native window close button follows `-onclose`.
@@ -1174,9 +1190,9 @@ namespace eval ::splitlayout {
         Content frames are **classic `labelframe` widgets with class `Frame`**, borderless while docked, because Tk's
         `wm manage` cannot promote `ttk::frame`. The hull, panedwindows, and header buttons retain their ttk behavior;
         leaf wrappers use classic frames for configurable borders. Code using `frame $leaf` for `pack`, `grid`, or
-        child creation continues to work; ttk-only frame
-        options such as `-style` are no longer available on that content frame. Place themed widgets inside it when
-        needed. Actual parentage remains the layout hull throughout the round trip.
+        child creation continues to work; ttk-only frame options such as `-style` are no longer available on that
+        content frame. Place themed widgets inside it when needed. Actual parentage remains the layout hull throughout
+        the round trip.
 
         Tk default bindtags follow the changed toplevel. The manager also retargets explicit bindtag entries naming the
         old toplevel, restoring unchanged custom lists on docking and preserving other edits made while
@@ -1330,6 +1346,8 @@ proc ::splitlayout::CreationArguments {} {
         {-lockbuttonmode= -default all -enum {all outer}\
                 -help {Lock all edges or only edges touching the immediate parent split boundary}}
         {-titlealign= -default center -enum {left center right} -help {Header title alignment}}
+        {-headerbuttons= -default {lock dock close} -help {Visible header buttons from lock, dock and close}}
+        {-closeaction= -default destroy -enum {destroy hide none} -help {Default header close button action}}
         {-buttonimages= -default {} -help {Application-owned images keyed by dock, undock, delete, lock, or unlock}}
         {-headerrelief= -default flat -enum {flat raised sunken ridge groove solid} -help {Header border relief}}
         {-headerborderwidth= -default 1 -type integer -help {Nonnegative header border width in pixels}}
@@ -1351,8 +1369,8 @@ proc ::splitlayout::CreationHelp {args} {
 oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Roots EmptyTabs InitialLeaf Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner\
             Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide LockButtonMode\
-            HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers TitleAlign ButtonImages HeaderRefresh\
-            LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
+            HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions TitleAlign\
+            ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1400,6 +1418,12 @@ oo::configurable create ::splitlayout::splitlayout {
                 -titlealign {
                     Header title alignment: left, center, or right; default center. Independent of buttonside.
                     Applies to docked and floating headers. Titles are truncated within the space clear of buttons.
+                }
+                -headerbuttons {
+                    Default visible header buttons, in display order lock, dock, close. Empty hides all buttons.
+                }
+                -closeaction {
+                    Default action for the header close button: destroy, hide or none.
                 }
                 -buttonimages {
                     Dictionary mapping dock, undock, delete, lock, and unlock to existing Tk image names. Empty values
@@ -1562,6 +1586,27 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set TitleAlign $value
         if {[dict size $Roots]} {
+            my RefreshHeaders
+        }
+    }
+    property headerbuttons -get {
+        return [dict get $HeaderDefaults -buttons]
+    } -set {
+        dict set HeaderDefaults -buttons [my CheckButtons $value]
+        if {[dict size $Roots]} {
+            my CancelDrag
+            my RefreshHeaders
+        }
+    }
+    property closeaction -get {
+        return [dict get $HeaderDefaults -closeaction]
+    } -set {
+        if {$value ni {destroy hide none}} {
+            return -code error {expected closeaction destroy, hide or none}
+        }
+        dict set HeaderDefaults -closeaction $value
+        if {[dict size $Roots]} {
+            my CancelDrag
             my RefreshHeaders
         }
     }
@@ -1780,7 +1825,9 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: w ?option value ...?
         if {[string match .* $w]} {
             set instance [[self] new $w {*}$args]
-            if {$instance eq {}} {return}
+            if {$instance eq {}} {
+                return
+            }
             return $w
         }
         next $w {*}$args
@@ -1788,9 +1835,8 @@ oo::configurable create ::splitlayout::splitlayout {
     initialize {
         # the explicit-setting defaults for a node or content frame.
         variable ConstraintDefaults
-        const ConstraintDefaults {-nohide 0 -closeaction destroy -nomove 0 -noundock 0 -nodestroy 0 -noresize 0\
-                                          -minleaves 1 -maxleaves -1 -maxdepth -1 -locked 0\
-                                          -lockedside {left right top bottom}}
+        const ConstraintDefaults {-nohide 0 -nomove 0 -noundock 0 -nodestroy 0 -noresize 0 -minleaves 1 -maxleaves -1\
+                                          -maxdepth -1 -locked 0 -lockedside {left right top bottom}}
     }
     constructor {args} {
         # Creates a split layout with one root leaf by default.
@@ -1804,6 +1850,8 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -lockbuttonmode mode - Lock-button side policy all or outer; default all.
         #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
         #  -titlealign alignment - Header title alignment: left, center, or right; default center.
+        #  -headerbuttons buttons - Visible buttons from lock, dock and close; defaults to all three.
+        #  -closeaction action - Default header close action: destroy, hide or none.
         #  -buttonimages dictionary - Optional dock, undock, delete, lock, and unlock images; default built-in bitmaps.
         #  -headerrelief relief - Header border: flat, raised, sunken, ridge, groove, or solid; default flat.
         #  -leafborder boolean - Enable independent leaf outlines; default false.
@@ -1823,13 +1871,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         # Synopsis: path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode?
-        #  ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?
-        #  ?-structureopts dictionary? ?-sashpreviewopts dictionary?
-        #  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary?
-        #  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
-        #  ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?
-        foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers Hidden Floating\
-                             Roots EmptyTabs Book Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
+        # ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary?  ?-structureopts
+        # dictionary? ?-sashpreviewopts dictionary?  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief
+        # relief? ?-leafopts dictionary?  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
+        # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
+        # ?-lockbuttonmode mode?
+        foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
+                             Floating Roots EmptyTabs Book Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
@@ -1839,8 +1887,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set Serial 0
         set options [argparse -inline -pfirst [::splitlayout::CreationArguments]]
         foreach option {opaqueresize sashpreview leafborder leafborderwidth leafrelief showstructure draghandles\
-                            buttonside lockbuttonmode titlealign buttonimages headerrelief headerborderwidth\
-                            tooltips} {
+                                buttonside lockbuttonmode titlealign headerbuttons closeaction buttonimages\
+                                headerrelief headerborderwidth tooltips} {
             my configure -$option [dict get $options $option]
         }
         set W [dict get $options path]
@@ -1969,8 +2017,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 set frame [my frame $root]
                 if {![llength [winfo children $frame]] && ![llength [pack slaves $frame]] &&\
                             ![llength [grid slaves $frame]] && ![llength [place slaves $frame]] &&\
-                            ![dict exists $ContentRules $frame] && ![dict exists $NodeRules $root] &&\
-                            ![dict exists $Titles $frame] && ![dict exists $Minimums $frame]} {
+                            ![dict exists $HeaderOptions $frame] && ![dict exists $ContentRules $frame] &&\
+                            ![dict exists $NodeRules $root] && ![dict exists $Titles $frame] &&\
+                            ![dict exists $Minimums $frame]} {
                     my Drop $root
                     dict unset Vacancies $root
                     set root {}
@@ -2328,7 +2377,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: One queried value, or the complete explicit settings dictionary.
         # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean?
-        # ?-closeaction destroy|hide|none? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count?
+        # ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count?
         # ?-maxleaves count? ?-maxdepth depth?
 
         # A two-argument call is a query. Protect its option name from switch parsing.
@@ -2341,7 +2390,6 @@ oo::configurable create ::splitlayout::splitlayout {
             {option -optional -help {Single constraint name to query; omit to query all}}
             {-nomove= -type boolean -help {Block direct leaf movement and swaps; ancestors remain movable}}
             {-nohide= -type boolean -help {Prevent hiding this content}}
-            {-closeaction= -enum {destroy hide none} -help {Header close button action for this content}}
             {-noundock= -type boolean -help {Prevent undocking this leaf; docking and desktop movement remain allowed}}
             {-nodestroy= -type boolean -help {Prevent deletion; protected descendants also protect their ancestors}}
             {-noresize= -type boolean -help {Prevent sash and proportion changes affecting this node}}
@@ -2392,11 +2440,11 @@ oo::configurable create ::splitlayout::splitlayout {
         set contents $ContentRules
         dict for {key value} $opts {
             set option -$key
-            if {$key in {nomove noundock nohide nodestroy noresize locked closeaction}} {
-                if {!$leaf && $key in {nomove noundock nohide locked closeaction}} {
+            if {$key in {nomove noundock nohide nodestroy noresize locked}} {
+                if {!$leaf && $key in {nomove noundock nohide locked}} {
                     return -code error "$option applies only to leaf or floating content"
                 }
-                if {$key ne {closeaction}} {set value [expr {!!$value}]}
+                set value [expr {!!$value}]
                 if {$leaf} {
                     dict set contents $frame $option $value
                 } else {
@@ -2527,7 +2575,11 @@ oo::configurable create ::splitlayout::splitlayout {
                 set grip [dict get $Panels $id grip]
             }
             set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
-            foreach kind [list $lockAction $action delete] name {lock toggle delete} {
+            set visible [dict get [my HeaderSettings [my frame $id]] -buttons]
+            foreach button {lock dock close} kind [list $lockAction $action delete] name {lock toggle delete} {
+                if {$button ni $visible} {
+                    continue
+                }
                 set width [expr {max(22,[image width [my ButtonImage $kind]]+6)}]
                 if {($grip ne {}) && [winfo exists $grip.$name]} {
                     set width [expr {max($width,[winfo reqwidth $grip.$name])}]
@@ -2535,9 +2587,58 @@ oo::configurable create ::splitlayout::splitlayout {
                 incr buttons $width
             }
             set w [expr {max($w,$buttons+8+($LeafBorder ? 0 : 2*$HeaderBorder))}]
-            incr h [my HeaderHeight]
+            incr h [my HeaderHeight $id $grip]
         }
         return [list [expr {$w+$inset}] [expr {$h+$inset}]]
+    }
+    method header {args} {
+        # Queries or updates the header settings belonging to a content frame.
+        #  id - Docked leaf, floating token or hidden frame.
+        #  option - Single option to query. Omit to return both effective settings.
+        #  -buttons list - Visible buttons from lock, dock and close. Empty hides all. Use inherit for the default.
+        #  -closeaction action - Action for the close button: destroy, hide, none or inherit.
+        # Returns: The effective value or settings dictionary after applying any overrides.
+        # Synopsis: id ?option? | id ?-buttons list? ?-closeaction action?
+        if {[llength $args] == 2 && [lindex $args 1] ne {-help}} {
+            set args [linsert $args 1 --]
+        }
+        set parsed [argparse -inline -pfirst -help {Query or configure a content header} {
+            {id -help {Leaf, floating token or hidden frame}}
+            {option -optional -help {Single option to query}}
+            {-buttons= -help {Visible buttons: lock, dock, close; empty hides all; inherit uses the manager default}}
+            {-closeaction= -enum {destroy hide none inherit} -help {Close button action or inherit}}
+        }]
+        set frame [my frame [dict get $parsed id]]
+        set updates [dict remove $parsed id option]
+        if {[dict exists $parsed option]} {
+            if {[dict size $updates]} {
+                return -code error {cannot combine a header query with updates}
+            }
+            return [dict get [my HeaderSettings $frame] [dict get $parsed option]]
+        }
+        if {[dict size $updates]} {
+            set overrides {}
+            if {[dict exists $HeaderOptions $frame]} {
+                set overrides [dict get $HeaderOptions $frame]
+            }
+            dict for {key value} $updates {
+                if {$value eq {inherit}} {
+                    dict unset overrides -$key
+                } elseif {$key eq {buttons}} {
+                    dict set overrides -buttons [my CheckButtons $value]
+                } else {
+                    dict set overrides -$key $value
+                }
+            }
+            my CancelDrag
+            if {[dict size $overrides]} {
+                dict set HeaderOptions $frame $overrides
+            } else {
+                dict unset HeaderOptions $frame
+            }
+            my RefreshHeaders
+        }
+        return [my HeaderSettings $frame]
     }
     method title {args} {
         # Gets or sets the optional header title belonging to managed content.
@@ -4832,6 +4933,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Nothing.
         if {$frame eq $path} {
             dict unset Hidden $frame
+            dict unset HeaderOptions $frame
             dict unset ContentRules $frame
             if {[dict exists $Titles $frame]} {
                 dict unset Titles $frame
@@ -4900,26 +5002,39 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return [my GripIcon $action]
     }
-    method MakeGrip {grip id floating} {
-        # Creates a rectangular drag header and three independent action buttons.
+    method CheckButtons {buttons} {
+        # Validate the public button names and return them in the header's display order.
+        foreach button $buttons {
+            if {$button ni {lock dock close}} {
+                return -code error "unknown header button '$button': expected lock, dock or close"
+            }
+        }
+        set result {}
+        foreach button {lock dock close} {
+            if {$button in $buttons} {
+                lappend result $button
+            }
+        }
+        return $result
+    }
+    method HeaderSettings {frame} {
+        # Resolve per-content overrides against the current manager defaults.
+        if {[dict exists $HeaderOptions $frame]} {
+            return [dict merge $HeaderDefaults [dict get $HeaderOptions $frame]]
+        }
+        return $HeaderDefaults
+    }
+    method MakeGrip {grip id} {
+        # Creates a rectangular drag header and its configured action buttons.
         #  grip - New canvas pathname.
         #  id - Leaf identifier or floating token.
-        #  floating - Whether the strip belongs to a floating window.
         #
         # Button widget bindings do not pass through the canvas's widget binding tag.
         # Returns: The grip pathname.
-        set height [expr {[my HeaderHeight]-2*$HeaderBorder}]
+        set height [expr {[my HeaderHeight $id $grip]-2*$HeaderBorder}]
         canvas $grip -width 84 -height $height -borderwidth $HeaderBorder -relief $HeaderRelief -highlightthickness 0\
                 -takefocus 0 -cursor {}
-        set action [expr {$floating ? {dock} : {undock}}]
-        set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
-        foreach name {lock toggle delete} kind [list $lockAction $action delete] {
-            set image [my ButtonImage $kind]
-            ttk::button $grip.$name -image [list $image disabled $image] -width 0 -padding 1 -takefocus 1 -cursor arrow\
-                    -command [namespace code [list my GripAction $id $kind]]
-        }
         dict set Headers $grip $id
-        my SyncHeaderTips
         bind $grip <Configure> [namespace code [list my DrawGrip $grip]]
         bind $grip <<ThemeChanged>> [namespace code {my RefreshHeaders}]
         bind $grip <ButtonPress-1> [namespace code [list my DockPress $id %X %Y]]
@@ -4930,6 +5045,7 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $grip <Unmap> [namespace code {if {![my TabDragging]} {my CancelDock}}]
         bind $grip <Destroy> [namespace code [list my HeaderDestroyed $grip]]
         my DrawGrip $grip
+        my SyncHeaderTips
         return $grip
     }
     method LockButtonSides {id} {
@@ -4974,7 +5090,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing. The cross follows the content close action and honors node constraints.
         if {$action eq {delete}} {
-            set action [my constraints $id -closeaction]
+            set action [dict get [my HeaderSettings [my frame $id]] -closeaction]
         }
         if {![my ActionAllowed $id $action]} {
             return
@@ -5026,14 +5142,14 @@ oo::configurable create ::splitlayout::splitlayout {
                 continue
             }
             set frame [dict get $data frame]
-            set grip [my MakeGrip $frame.slgrip[incr Serial] $id 1]
+            set grip [my MakeGrip $frame.slgrip[incr Serial] $id]
             dict set Floating $id grip $grip
             # Reserve only the header height: a full-width label request would also increase the
             # labelframe's minimum requested width, preventing subsequent shrinking.
-            set reserve [ttk::frame $grip-reserve -width 1 -height [my HeaderHeight]]
+            set reserve [ttk::frame $grip-reserve -width 1 -height [my HeaderHeight $id $grip]]
             dict set Floating $id reserve $reserve
             $frame configure -labelwidget $reserve -labelanchor nw
-            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight]
+            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight $id $grip]
             my DrawGrip $grip
             raise $grip
         }
@@ -5053,7 +5169,7 @@ oo::configurable create ::splitlayout::splitlayout {
         dict unset Floating $id grip
         dict unset Floating $id reserve
     }
-    method HeaderHeight {} {
+    method HeaderHeight {id grip} {
         # Computes header height with a full border, or only the bottom border when leaf outlines are enabled.
         #
         # Returns: Height in pixels, large enough for the current theme font and buttons.
@@ -5062,14 +5178,16 @@ oo::configurable create ::splitlayout::splitlayout {
             set font TkDefaultFont
         }
         set height [expr {max(20,round(14*[tk scaling]),[font metrics $font -linespace]+6)}]
-        foreach action {dock undock delete lock unlock} {
-            set height [expr {max($height,[image height [my ButtonImage $action]]+6)}]
-        }
-        dict for {grip id} $Headers {
-            foreach name {lock toggle delete} {
-                if {[winfo exists $grip.$name]} {
-                    set height [expr {max($height,[winfo reqheight $grip.$name])}]
-                }
+        set visible [dict get [my HeaderSettings [my frame $id]] -buttons]
+        foreach button {lock dock close} name {lock toggle delete} actions {{lock unlock} {dock undock} delete} {
+            if {$button ni $visible} {
+                continue
+            }
+            foreach action $actions {
+                set height [expr {max($height,[image height [my ButtonImage $action]]+6)}]
+            }
+            if {($grip ne {}) && [winfo exists $grip.$name]} {
+                set height [expr {max($height,[winfo reqheight $grip.$name])}]
             }
         }
         return [expr {$height+($LeafBorder ? 1 : 2)*$HeaderBorder}]
@@ -5079,12 +5197,12 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # No nested event loop is used. The idle pass lets headers shrink after large icons are replaced.
         # Returns: Nothing.
-        my SyncHeaderTips
         dict for {grip id} $Headers {
             if {[winfo exists $grip]} {
                 my DrawGrip $grip
             }
         }
+        my SyncHeaderTips
         if {!$Closing && ($HeaderRefresh eq {})} {
             set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
         }
@@ -5209,9 +5327,16 @@ oo::configurable create ::splitlayout::splitlayout {
                 if {[my HandleDragAllowed $id]} {
                     ::tooltip::tooltip $grip $hint
                 }
-                ::tooltip::tooltip $grip.lock [my LockTooltip $id]
-                ::tooltip::tooltip $grip.toggle $action
-                switch [my constraints $id -closeaction] {
+                if {[winfo exists $grip.lock]} {
+                    ::tooltip::tooltip $grip.lock [my LockTooltip $id]
+                }
+                if {[winfo exists $grip.toggle]} {
+                    ::tooltip::tooltip $grip.toggle $action
+                }
+                if {![winfo exists $grip.delete]} {
+                    continue
+                }
+                switch [dict get [my HeaderSettings [my frame $id]] -closeaction] {
                     destroy {
                         ::tooltip::tooltip $grip.delete {Delete content}
                     }
@@ -5272,7 +5397,7 @@ oo::configurable create ::splitlayout::splitlayout {
             set grip [dict get $Panels $id grip]
             if {$Handles} {
                 if {$grip eq {}} {
-                    set grip [my MakeGrip $pane.grip $id 0]
+                    set grip [my MakeGrip $pane.grip $id]
                     dict set Panels $id grip $grip
                 }
                 pack $grip -side top -fill x
@@ -5363,10 +5488,21 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set id [dict get $Headers $grip]
         set action [expr {[dict exists $Floating $id] ? {dock} : {undock}}]
+        set settings [my HeaderSettings [my frame $id]]
         set widths {}
         set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
-        foreach name {lock toggle delete} kind [list $lockAction $action delete] {
-            set operation [expr {$kind eq {delete} ? [my constraints $id -closeaction] : $kind}]
+        foreach button {lock dock close} name {lock toggle delete} kind [list $lockAction $action delete] {
+            if {$button ni [dict get $settings -buttons]} {
+                if {[winfo exists $grip.$name]} {
+                    destroy $grip.$name
+                }
+                continue
+            }
+            if {![winfo exists $grip.$name]} {
+                ttk::button $grip.$name -width 0 -padding 1 -takefocus 1 -cursor arrow\
+                        -command [namespace code [list my GripAction $id $kind]]
+            }
+            set operation [expr {$kind eq {delete} ? [dict get $settings -closeaction] : $kind}]
             $grip.$name state [expr {[my ActionAllowed $id $operation] ? {!disabled} : {disabled}}]
             set image [my ButtonImage $kind]
             # Use the action image in both states; disabling must not substitute a different symbol.
@@ -5376,7 +5512,7 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             dict set widths $name [expr {max(22,[image width $image]+6,[winfo reqwidth $grip.$name])}]
         }
-        set height [my HeaderHeight]
+        set height [my HeaderHeight $id $grip]
         set edge [expr {$LeafBorder ? 0 : $HeaderBorder}]
         set bottom $HeaderBorder
         $grip configure -background $bg -relief $HeaderRelief -borderwidth $edge -height [expr {$height-2*$edge}]
@@ -5394,8 +5530,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set buttonsWidth 0
         dict for {name width} $widths {incr buttonsWidth $width}
         set offset 0
-        foreach name {lock toggle delete} {
-            set width [dict get $widths $name]
+        dict for {name width} $widths {
             place configure $grip.$name -bordermode ignore -rely 0 -y $edge -relheight 1\
                     -height [expr {-$edge-$bottom}] -width $width
             if {$ButtonSide eq {right}} {
