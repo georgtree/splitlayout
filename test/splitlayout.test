@@ -6138,6 +6138,32 @@ foreach operation {move dock} {
     } -cleanup {::sltest::cleanup} -result {1 1 1 1}
 }
 
+test splitlayout-tabs-48.9 {a background edit leaves unrelated panes and floating borders alone} -setup {
+    set m [::sltest::setup -draghandles true -showstructure true]
+    set home [$m addtab Home]
+    set root [$m root $home]
+    lassign [$m split $root] left right
+    set detached [$m insert $right]
+    set frame [$m frame $detached]
+    $m undock $detached
+    set other [$m addtab Other]
+    lassign [$m split [$m root $other]] a b
+    set ::sltest::queries {}
+    trace add execution [$m panedwindow $root] enter {apply {{cmd op} {
+        if {[lindex $cmd 1] eq {panes}} {lappend ::sltest::queries panes}
+    }}}
+    trace add execution $frame enter {apply {{cmd op} {
+        if {[lindex $cmd 1] eq {configure} && {-borderwidth} in $cmd} {lappend ::sltest::queries border}
+    }}}
+} -body {
+    set inserted [$m insert $a]
+    $m undock $inserted
+    list $::sltest::queries [expr {[$m children [$m root $other]] eq [list $a $b]}] [llength [$m floating]]
+} -cleanup {
+    ::sltest::cleanup
+    unset -nocomplain ::sltest::queries
+} -result {{} 1 2}
+
 test splitlayout-header-49.1 {literal titles, atomic updates and the hidden content identifier} -setup {
     set m [::sltest::setup]
     set id [$m root]

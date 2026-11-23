@@ -2997,7 +2997,8 @@ oo::configurable create ::splitlayout::splitlayout {
             set second [my NewLeaf $id $old]
         }
         # Detach the old content before replacing its node record.
-        my Detach $old
+        my Detach $old [my parent $id]
+        my RemovePanel $id
         dict set Nodes $id [dict create type split parent [my parent $id] widget $pw orient [dict get $opts orient]\
                                     proportions [list $fraction [expr {1.0-$fraction}]] children [list $first $second]]
         my Rebuild [list $page]
@@ -3087,8 +3088,8 @@ oo::configurable create ::splitlayout::splitlayout {
             my ValidateOperation move $source tab $target
             my CancelDrag
             my CaptureAll $pages
-            my Detach [my frame $source]
             set parent [my parent $source]
+            my Detach [my frame $source] $parent
             my DetachFromTree $source $parent
             dict set Nodes $source parent {}
             dict set Roots $target $source
@@ -3138,13 +3139,13 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my CancelDrag
         my CaptureAll $pages
-        my Detach [my frame $source]
+        my Detach [my frame $source] $oldParent
         my DetachFromTree $source $oldParent
         if {$wrap} {
             if {$wrapper eq $target} {
-                my Detach [my frame $target]
+                my Detach [my frame $target] $destination
             } else {
-                my Detach [my widget $target]
+                my Detach [my widget $target] $destination
             }
             my WrapTarget $source $target $wrapper $pw $orient $before {0.5 0.5}
         } else {
@@ -3366,7 +3367,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set page [my NodePage $id]
         my CaptureAll [list $page]
         set placement [my RememberPlacement $id]
-        my Detach $frame
+        my Detach $frame $parent
         # Do not mutate the tree until the platform has accepted promotion and the window options.
         if {[catch {
             wm manage $frame
@@ -3385,6 +3386,7 @@ oo::configurable create ::splitlayout::splitlayout {
                                           placement $placement]
         bindtags $frame [linsert [bindtags $frame] 1 ${Tag}Floating]
         wm protocol $frame WM_DELETE_WINDOW [namespace code [list my FloatingClose $token]]
+        my SyncFloatingGrip $token
         my ReleaseLeaf $id $parent $page
         wm deiconify $frame
         raise $frame
@@ -3455,8 +3457,9 @@ oo::configurable create ::splitlayout::splitlayout {
             set page [my NodePage $id]
             my CaptureAll [list $page]
             set placement [my RememberPlacement $id]
-            my Detach $frame
-            my ReleaseLeaf $id [my parent $id] $page
+            set parent [my parent $id]
+            my Detach $frame $parent
+            my ReleaseLeaf $id $parent $page
         }
         dict set Hidden $frame $placement
         return $frame
@@ -3508,7 +3511,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set tags [my BindingSnapshot $frame]
         if {[catch {wm forget $frame} message options]} {
             bindtags $frame $watched
-            my SyncFloatingGrips
+            my SyncFloatingGrip $token
             return -options $options $message
         }
         my RetargetBindings $tags $frame [winfo toplevel $W] [dict get $Floating $token bindings]
@@ -4196,9 +4199,10 @@ oo::configurable create ::splitlayout::splitlayout {
         bind $pw <<ThemeChanged>> [namespace code {my RefreshMinimums}]
         return $pw
     }
-    method Detach {path} {
+    method Detach {path {parent {}}} {
         # Removes a managed widget from its current geometry manager.
         #  path - Widget pathname to detach.
+        #  parent - Known logical parent, when available before a tree edit.
         #
         # Handles pack, grid, place, and the layout panedwindows. The widget and its descendants are neither destroyed
         # nor reparented.
@@ -4206,6 +4210,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Nothing.
         set manager [winfo manager $path]
         switch -- $manager {
+            {} {return}
             pack {
                 pack forget $path
             }
@@ -4216,6 +4221,13 @@ oo::configurable create ::splitlayout::splitlayout {
                 place forget $path
             }
             default {
+                if {$parent ne {}} {
+                    set pw [my panedwindow $parent]
+                    if {$path in [$pw panes]} {
+                        $pw forget $path
+                        return
+                    }
+                }
                 # Native classic and themed panedwindows may use different
                 # manager names across Tk versions. Query known split widgets.
                 dict for {id data} $Nodes {
@@ -4223,6 +4235,7 @@ oo::configurable create ::splitlayout::splitlayout {
                         set pw [dict get $data widget]
                         if {[winfo exists $pw] && ($path in [$pw panes])} {
                             $pw forget $path
+                            return
                         }
                     }
                 }
@@ -4259,6 +4272,7 @@ oo::configurable create ::splitlayout::splitlayout {
         set parent [my parent $target]
         if {$wrapper eq $target} {
             set retained [my NewLeaf $wrapper [my frame $target]]
+            my RemovePanel $target
         } else {
             set retained $target
         }
@@ -4354,21 +4368,51 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $nodes
     }
+    method DetachPages {nodes} {
+        # Inspect actual pane membership: after a cross-tab move, logical parents already describe the new tree.
+        set paths {}
+        set splits {}
+        dict for {id data} $nodes {
+            set path [dict get $data widget]
+            dict set paths $path 1
+            if {[dict get $data type] eq {split}} {
+                lappend splits $path
+            }
+            if {[dict exists $Borders $id]} {
+                dict set paths [dict get $Borders $id] 1
+            }
+            if {[dict exists $Panels $id]} {
+                dict set paths [dict get $Panels $id pane] 1
+            }
+        }
+        foreach pw $splits {
+            foreach path [$pw panes] {
+                if {[dict exists $paths $path]} {
+                    $pw forget $path
+                    dict unset paths $path
+                }
+            }
+        }
+        foreach path [dict keys $paths] {
+            my Detach $path
+        }
+    }
     method Rebuild {{pages *}} {
         # Detach all affected pages before attaching any, so content can move between geometry containers.
         #  pages - Page paths affected by a tree edit, or * for a manager-wide change.
         my CancelDrag
         set nodes [my PageNodes $pages]
-        dict for {id data} $nodes {
-            my Detach [dict get $data widget]
-            if {[dict exists $Borders $id]} {
-                my Detach [dict get $Borders $id]
-            }
-            if {[dict exists $Panels $id]} {
-                my Detach [dict get $Panels $id pane]
+        my DetachPages $nodes
+        if {$pages eq {*}} {
+            foreach token [dict keys $Floating] {
+                my SyncFloatingGrip $token
             }
         }
-        my SyncPanels $nodes
+        dict for {id data} $nodes {
+            if {[dict get $data type] eq {leaf}} {
+                my SyncLeafPanel $id
+            }
+        }
         my SyncBorders $nodes
         if {$pages eq {*}} {
             set pages [dict keys $Roots]
@@ -4600,7 +4644,9 @@ oo::configurable create ::splitlayout::splitlayout {
         my Capture $id
     }
     method ForgetNode {id} {
-        # Discard the node record and its position-specific constraints together.
+        # Retire the decoration with its node; content frames remain children of the hull.
+        my RemovePanel $id
+        my RemoveBorder $id
         dict unset Nodes $id
         dict unset NodeRules $id
     }
@@ -4621,14 +4667,6 @@ oo::configurable create ::splitlayout::splitlayout {
             dict unset Pending $id
         }
         set path [dict get $Nodes $id widget]
-        if {[dict exists $Panels $id]} {
-            destroy [dict get $Panels $id pane]
-            dict unset Panels $id
-        }
-        if {[dict exists $Borders $id]} {
-            destroy [dict get $Borders $id]
-            dict unset Borders $id
-        }
         my ForgetNode $id
         destroy $path
     }
@@ -4656,16 +4694,12 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         set grand [my parent $parent]
-        my Detach [my widget $survivor]
+        my Detach [my widget $survivor] $parent
         if {[dict exists $Pending $parent]} {
             after cancel [dict get $Pending $parent]
             dict unset Pending $parent
         }
         set pw [my panedwindow $parent]
-        if {[dict exists $Borders $parent]} {
-            destroy [dict get $Borders $parent]
-            dict unset Borders $parent
-        }
         my ForgetNode $parent
         destroy $pw
         my LinkSurvivor Nodes $grand $parent $survivor
@@ -5613,23 +5647,24 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return
     }
+    method RemoveBorder {id} {
+        if {[dict exists $Borders $id]} {
+            destroy [dict get $Borders $id]
+            dict unset Borders $id
+        }
+    }
     method SyncBorders {nodes} {
         # Synchronizes optional split outlines after all geometry widgets have been detached.
         #
         # Wrappers are hull children, just like native panedwindows and content frames. The configured outline width
         # plus inner spacing separates nested regions without changing widget ancestry.
         # Returns: Nothing.
-        dict for {id border} $Borders {
-            if {!$Structure || ![dict exists $Nodes $id] || ([my type $id] ne {split})} {
-                destroy $border
-                dict unset Borders $id
-            }
-        }
-        if {!$Structure} {
-            return
-        }
         dict for {id data} $nodes {
             if {[dict get $data type] ne {split}} {
+                continue
+            }
+            if {!$Structure} {
+                my RemoveBorder $id
                 continue
             }
             if {![dict exists $Borders $id]} {
@@ -5895,39 +5930,34 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return
     }
-    method SyncFloatingGrips {} {
-        # Applies the global handle setting to all owned floating windows.
-        #
-        # A labelframe label widget reserves header space without participating in the application's pack or grid.
-        # Returns: Nothing.
-        dict for {id data} $Floating {
-            set frame [dict get $data frame]
-            if {$LeafBorder && ![dict exists $data leafbackground]} {
-                dict set Floating $id leafbackground [$frame cget -background]
-            } elseif {!$LeafBorder && [dict exists $data leafbackground]} {
-                $frame configure -background [dict get $data leafbackground]
-                dict unset Floating $id leafbackground
-            }
-            my ApplyLeafBorder $frame
-            if {!$Handles} {
-                my RemoveFloatingGrip $id
-                continue
-            }
-            if {[dict exists $data grip]} {
-                continue
-            }
-            set frame [dict get $data frame]
-            set grip [my MakeGrip $frame.slgrip[incr Serial] $id]
-            dict set Floating $id grip $grip
-            # Reserve only the header height: a full-width label request would also increase the
-            # labelframe's minimum requested width, preventing subsequent shrinking.
-            set reserve [ttk::frame $grip-reserve -width 1 -height [my HeaderHeight $id $grip]]
-            dict set Floating $id reserve $reserve
-            $frame configure -labelwidget $reserve -labelanchor nw
-            place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight $id $grip]
-            my DrawGrip $grip
-            raise $grip
+    method SyncFloatingGrip {id} {
+        # Apply the floating border and reserve header space outside the application's geometry managers.
+        set data [dict get $Floating $id]
+        set frame [dict get $data frame]
+        if {$LeafBorder && ![dict exists $data leafbackground]} {
+            dict set Floating $id leafbackground [$frame cget -background]
+        } elseif {!$LeafBorder && [dict exists $data leafbackground]} {
+            $frame configure -background [dict get $data leafbackground]
+            dict unset Floating $id leafbackground
         }
+        my ApplyLeafBorder $frame
+        if {!$Handles} {
+            my RemoveFloatingGrip $id
+            return
+        }
+        if {[dict exists $data grip]} {
+            return
+        }
+        set grip [my MakeGrip $frame.slgrip[incr Serial] $id]
+        dict set Floating $id grip $grip
+        # Reserve only the header height: a full-width label request would also increase the
+        # labelframe's minimum requested width, preventing subsequent shrinking.
+        set reserve [ttk::frame $grip-reserve -width 1 -height [my HeaderHeight $id $grip]]
+        dict set Floating $id reserve $reserve
+        $frame configure -labelwidget $reserve -labelanchor nw
+        place $grip -bordermode ignore -x 0 -y 0 -relwidth 1 -height [my HeaderHeight $id $grip]
+        my DrawGrip $grip
+        raise $grip
     }
     method RemoveFloatingGrip {id} {
         # Removes a floating strip before docking or when handles are disabled.
@@ -6148,24 +6178,10 @@ oo::configurable create ::splitlayout::splitlayout {
             dict unset Headers $grip
         }
     }
-    method SyncPanels {nodes} {
-        # Synchronizes optional pane wrappers with the logical leaves.
-        #
-        # Content must be detached before obsolete wrappers are destroyed. Wrappers belong to leaf positions;
-        # application frames remain Tk children of the hull and can be packed into different wrappers after a swap.
-        #
-        # Returns: Nothing.
-        dict for {id panel} $Panels {
-            if {(!$Handles && !$LeafBorder) || ![dict exists $Nodes $id] || ([my type $id] ne {leaf})} {
-                destroy [dict get $panel pane]
-                dict unset Panels $id
-            }
-        }
-        my SyncFloatingGrips
-        dict for {id data} $nodes {
-            if {[dict get $data type] eq {leaf}} {
-                my SyncLeafPanel $id
-            }
+    method RemovePanel {id} {
+        if {[dict exists $Panels $id]} {
+            destroy [dict get $Panels $id pane]
+            dict unset Panels $id
         }
     }
     method SyncLeafPanel {id} {
@@ -6173,6 +6189,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # A redocked content frame no longer supplies its own floating border.
         [my frame $id] configure -borderwidth 0 -relief flat
         if {!$Handles && !$LeafBorder} {
+            my RemovePanel $id
             return
         }
         if {![dict exists $Panels $id]} {
