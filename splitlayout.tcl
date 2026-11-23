@@ -1011,6 +1011,7 @@ namespace eval ::splitlayout {
         | `-lockbuttonmode`    | `all`           | Lock-button side policy: all edges or immediate parent split boundaries.   |
         | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
         | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
+        | `-tabclosebutton`    | hover           | Tab close cross visibility: hover, always or none.                         |
         | `-headerbuttons`     | lock dock close | Visible header buttons for content that inherits the default.              |
         | `-closeaction`       | destroy         | Default cross action: destroy, hide or none.                               |
         | `-buttonimages`      | Empty values    | Optional dock, undock, delete, lock, and unlock Tk image overrides.        |
@@ -1263,10 +1264,17 @@ namespace eval ::splitlayout {
         page. All affected content frames and split nodes are checked for `-nodestroy` before deletion.
         If any are protected, the command raises a constraint error and the entire tab survives.
 
-        Open the context menu on a tab label and choose **Delete tab** to delete that page. The menu targets
-        the clicked label even when a different tab is selected. The entry is disabled if deletion is blocked.
-        Deleting the last tab leaves a plain, rootless manager. Use `addleaf` to populate it directly, or
-        `addtab title` to start a new notebook. The application supplies tab names through `addtab`.
+        By default, hovering over a tab reveals a close cross at the trailing edge of its label. Press and release on
+        the same cross to delete that page, including when another page is selected. Releasing elsewhere or pressing
+        Escape cancels. Drag the label text to reorder. Once the drag crosses the threshold, the cursor changes to the
+        same hand holding a window used for pane drags. A protected tab remains selectable and shows a disabled
+        cross. The cross uses `deletetab` and its destruction constraints; the pane header's `-closeaction` applies
+        only to individual panes.
+
+        Set `-tabclosebutton` to `hover` (default), `always`, or `none` at construction or with `configure`. Hover
+        reserves the same space as always so labels stay still. None removes that space.  Deleting the last tab leaves
+        a plain, rootless manager. Use `addleaf` to populate it directly, or `addtab title` to start a new
+        notebook. The application supplies tab names through `addtab`.
 
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1363,6 +1371,7 @@ proc ::splitlayout::CreationArguments {} {
         {-lockbuttonmode= -default all -enum {all outer}\
                 -help {Lock all edges or only edges touching the immediate parent split boundary}}
         {-titlealign= -default center -enum {left center right} -help {Header title alignment}}
+        {-tabclosebutton= -default hover -enum {hover always none} -help {Visibility of notebook tab close buttons}}
         {-headerbuttons= -default {lock dock close} -help {Visible header buttons from lock, dock and close}}
         {-closeaction= -default destroy -enum {destroy hide none} -help {Default header close button action}}
         {-buttonimages= -default {} -help {Application-owned images keyed by dock, undock, delete, lock, or unlock}}
@@ -1384,11 +1393,11 @@ proc ::splitlayout::CreationHelp {args} {
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book TabOrder Serial Pending Tag Closing Owned Opaque Drag\
-            Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide\
-            LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions\
-            TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules\
-            LivePress
+    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book TabOrder TabCloseButton TabCloseImages Serial Pending Tag\
+            Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating\
+            Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers\
+            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums\
+            NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1436,6 +1445,9 @@ oo::configurable create ::splitlayout::splitlayout {
                 -titlealign {
                     Header title alignment: left, center, or right; default center. Independent of buttonside.
                     Applies to docked and floating headers. Titles are truncated within the space clear of buttons.
+                }
+                -tabclosebutton {
+                    Notebook tab close cross visibility: hover (default), always, or none.
                 }
                 -headerbuttons {
                     Default visible header buttons, in display order lock, dock, close. Empty hides all buttons.
@@ -1605,6 +1617,18 @@ oo::configurable create ::splitlayout::splitlayout {
         set TitleAlign $value
         if {[dict size $Roots]} {
             my RefreshHeaders
+        }
+    }
+    property tabclosebutton -get {
+        return $TabCloseButton
+    } -set {
+        if {$value ni {hover always none}} {
+            return -code error {expected tabclosebutton hover, always or none}
+        }
+        if {![info exists TabCloseButton] || ($TabCloseButton ne $value)} {
+            my CancelTabOrder
+            set TabCloseButton $value
+            my SyncTabClose
         }
     }
     property headerbuttons -get {
@@ -1868,6 +1892,7 @@ oo::configurable create ::splitlayout::splitlayout {
         #  -lockbuttonmode mode - Lock-button side policy all or outer; default all.
         #  -buttonside side - Align header buttons left or right in docked and floating content; default right.
         #  -titlealign alignment - Header title alignment: left, center, or right; default center.
+        #  -tabclosebutton mode - Show the notebook tab close cross on hover, always, or never (none).
         #  -headerbuttons buttons - Visible buttons from lock, dock and close; defaults to all three.
         #  -closeaction action - Default header close action: destroy, hide or none.
         #  -buttonimages dictionary - Optional dock, undock, delete, lock, and unlock images; default built-in bitmaps.
@@ -1893,10 +1918,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # dictionary? ?-sashpreviewopts dictionary?  ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief
         # relief? ?-leafopts dictionary?  ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean?
         # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
-        # ?-lockbuttonmode mode?
+        # ?-lockbuttonmode mode? ?-tabclosebutton mode?
         foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
-                             Floating Roots EmptyTabs Book TabOrder Vacancies Settings Drag Dock Borders Panels Pending\
-                             Nodes} {
+                             Floating Roots EmptyTabs Book TabOrder TabCloseImages Vacancies Settings Drag Dock Borders\
+                             Panels Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
@@ -1906,8 +1931,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set Serial 0
         set options [argparse -inline -pfirst [::splitlayout::CreationArguments]]
         foreach option {opaqueresize sashpreview leafborder leafborderwidth leafrelief showstructure draghandles\
-                                buttonside lockbuttonmode titlealign headerbuttons closeaction buttonimages\
-                                headerrelief headerborderwidth tooltips} {
+                                buttonside lockbuttonmode titlealign tabclosebutton headerbuttons closeaction\
+                                buttonimages headerrelief headerborderwidth tooltips} {
             my configure -$option [dict get $options $option]
         }
         set W [dict get $options path]
@@ -1966,6 +1991,11 @@ oo::configurable create ::splitlayout::splitlayout {
         if {[info exists Headers]} {
             dict for {grip id} $Headers {
                 my ClearHeaderTips $grip
+            }
+        }
+        if {[info exists TabCloseImages]} {
+            foreach image [dict values $TabCloseImages] {
+                image delete $image
             }
         }
         if {[info exists Icons]} {
@@ -2048,7 +2078,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict unset Roots $W
             pack $Book -fill both -expand 1
             # Label gestures start only on the notebook. Pane drags have their own bindings and state.
-            bind $Book <<ContextMenu>> [namespace code {my TabMenu %X %Y}]
+            bind $Book <<ThemeChanged>> [namespace code {my SyncTabClose 1}]
             bind $Book <ButtonPress-1> [namespace code {my TabOrderPress %X %Y}]
             bind $Book <Escape> [namespace code {my CancelTabOrder}]
             bind $Book <FocusOut> [namespace code {if {[focus -displayof $Book] ne $Book} {
@@ -3515,24 +3545,82 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $frames
     }
-    method TabMenu {x y} {
-        # Post a deletion command for the label under the pointer, including an unselected tab.
-        set tab [my TabAt $x $y]
-        if {($tab eq {}) || ([grab current $W] ne {})} {return}
-        set state normal
+    method TabCloseAllowed {tab} {
         try {
             my TabDeletionFrames $tab
         } trap {SPLITLAYOUT CONSTRAINT} {} {
-            set state disabled
+            return 0
         }
-        set menu $Book.tabMenu
-        if {![winfo exists $menu]} {
-            menu $menu -tearoff 0
-            $menu add command -label {Delete tab}
+        return 1
+    }
+    method TabCloseLayout {layout} {
+        # Insert the close element beside the label, preserving the native theme's padding and focus elements.
+        set result {}
+        set children 0
+        foreach item $layout {
+            if {$children} {
+                lappend result [my TabCloseLayout $item]
+            } else {
+                if {[lindex [split $item .] end] eq {label}} {
+                    lappend result SplitlayoutClose -side right -sticky {}
+                }
+                lappend result $item
+            }
+            set children [expr {$item eq {-children}}]
         }
-        $menu entryconfigure 0 -state $state -command [namespace code [list my deletetab $tab]]
-        tk_popup $menu $x $y
-        return -code break
+        return $result
+    }
+    method SyncTabClose {{themeChanged 0}} {
+        # Tk sets the active state independently on each hovered tab. Both images have the same dimensions.
+        if {($Book eq {}) || ![winfo exists $Book] || $Closing} {
+            return
+        }
+        if {$TabCloseButton ne {none}} {
+            if {{SplitlayoutClose} ni [ttk::style element names]} {
+                ttk::style element create SplitlayoutClose from default image
+                ttk::style layout Splitlayout.TNotebook.Tab [my TabCloseLayout [ttk::style layout TNotebook.Tab]]
+            }
+            if {![dict size $TabCloseImages]} {
+                set data [[my GripIcon delete] cget -data]
+                foreach state {normal disabled} {
+                    dict set TabCloseImages $state [image create bitmap -data $data]
+                }
+                dict set TabCloseImages blank [image create photo -width 12 -height 12]
+            }
+            foreach state {normal disabled} fallback {black #888888} {
+                set states [expr {$state eq {disabled} ? {disabled} : {}}]
+                set color [ttk::style lookup TNotebook.Tab -foreground $states $fallback]
+                set icon [dict get $TabCloseImages $state]
+                if {[$icon cget -foreground] ne $color} {
+                    $icon configure -foreground $color
+                }
+            }
+        }
+        set style [expr {$TabCloseButton eq {none} ? {} : {Splitlayout.TNotebook}}]
+        if {$themeChanged || ([$Book cget -style] ne $style)} {
+            $Book configure -style $style
+        }
+        foreach tab [$Book tabs] {
+            set spec {}
+            if {$TabCloseButton ne {none}} {
+                set state [expr {[my TabCloseAllowed $tab] ? {normal} : {disabled}}]
+                set spec [list [dict get $TabCloseImages $state]]
+                if {$TabCloseButton eq {hover}} {
+                    set spec [linsert $spec 0 [dict get $TabCloseImages blank] active]
+                }
+            }
+            if {[$Book tab $tab -image] ne $spec} {
+                $Book tab $tab -image $spec -compound text
+            }
+        }
+    }
+    method OnTabClose {x y} {
+        if {$TabCloseButton eq {none}} {
+            return 0
+        }
+        set px [expr {$x-[winfo rootx $Book]}]
+        set py [expr {$y-[winfo rooty $Book]}]
+        return [expr {[$Book identify element $px $py] eq {SplitlayoutClose}}]
     }
     method CheckTab {tab} {
         if {($Book eq {}) || ![dict exists $Roots $tab]} {
@@ -5089,6 +5177,9 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         if {$frame eq $path} {
+            if {!$Closing && ($Book ne {}) && ($HeaderRefresh eq {}) && [dict exists $ContentRules $frame -nodestroy]} {
+                set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
+            }
             dict unset Hidden $frame
             dict unset HeaderOptions $frame
             dict unset ContentRules $frame
@@ -5372,6 +5463,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$Closing} {
             return
         }
+        my SyncTabClose
         dict for {grip id} $Headers {
             if {[winfo exists $grip]} {
                 my DrawGrip $grip
@@ -5754,10 +5846,14 @@ oo::configurable create ::splitlayout::splitlayout {
         if {($tab eq {}) || ([$Book tab $tab -state] ne {normal}) || ([grab current $W] ne {})} {
             return
         }
+        set close [my OnTabClose $x $y]
+        if {$close && ![my TabCloseAllowed $tab]} {
+            return -code break
+        }
         my CancelDrag
         focus $Book
         grab $Book
-        set TabOrder [dict create tab $tab x $x y $y active 0]
+        set TabOrder [dict create tab $tab x $x y $y active 0 close $close]
         return -code break
     }
     method TabOrderTarget {x y} {
@@ -5805,18 +5901,23 @@ oo::configurable create ::splitlayout::splitlayout {
             my CancelTabOrder
             return
         }
+        if {[dict get $TabOrder close]} {
+            return -code break
+        }
         if {![dict get $TabOrder active]} {
             if {max(abs($x-[dict get $TabOrder x]),abs($y-[dict get $TabOrder y])) <\
                         [dict get $Settings dockopts -threshold]} {
                 return -code break
             }
+            dict set TabOrder cursor [$Book cget -cursor]
+            ::splitlayout::cursors::Apply [info object namespace [self]] $Book drag
             dict set TabOrder active 1
         }
         set marker $Book.orderMarker
         set target [my TabOrderTarget $x $y]
         if {$target ne {}} {
             if {![winfo exists $marker]} {
-                frame $marker -background [dict get $Settings dockopts -color] -takefocus 0
+                frame $marker -background [dict get $Settings dockopts -color] -takefocus 0 -cursor [$Book cget -cursor]
                 bindtags $marker [linsert [bindtags $marker] 0 ${Tag}TabDrag]
             }
             lassign [lindex $target 2] px py width height
@@ -5836,8 +5937,13 @@ oo::configurable create ::splitlayout::splitlayout {
             set target [my TabOrderTarget $x $y]
         }
         set click [expr {!$active && ([grab current $W] eq $Book) && ([my TabAt $x $y] eq $tab)}]
+        set close [dict get $TabOrder close]
         my CancelTabOrder
-        if {$target ne {}} {
+        if {$close} {
+            if {$click && [my OnTabClose $x $y] && [my TabCloseAllowed $tab]} {
+                my deletetab $tab
+            }
+        } elseif {$target ne {}} {
             lassign $target other side
             my movetab $tab $side $other
         } elseif {$click} {
@@ -5848,6 +5954,9 @@ oo::configurable create ::splitlayout::splitlayout {
     method CancelTabOrder {} {
         if {![info exists TabOrder] || ($TabOrder eq {})} {
             return
+        }
+        if {[dict get $TabOrder active] && [winfo exists $Book]} {
+            $Book configure -cursor [dict get $TabOrder cursor]
         }
         set TabOrder {}
         if {[winfo exists $Book]} {

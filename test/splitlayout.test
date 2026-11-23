@@ -201,7 +201,7 @@ test splitlayout-properties-1.1 {native property configuration and discovery} -s
 } -cleanup {::sltest::cleanup} -result {1 1 {-borderwidth -buttonimages -buttonside -class -closeaction -cursor -dockopts\
 -draghandles -headerborderwidth -headerbuttons -headerrelief -height -leafborder -leafborderwidth -leafopts -leafrelief\
 -lockbuttonmode -opaqueresize -padding -relief -sashpreview -sashpreviewopts -showstructure -structureopts -style\
--takefocus -titlealign -tooltips -width} 800 1 1 {}}
+-tabclosebutton -takefocus -titlealign -tooltips -width} 800 1 1 {}}
 
 test splitlayout-properties-1.2 {native ordered setters and rejected values} -setup {
     set m [::sltest::setup]
@@ -1299,33 +1299,32 @@ foreach action {click escape focus outside self disable remove clear destroy res
 
 test splitlayout-dock-13.7 {foreign layouts are not destinations and existing grabs are not stolen} -setup {
     lassign [::sltest::docksetup] m root a b
-    # Keep the source and drop point visible on small desktops, even when dockstart raises the source.
-    set width [expr {[winfo vrootwidth $m] / 3}]
-    wm geometry .sltest ${width}x240+10+20
-    ::sltest::settle $m
-    toplevel .foreign
-    wm geometry .foreign ${width}x200-10+20
-    splitlayout .foreign.layout -draghandles true
-    pack .foreign.layout -fill both -expand 1
-    ::sltest::settle .foreign.layout
+    # Give independent managers disjoint areas in one toplevel. Activating the source grip
+    # can raise its toplevel on Windows, but cannot cover the sibling layout.
+    set foreign [splitlayout .sltest.foreign -draghandles true]
+    pack forget $m
+    grid $m $foreign -sticky nsew
+    grid columnconfigure .sltest {0 1} -weight 1 -uniform layouts
+    grid rowconfigure .sltest 0 -weight 1
+    ::sltest::settle $foreign
 } -body {
     set g [::sltest::grip $m $a]
-    grab .foreign
+    grab $foreign
     ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
-    set protected [expr {[grab current $m] eq {.foreign} && [::sltest::dockstate $m] eq {}}]
-    grab release .foreign
-    set point [::sltest::point .foreign.layout]
+    set protected [expr {[grab current $m] eq $foreign && [::sltest::dockstate $m] eq {}}]
+    grab release $foreign
+    ::sltest::dockevent $g <ButtonPress-1> [::sltest::point $g]
+    set point [::sltest::point $foreign]
     set hit [winfo containing -displayof $m {*}$point]
-    if {$hit eq {} || [winfo toplevel $hit] ne ".foreign"} {
-        error "drop point $point missed the foreign window (hit '$hit')"
+    if {$hit ne $foreign && ![string match "$foreign.*" $hit]} {
+        error "drop point $point missed the foreign layout (hit '$hit')"
     }
-    set g [::sltest::dockstart $m $a $point]
+    ::sltest::dockevent $g <B1-Motion> $point
     set target [dict get [::sltest::dockstate $m] target]
     ::sltest::dockevent $g <ButtonRelease-1> $point
-    list $protected [dict get $target op] [llength [$m floating]] [llength [.foreign.layout leaves]]\
+    list $protected [dict get $target op] [llength [$m floating]] [llength [$foreign leaves]]\
             [::sltest::dockstate $m] [grab current $m]
 } -cleanup {
-    destroy .foreign
     ::sltest::cleanup
 } -result {1 undock 1 1 {} {}}
 
@@ -5581,16 +5580,26 @@ foreach finish {release escape outside click} {
         set b [$m addtab Bravo]
         set c [$m addtab Charlie]
         set book [winfo parent $a]
+        $book configure -cursor crosshair
         ::sltest::settle $m
         set start [::sltest::tabpoint $book $b 0.5]
         set end [::sltest::tabpoint $book $c 0.8]
     } -body {
         ::sltest::dockevent $book <ButtonPress-1> $start
+        ::sltest::dockevent $book <B1-Motion> $start
+        set cursorBefore [$book cget -cursor]
         if {$finish ne {click}} {
             ::sltest::dockevent $book <B1-Motion> $end
         }
         set result [list [expr {[$m tabs] eq [list $a $b $c]}] \
                 [expr {[winfo exists $book.orderMarker] == ($finish ne {click})}]]
+        lappend result $cursorBefore
+        if {$finish ne {click}} {
+            set dragCursor [::splitlayout::cursors::Get [info object namespace $m] drag]
+            lappend result [expr {[$book cget -cursor] eq $dragCursor && [$book.orderMarker cget -cursor] eq $dragCursor}]
+        } else {
+            lappend result [expr {[$book cget -cursor] eq $cursorBefore}]
+        }
         switch $finish {
             release {::sltest::dockevent $book <ButtonRelease-1> $end}
             escape {event generate $book <Escape>}
@@ -5598,8 +5607,8 @@ foreach finish {release escape outside click} {
             click {::sltest::dockevent $book <ButtonRelease-1> $start}
         }
         lappend result [expr {[$m tabs] eq ($finish eq {release} ? [list $a $c $b] : [list $a $b $c])}] \
-                [expr {[$m selecttab] eq ($finish eq {click} ? $b : $a)}] [grab current $m]
-    } -cleanup {::sltest::cleanup} -result {1 1 1 1 {}}
+                [expr {[$m selecttab] eq ($finish eq {click} ? $b : $a)}] [grab current $m] [$book cget -cursor]
+    } -cleanup {::sltest::cleanup} -result {1 1 crosshair 1 1 1 {} crosshair}
 }
 
 test splitlayout-tabdelete-45.1 {delete checks the entire tab, including hidden and floating panes, before mutation} -setup {
@@ -5650,34 +5659,77 @@ test splitlayout-tabdelete-45.2 {moving and redocking transfer ownership; deleti
     lappend result [expr {[$m root $again] eq $leaf}] [catch {$m deletetab $other}]
 } -cleanup {::sltest::cleanup} -result {1 1 1 0 0 {} {} {} {} 1 1}
 
-test splitlayout-tabdelete-45.3 {context menu targets the clicked label and disables protected deletion} -setup {
+proc ::sltest::tabclosepoint {book tab} {
+    set index [$book index $tab]
+    for {set y 0} {$y < [winfo height $book]} {incr y} {
+        for {set x 0} {$x < [winfo width $book]} {incr x} {
+            if {[$book identify element $x $y] eq {SplitlayoutClose} && [$book index @$x,$y] eq $index} {
+                return [list [expr {[winfo rootx $book]+$x}] [expr {[winfo rooty $book]+$y}]]
+            }
+        }
+    }
+    error "missing close button for $tab"
+}
+
+foreach finish {close other label escape protected reprotect} {
+    test splitlayout-tabdelete-45.3-$finish {cross press owns the gesture and checks protection on release} -setup {
+        set m [::sltest::setup]
+        set a [$m addtab Alpha]
+        set b [$m addtab Bravo]
+        set book [winfo parent $a]
+        if {$finish eq {protected}} {$m constraints [$m root $b] -nodestroy 1}
+        ::sltest::settle $m
+        set start [::sltest::tabclosepoint $book $b]
+        set end $start
+    } -body {
+        ::sltest::dockevent $book <ButtonPress-1> $start
+        switch $finish {
+            other {set end [::sltest::tabclosepoint $book $a]}
+            label {set end [::sltest::tabpoint $book $b 0.25]}
+            escape {event generate $book <Escape>}
+            reprotect {$m constraints [$m root $b] -nodestroy 1}
+        }
+        ::sltest::dockevent $book <B1-Motion> $end
+        ::sltest::dockevent $book <ButtonRelease-1> $end
+        set expected [expr {$finish eq {close} ? [list $a] : [list $a $b]}]
+        list [expr {[$m tabs] eq $expected}] [expr {[$m selecttab] eq $a}] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {1 1 {}}
+}
+
+test splitlayout-tabdelete-45.4 {close button modes and removal of the tab menu binding} -setup {
     set m [::sltest::setup]
     set a [$m addtab Alpha]
-    set b [$m addtab Bravo]
     set book [winfo parent $a]
-    # Native popup tracking may block until real input arrives. Exercise the binding and actual
-    # menu entries, recording only the final posting call.
-    rename ::tk_popup ::sltest::savedPopup
-    proc ::tk_popup {menu x y} {set ::sltest::posted [list $menu $x $y]}
-    set menu $book.tabMenu
     ::sltest::settle $m
-    set point [::sltest::tabpoint $book $b 0.5]
-    $m constraints [$m root $b] -nodestroy 1
 } -body {
-    ::sltest::dockevent $book <<ContextMenu>> $point
-    set result [list [$menu entrycget 0 -label] [$menu entrycget 0 -state] [expr {[$m selecttab] eq $a}]]
-    lappend result [expr {$::sltest::posted eq [list $menu {*}$point]}]
-    $m constraints [$m root $b] -nodestroy 0
-    ::sltest::dockevent $book <<ContextMenu>> $point
-    lappend result [$menu entrycget 0 -state]
-    $menu invoke 0
-    lappend result [expr {[$m tabs] eq $a}] [winfo exists $b]
+    set spec [$book tab $a -image]
+    set result [list [$m configure -tabclosebutton] [lindex $spec 1] [bind $book <<ContextMenu>>]]
+    set point [::sltest::tabclosepoint $book $a]
+    $m configure -tabclosebutton always
+    update idletasks
+    lappend result [expr {[$book tab $a -image] eq [lindex $spec 2]}] [expr {[::sltest::tabclosepoint $book $a] eq $point}]
+    $m configure -tabclosebutton none
+    lappend result [$book tab $a -image] [catch {$m configure -tabclosebutton bogus}]
+    $m deletetab $a
+    lappend result [$m tabs]
+} -cleanup {::sltest::cleanup} -result {hover active {} 1 1 {} 1 {}}
+
+test splitlayout-tabdelete-45.5 {tab close element survives live theme changes} -setup {
+    set savedTheme [ttk::style theme use]
+    set m [::sltest::setup -tabclosebutton always]
+    set a [$m addtab Alpha]
+    set book [winfo parent $a]
+} -body {
+    foreach theme {clam alt default} {
+        ttk::style theme use $theme
+        update
+        ::sltest::tabclosepoint $book $a
+    }
+    $m configure -tabclosebutton
 } -cleanup {
-    rename ::tk_popup {}
-    rename ::sltest::savedPopup ::tk_popup
-    unset -nocomplain ::sltest::posted
+    ttk::style theme use $savedTheme
     ::sltest::cleanup
-} -result {{Delete tab} disabled 1 1 normal 1 0}
+} -result always
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

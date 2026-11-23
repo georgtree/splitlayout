@@ -9,9 +9,9 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBCreationHelp\fP \fI?args?\fP
 .br
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -957,6 +957,7 @@ widgets\&.
 │ -lockbuttonmode    │ all             │ Lock-button side policy: all edges or immediate parent split boundaries\&.   │
 │ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
 │ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
+│ -tabclosebutton    │ hover           │ Tab close cross visibility: hover, always or none\&.                         │
 │ -headerbuttons     │ lock dock close │ Visible header buttons for content that inherits the default\&.              │
 │ -closeaction       │ destroy         │ Default cross action: destroy, hide or none\&.                               │
 │ -buttonimages      │ Empty values    │ Optional dock, undock, delete, lock, and unlock Tk image overrides\&.        │
@@ -1228,10 +1229,17 @@ remembered home is that page\&. A pane already moved or redocked into another pa
 page\&. All affected content frames and split nodes are checked for -nodestroy before deletion\&.
 If any are protected, the command raises a constraint error and the entire tab survives\&.
 .PP
-Open the context menu on a tab label and choose \fBDelete tab\fP to delete that page\&. The menu targets
-the clicked label even when a different tab is selected\&. The entry is disabled if deletion is blocked\&.
-Deleting the last tab leaves a plain, rootless manager\&. Use addleaf to populate it directly, or
-addtab title to start a new notebook\&. The application supplies tab names through addtab\&.
+By default, hovering over a tab reveals a close cross at the trailing edge of its label\&. Press and release on
+the same cross to delete that page, including when another page is selected\&. Releasing elsewhere or pressing
+Escape cancels\&. Drag the label text to reorder\&. Once the drag crosses the threshold, the cursor changes to the
+same hand holding a window used for pane drags\&. A protected tab remains selectable and shows a disabled
+cross\&. The cross uses deletetab and its destruction constraints; the pane header's -closeaction applies
+only to individual panes\&.
+.PP
+Set -tabclosebutton to hover (default), always, or none at construction or with configure\&. Hover
+reserves the same space as always so labels stay still\&. None removes that space\&.  Deleting the last tab leaves
+a plain, rootless manager\&. Use addleaf to populate it directly, or addtab title to start a new
+notebook\&. The application supplies tab names through addtab\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1541,6 +1549,9 @@ Readable, writable\&. Dictionary of split outline settings: -color, -activecolor
 -style
 Readable, writable\&. Hull ttk style, delegated to the ttk frame\&.
 .TP
+-tabclosebutton
+Readable, writable\&. Notebook tab close cross visibility: hover (default), always, or none\&.
+.TP
 -takefocus
 Readable, writable\&. Hull focus traversal setting, delegated to the ttk frame\&.
 .TP
@@ -1560,9 +1571,9 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one root leaf by default\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?\fP
 .br
 .RE
 .PP
@@ -1628,6 +1639,9 @@ Outline and inset all split regions; default false\&.
 .TP
 -structureopts dictionary
 Split outline colors, border width, and spacing; option-database defaults\&.
+.TP
+-tabclosebutton mode
+Show the notebook tab close cross on hover, always, or never (none)\&.
 .TP
 -titlealign alignment
 Header title alignment: left, center, or right; default center\&.

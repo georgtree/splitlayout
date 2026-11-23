@@ -1082,51 +1082,55 @@ widgets.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">center</span></code></p></td>
 <td><p>Align the optional header title left, center, or right.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code></p></td>
+<td><p>hover</p></td>
+<td><p>Tab close cross visibility: hover, always or none.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code></p></td>
 <td><p>lock dock close</p></td>
 <td><p>Visible header buttons for content that inherits the default.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-closeaction</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-closeaction</span></code></p></td>
 <td><p>destroy</p></td>
 <td><p>Default cross action: destroy, hide or none.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
 <td><p>Empty values</p></td>
 <td><p>Optional dock, undock, delete, lock, and unlock Tk image overrides.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
 <td><p>Rectangular header relief.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Outline each leaf, including floating windows.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Nonnegative leaf outline thickness in pixels.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">solid</span></code></p></td>
 <td><p>Leaf outline relief, independent of the header.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
 <td><p>option database</p></td>
 <td><p>Leaf border base color (<code class="docutils literal notranslate"><span class="pre">-color</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Nonnegative header border thickness in pixels.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>Use Tklib tooltips when available.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Show docking grips on all current and future leaves.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Outline and inset all current and future splits.</p></td>
 </tr>
@@ -1416,10 +1420,16 @@ apply to both trees before a drop commits.</p>
 remembered home is that page. A pane already moved or redocked into another page belongs to that
 page. All affected content frames and split nodes are checked for <code class="docutils literal notranslate"><span class="pre">-nodestroy</span></code> before deletion.
 If any are protected, the command raises a constraint error and the entire tab survives.</p>
-<p>Open the context menu on a tab label and choose <strong>Delete tab</strong> to delete that page. The menu targets
-the clicked label even when a different tab is selected. The entry is disabled if deletion is blocked.
-Deleting the last tab leaves a plain, rootless manager. Use <code class="docutils literal notranslate"><span class="pre">addleaf</span></code> to populate it directly, or
-<code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">title</span></code> to start a new notebook. The application supplies tab names through <code class="docutils literal notranslate"><span class="pre">addtab</span></code>.</p>
+<p>By default, hovering over a tab reveals a close cross at the trailing edge of its label. Press and release on
+the same cross to delete that page, including when another page is selected. Releasing elsewhere or pressing
+Escape cancels. Drag the label text to reorder. Once the drag crosses the threshold, the cursor changes to the
+same hand holding a window used for pane drags. A protected tab remains selectable and shows a disabled
+cross. The cross uses <code class="docutils literal notranslate"><span class="pre">deletetab</span></code> and its destruction constraints; the pane header’s <code class="docutils literal notranslate"><span class="pre">-closeaction</span></code> applies
+only to individual panes.</p>
+<p>Set <code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code> to <code class="docutils literal notranslate"><span class="pre">hover</span></code> (default), <code class="docutils literal notranslate"><span class="pre">always</span></code>, or <code class="docutils literal notranslate"><span class="pre">none</span></code> at construction or with <code class="docutils literal notranslate"><span class="pre">configure</span></code>. Hover
+reserves the same space as always so labels stay still. None removes that space.  Deleting the last tab leaves
+a plain, rootless manager. Use <code class="docutils literal notranslate"><span class="pre">addleaf</span></code> to populate it directly, or <code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">title</span></code> to start a new
+notebook. The application supplies tab names through <code class="docutils literal notranslate"><span class="pre">addtab</span></code>.</p>
 </section>
 </section>
 <section id="inspecting-the-layout">
@@ -1658,24 +1668,27 @@ database; see the namespace resource reference.</p>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Notebook tab close cross visibility: hover (default), always, or none.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Header title alignment: left, center, or right; default center. Independent of buttonside. Applies to docked and floating headers. Titles are truncated within the space clear of buttons.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true. Missing packages are silently tolerated. This property expresses the preference, not package availability. Only this manager’s registrations are changed; Tklib’s global settings remain application-controlled.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Header title alignment: left, center, or right; default center. Independent of buttonside. Applies to docked and floating headers. Titles are truncated within the space clear of buttons.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true. Missing packages are silently tolerated. This property expresses the preference, not package availability. Only this manager’s registrations are changed; Tklib’s global settings remain application-controlled.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Requested hull width, delegated to the ttk frame; constructor default 800.</p>
 </dd>
 </dl>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-7"></span><span id="index-6"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading"></a></h4>
 <p>Creates a split layout with one root leaf by default.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em>
-<strong>splitlayout new</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?</em>
+<strong>splitlayout new</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
@@ -1738,17 +1751,20 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">alignment</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Header title alignment: left, center, or right; default center.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Show the notebook tab close cross on hover, always, or never (none).</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Show Tklib tooltips when the optional package is available; default true.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">alignment</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Header title alignment: left, center, or right; default center.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Nonnegative requested hull width in pixels; default 800.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Show Tklib tooltips when the optional package is available; default true.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>New, non-root Tk widget pathname.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-width</span> <span class="pre">width</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Nonnegative requested hull width in pixels; default 800.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">path</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>New, non-root Tk widget pathname.</p>
 </dd>
 </dl>
 <p class="rubric">Description</p>
