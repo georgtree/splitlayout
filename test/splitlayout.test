@@ -5540,6 +5540,145 @@ test splitlayout-header-43.3 {omitted buttons reserve no space and stay absent o
     lappend result [$g.toggle instate disabled] [winfo exists $g.delete] [$m title $leaf]
 } -cleanup {::sltest::cleanup} -result {0 0 0 1 1 0 Traces}
 
+test splitlayout-taborder-44.1 {relative movement in both directions preserves selection and content} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab A]
+    set b [$m addtab B]
+    set c [$m addtab C]
+    set frame [$m frame [$m root $a]]
+    $m selecttab $b
+} -body {
+    set result {}
+    foreach {tab side target order} [list $a -after $c [list $b $c $a] $a -before $b [list $a $b $c] \
+                                           $a -before $c [list $b $a $c] $c -after $b [list $b $c $a]] {
+        $m movetab $tab $side $target
+        lappend result [expr {[$m tabs] eq $order}]
+    }
+    $m movetab $c -before $c
+    lappend result [expr {[$m selecttab] eq $b && [$m frame [$m root $a]] eq $frame}] \
+            [catch {$m movetab $a -after .missing}] [catch {$m movetab $a -before $b -after $c}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1}
+
+proc ::sltest::tabpoint {book tab half} {
+    # Locate either half of a tab label without assuming native font metrics or padding.
+    set index [$book index $tab]
+    for {set y 0} {$y < [winfo height $book]} {incr y} {
+        set xs {}
+        for {set x 0} {$x < [winfo width $book]} {incr x} {
+            if {[$book index @$x,$y] eq $index} {lappend xs $x}
+        }
+        if {[llength $xs] > 8} {
+            set x [lindex $xs [expr {int($half*([llength $xs]-1))}]]
+            return [list [expr {[winfo rootx $book]+$x}] [expr {[winfo rooty $book]+$y}]]
+        }
+    }
+    error "tab label for $tab is not visible"
+}
+foreach finish {release escape outside click} {
+    test splitlayout-taborder-44.2-$finish {label drag previews before committing; a click selects} -setup {
+        set m [::sltest::setup]
+        set a [$m addtab Alpha]
+        set b [$m addtab Bravo]
+        set c [$m addtab Charlie]
+        set book [winfo parent $a]
+        ::sltest::settle $m
+        set start [::sltest::tabpoint $book $b 0.5]
+        set end [::sltest::tabpoint $book $c 0.8]
+    } -body {
+        ::sltest::dockevent $book <ButtonPress-1> $start
+        if {$finish ne {click}} {
+            ::sltest::dockevent $book <B1-Motion> $end
+        }
+        set result [list [expr {[$m tabs] eq [list $a $b $c]}] \
+                [expr {[winfo exists $book.orderMarker] == ($finish ne {click})}]]
+        switch $finish {
+            release {::sltest::dockevent $book <ButtonRelease-1> $end}
+            escape {event generate $book <Escape>}
+            outside {::sltest::dockevent $book <ButtonRelease-1> {-10 -10}}
+            click {::sltest::dockevent $book <ButtonRelease-1> $start}
+        }
+        lappend result [expr {[$m tabs] eq ($finish eq {release} ? [list $a $c $b] : [list $a $b $c])}] \
+                [expr {[$m selecttab] eq ($finish eq {click} ? $b : $a)}] [grab current $m]
+    } -cleanup {::sltest::cleanup} -result {1 1 1 1 {}}
+}
+
+test splitlayout-tabdelete-45.1 {delete checks the entire tab, including hidden and floating panes, before mutation} -setup {
+    set m [::sltest::setup -draghandles true]
+    lassign [$m split [$m root]] a b
+    set hidden [$m hide $a]
+    set floating [$m undock $b]
+    set floatFrame [$m frame $floating]
+    set home [$m addtab Home]
+    set away [$m addtab Away]
+    $m movetab $away -before $home
+    $m selecttab $away
+    set other [$m frame [$m root $away]]
+    set root [$m root $home]
+    lassign [$m split $root] c d
+    set docked [$m frame $d]
+} -body {
+    set result {}
+    foreach protected [list $floating $hidden $d $root] {
+        $m constraints $protected -nodestroy 1
+        lappend result [::sltest::blocked $m [list $m deletetab $home] -nodestroy]
+        $m constraints $protected -nodestroy 0
+    }
+    lappend result [expr {[winfo exists $floatFrame] && [winfo exists $hidden] && [winfo exists $docked]}]
+    $m deletetab $home
+    lappend result [winfo exists $floatFrame] [winfo exists $hidden] [winfo exists $docked] [winfo exists $other] \
+            [expr {[$m selecttab] eq $away && [$m tabs] eq $away}] [$m hidden] [$m floating]
+} -cleanup {::sltest::cleanup} -result {1 1 1 1 1 0 0 0 1 1 {} {}}
+
+test splitlayout-tabdelete-45.2 {moving and redocking transfer ownership; deleting the last page leaves a usable hull} -setup {
+    set m [::sltest::setup]
+    set home [$m addtab Home -empty]
+    set other [$m addtab Other -empty]
+    set leaf [$m addleaf $home]
+    lassign [$m split $leaf] a b
+    set fa [$m frame $a]
+    set fb [$m frame $b]
+    $m move $a -tab $other
+    set floated [$m undock $b]
+    $m dock $floated -left $a
+} -body {
+    $m deletetab $home
+    set result [list [winfo exists $fa] [winfo exists $fb] [expr {[$m selecttab] eq $other}]]
+    $m deletetab $other
+    lappend result [winfo exists $fa] [winfo exists $fb] [$m tabs] [$m root] [$m tree] [$m selecttab]
+    set leaf [$m addleaf]
+    set again [$m addtab Again]
+    lappend result [expr {[$m root $again] eq $leaf}] [catch {$m deletetab $other}]
+} -cleanup {::sltest::cleanup} -result {1 1 1 0 0 {} {} {} {} 1 1}
+
+test splitlayout-tabdelete-45.3 {context menu targets the clicked label and disables protected deletion} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab Alpha]
+    set b [$m addtab Bravo]
+    set book [winfo parent $a]
+    # Native popup tracking may block until real input arrives. Exercise the binding and actual
+    # menu entries, recording only the final posting call.
+    rename ::tk_popup ::sltest::savedPopup
+    proc ::tk_popup {menu x y} {set ::sltest::posted [list $menu $x $y]}
+    set menu $book.tabMenu
+    ::sltest::settle $m
+    set point [::sltest::tabpoint $book $b 0.5]
+    $m constraints [$m root $b] -nodestroy 1
+} -body {
+    ::sltest::dockevent $book <<ContextMenu>> $point
+    set result [list [$menu entrycget 0 -label] [$menu entrycget 0 -state] [expr {[$m selecttab] eq $a}]]
+    lappend result [expr {$::sltest::posted eq [list $menu {*}$point]}]
+    $m constraints [$m root $b] -nodestroy 0
+    ::sltest::dockevent $book <<ContextMenu>> $point
+    lappend result [$menu entrycget 0 -state]
+    $menu invoke 0
+    lappend result [expr {[$m tabs] eq $a}] [winfo exists $b]
+} -cleanup {
+    rename ::tk_popup {}
+    rename ::sltest::savedPopup ::tk_popup
+    unset -nocomplain ::sltest::posted
+    ::sltest::cleanup
+} -result {{Delete tab} disabled 1 1 normal 1 0}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

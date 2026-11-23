@@ -1246,10 +1246,27 @@ namespace eval ::splitlayout {
         `move $leaf -tab $page` and `dock $floating -tab $page` place the incoming pane at its root.
         `addleaf $page` creates a fresh leaf there without changing the selected tab.
 
+        ### Reordering tabs
+        Use `movetab $page -before $other` or `movetab $page -after $other` to reorder the tab strip. The
+        selected page, pane IDs, and split proportions survive the move. To reorder with the mouse, press a tab
+        label and drag to either half of another label. The insertion line shows where release will place the tab.
+        Escape or release outside a label cancels. A click selects the tab.
+
         Hold a dragged header over a tab label briefly to open that page. Drop inside it using the ordinary centre,
         edge, outer rim and sash destinations. Hovering alone never commits a change. Releasing over a label leaves
         both trees intact; Escape restores the starting page. The usual movement, boundary and subtree constraints
         apply to both trees before a drop commits.
+
+        ### Deleting a tab
+        `deletetab $page` destroys its docked tree and every hidden or individually floating pane whose
+        remembered home is that page. A pane already moved or redocked into another page belongs to that
+        page. All affected content frames and split nodes are checked for `-nodestroy` before deletion.
+        If any are protected, the command raises a constraint error and the entire tab survives.
+
+        Open the context menu on a tab label and choose **Delete tab** to delete that page. The menu targets
+        the clicked label even when a different tab is selected. The entry is disabled if deletion is blocked.
+        Deleting the last tab leaves a plain, rootless manager. Use `addleaf` to populate it directly, or
+        `addtab title` to start a new notebook. The application supplies tab names through `addtab`.
 
         ## Inspecting the layout
         Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1367,10 +1384,11 @@ proc ::splitlayout::CreationHelp {args} {
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book Serial Pending Tag Closing Owned Opaque Drag Preview Owner\
-            Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide LockButtonMode\
-            HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions TitleAlign\
-            ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules LivePress
+    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book TabOrder Serial Pending Tag Closing Owned Opaque Drag\
+            Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide\
+            LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions\
+            TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules\
+            LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -1877,7 +1895,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
         # ?-lockbuttonmode mode?
         foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
-                             Floating Roots EmptyTabs Book Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
+                             Floating Roots EmptyTabs Book TabOrder Vacancies Settings Drag Dock Borders Panels Pending\
+                             Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {}]
@@ -2028,8 +2047,28 @@ oo::configurable create ::splitlayout::splitlayout {
             unset InitialLeaf
             dict unset Roots $W
             pack $Book -fill both -expand 1
-            bind ${Tag}TabDrag <B1-Motion> [namespace code {my DockMotion %X %Y}]
-            bind ${Tag}TabDrag <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
+            # Label gestures start only on the notebook. Pane drags have their own bindings and state.
+            bind $Book <<ContextMenu>> [namespace code {my TabMenu %X %Y}]
+            bind $Book <ButtonPress-1> [namespace code {my TabOrderPress %X %Y}]
+            bind $Book <Escape> [namespace code {my CancelTabOrder}]
+            bind $Book <FocusOut> [namespace code {if {[focus -displayof $Book] ne $Book} {
+                my CancelTabOrder
+            }}]
+            bind $Book <Unmap> [namespace code {my CancelTabOrder}]
+            bind ${Tag}TabDrag <B1-Motion> [namespace code {
+                if {$TabOrder ne {}} {
+                    my TabOrderMotion %X %Y
+                } else {
+                    my DockMotion %X %Y
+                }
+            }]
+            bind ${Tag}TabDrag <ButtonRelease-1> [namespace code {
+                if {$TabOrder ne {}} {
+                    my TabOrderRelease %X %Y
+                } else {
+                    my DockRelease %X %Y
+                }
+            }]
             bind ${Tag}TabDrag <Escape> [namespace code {my DockEscape}]
             bind ${Tag}TabDrag <FocusOut> [namespace code {my TabFocusOut %W}]
             bindtags $Book [linsert [bindtags $Book] 0 ${Tag}TabDrag]
@@ -2039,6 +2078,15 @@ oo::configurable create ::splitlayout::splitlayout {
             set root [my NewLeaf {}]
         }
         set page [ttk::frame $Book.page[incr Serial]]
+        if {![dict size $Roots]} {
+            # Content detached before the first tab was created belongs to the adopted page.
+            foreach token [dict keys $Floating] {
+                dict set Floating $token placement page $page
+            }
+            foreach frame [dict keys $Hidden] {
+                dict set Hidden $frame page $page
+            }
+        }
         bindtags $page [linsert [bindtags $page] 0 ${Tag}TabDrag]
         pack propagate $page 0
         $Book add $page -text $title
@@ -2075,6 +2123,72 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return {}
     }
+    method deletetab {args} {
+        # Destroys the page and the docked, hidden and floating content belonging to it.
+        #  tab - Page returned by addtab.
+        # All destruction constraints are checked before any pane is removed. Deleting the last
+        # page returns the manager to a plain layout with zero leaves.
+        # Returns: Nothing.
+        # Synopsis: tab
+        argparse -pfirst -help {Delete an owned tab and its content, respecting nodestroy} {
+            {tab -help {Page to delete}}
+        }
+        my CheckTab $tab
+        set frames [my TabDeletionFrames $tab]
+        my CancelDrag
+        my CaptureAll
+        set root [dict get $Roots $tab]
+        foreach frame $frames {
+            destroy $frame
+        }
+        if {$root ne {}} {
+            my Drop $root
+            dict unset Vacancies $root
+        }
+        $Book forget $tab
+        dict unset Roots $tab
+        dict unset EmptyTabs $tab
+        destroy $tab
+        if {![dict size $Roots]} {
+            destroy $Book
+            set Book {}
+            set InitialLeaf {}
+            dict set Roots $W {}
+            dict set EmptyTabs $W 1
+        }
+        my Rebuild
+        my RefreshMinimums
+        return
+    }
+    method movetab {args} {
+        # Reorders one notebook page relative to another, preserving the selection and both trees.
+        #  tab - Page to move.
+        #  -before page - Insert immediately before this page.
+        #  -after page - Insert immediately after this page.
+        # Returns: The moved page pathname.
+        # Synopsis: tab -before page|-after page
+        set opts [argparse -inline -pfirst -help {Move a tab before or after another tab} {
+            {tab -help {Page to move}}
+            {-before= -help {Insert before this page}}
+            {-after= -help {Insert after this page}}
+        }]
+        if {[dict exists $opts before] == [dict exists $opts after]} {
+            return -code error {movetab requires exactly one of -before or -after}
+        }
+        set tab [my CheckTab [dict get $opts tab]]
+        set after [dict exists $opts after]
+        set target [my CheckTab [dict get $opts [expr {$after ? {after} : {before}}]]]
+        if {$tab ne $target} {
+            set from [$Book index $tab]
+            set at [$Book index $target]
+            incr at [expr {$after - ($from < $at)}]
+            if {$from != $at} {
+                my CancelDrag
+                $Book insert $at $tab
+            }
+        }
+        return $tab
+    }
     method selecttab {args} {
         # Selects a tab or queries the current selection.
         #  tab - Optional page returned by addtab.
@@ -2083,9 +2197,7 @@ oo::configurable create ::splitlayout::splitlayout {
             {tab -optional -default {} -help {Page to select}}
         }
         if {$tab ne {}} {
-            if {![dict exists $Roots $tab] || ($Book eq {})} {
-                return -code error "unknown tab '$tab'"
-            }
+            my CheckTab $tab
             my CancelDrag
             $Book select $tab
         }
@@ -3382,6 +3494,52 @@ oo::configurable create ::splitlayout::splitlayout {
     }
 
     ### Common private methods
+    method TabDeletionFrames {tab} {
+        # Preflight the complete deletion and collect detached frames owned by this page.
+        set root [dict get $Roots $tab]
+        if {$root ne {}} {
+            my ValidateOperation remove $root
+        }
+        set frames {}
+        dict for {frame placement} $Hidden {
+            if {[dict get $placement page] eq $tab} {
+                my ValidateOperation remove $frame
+                lappend frames $frame
+            }
+        }
+        dict for {token data} $Floating {
+            if {[dict get $data placement page] eq $tab} {
+                my ValidateOperation remove $token
+                lappend frames [dict get $data frame]
+            }
+        }
+        return $frames
+    }
+    method TabMenu {x y} {
+        # Post a deletion command for the label under the pointer, including an unselected tab.
+        set tab [my TabAt $x $y]
+        if {($tab eq {}) || ([grab current $W] ne {})} {return}
+        set state normal
+        try {
+            my TabDeletionFrames $tab
+        } trap {SPLITLAYOUT CONSTRAINT} {} {
+            set state disabled
+        }
+        set menu $Book.tabMenu
+        if {![winfo exists $menu]} {
+            menu $menu -tearoff 0
+            $menu add command -label {Delete tab}
+        }
+        $menu entryconfigure 0 -state $state -command [namespace code [list my deletetab $tab]]
+        tk_popup $menu $x $y
+        return -code break
+    }
+    method CheckTab {tab} {
+        if {($Book eq {}) || ![dict exists $Roots $tab]} {
+            return -code error "unknown tab '$tab'"
+        }
+        return $tab
+    }
     method ActivePage {} {
         # Returns the geometry container for default tree operations.
         if {$Book eq {}} {
@@ -4599,7 +4757,6 @@ oo::configurable create ::splitlayout::splitlayout {
         set placement [expr {[dict exists $Hidden $token] ? [dict get $Hidden $token] :\
                                      [dict get $Floating $token placement]}]
         set page [dict get $placement page]
-        if {$page eq $W} {set page [lindex [dict keys $Roots] 0]}
         set division {}
         if {![llength $destinations]} {
             set remembered [my RestoreDestination $placement $page]
@@ -5592,6 +5749,114 @@ oo::configurable create ::splitlayout::splitlayout {
     }
 
     ### Drag handling methods
+    method TabOrderPress {x y} {
+        set tab [my TabAt $x $y]
+        if {($tab eq {}) || ([$Book tab $tab -state] ne {normal}) || ([grab current $W] ne {})} {
+            return
+        }
+        my CancelDrag
+        focus $Book
+        grab $Book
+        set TabOrder [dict create tab $tab x $x y $y active 0]
+        return -code break
+    }
+    method TabOrderTarget {x y} {
+        # Hit-test the label through Tk so images, padding and vertical tab strips are respected.
+        set tab [my TabAt $x $y]
+        if {($tab eq {}) || ($tab eq [dict get $TabOrder tab])} {
+            return
+        }
+        set style [$Book cget -style]
+        if {$style eq {}} {
+            set style TNotebook
+        }
+        set vertical [expr {[string index [ttk::style lookup $style -tabposition {} nw] 0] in {e w}}]
+        set px [expr {$x - [winfo rootx $Book]}]
+        set py [expr {$y - [winfo rooty $Book]}]
+        set index [$Book index $tab]
+        # Find the label edges along both axes using its native hit region.
+        foreach axis {x y} coordinate [list $px $py] limit [list [winfo width $Book] [winfo height $Book]] {
+            foreach side {low high} outside [list -1 $limit] {
+                set inside $coordinate
+                while {abs($outside-$inside) > 1} {
+                    set mid [expr {($outside+$inside)/2}]
+                    set point [expr {$axis eq {x} ? "@$mid,$py" : "@$px,$mid"}]
+                    if {[$Book index $point] eq $index} {
+                        set inside $mid
+                    } else {
+                        set outside $mid
+                    }
+                }
+                set ${axis}${side} $inside
+            }
+        }
+        if {$vertical} {
+            set before [expr {2*$py < $ylow+$yhigh}]
+            set rect [list $xlow [expr {$before ? $ylow : $yhigh-1}] [expr {$xhigh-$xlow+1}] 2]
+        } else {
+            set before [expr {2*$px < $xlow+$xhigh}]
+            set rect [list [expr {$before ? $xlow : $xhigh-1}] $ylow 2 [expr {$yhigh-$ylow+1}]]
+        }
+        return [list $tab [expr {$before ? {-before} : {-after}}] $rect]
+    }
+    method TabOrderMotion {x y} {
+        if {$TabOrder eq {}} {return}
+        if {[grab current $W] ne $Book} {
+            my CancelTabOrder
+            return
+        }
+        if {![dict get $TabOrder active]} {
+            if {max(abs($x-[dict get $TabOrder x]),abs($y-[dict get $TabOrder y])) <\
+                        [dict get $Settings dockopts -threshold]} {
+                return -code break
+            }
+            dict set TabOrder active 1
+        }
+        set marker $Book.orderMarker
+        set target [my TabOrderTarget $x $y]
+        if {$target ne {}} {
+            if {![winfo exists $marker]} {
+                frame $marker -background [dict get $Settings dockopts -color] -takefocus 0
+                bindtags $marker [linsert [bindtags $marker] 0 ${Tag}TabDrag]
+            }
+            lassign [lindex $target 2] px py width height
+            place $marker -x $px -y $py -width $width -height $height
+            raise $marker
+        } elseif {[winfo exists $marker]} {
+            place forget $marker
+        }
+        return -code break
+    }
+    method TabOrderRelease {x y} {
+        if {$TabOrder eq {}} {return}
+        set tab [dict get $TabOrder tab]
+        set active [dict get $TabOrder active]
+        set target {}
+        if {$active && ([grab current $W] eq $Book)} {
+            set target [my TabOrderTarget $x $y]
+        }
+        set click [expr {!$active && ([grab current $W] eq $Book) && ([my TabAt $x $y] eq $tab)}]
+        my CancelTabOrder
+        if {$target ne {}} {
+            lassign $target other side
+            my movetab $tab $side $other
+        } elseif {$click} {
+            $Book select $tab
+        }
+        return -code break
+    }
+    method CancelTabOrder {} {
+        if {![info exists TabOrder] || ($TabOrder eq {})} {
+            return
+        }
+        set TabOrder {}
+        if {[winfo exists $Book]} {
+            if {[grab current $W] eq $Book} {
+                grab release $Book
+            }
+            destroy $Book.orderMarker
+        }
+    }
     method TabDragging {} {
         # The notebook stays mapped when its source grip changes page.
         return [dict exists $Dock origin]
@@ -5603,16 +5868,20 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method TabAt {x y} {
         # Resolve a tab label using theme-aware notebook coordinates.
-        if {$Book eq {}} {return}
+        if {$Book eq {}} {
+            return
+        }
         set px [expr {$x-[winfo rootx $Book]}]
         set py [expr {$y-[winfo rooty $Book]}]
         if {![catch {$Book index @$px,$py} index] && ($index ne {})} {
             return [lindex [$Book tabs] $index]
         }
-        return {}
+        return
     }
     method HoverTab {page} {
-        if {$page eq [dict get $Dock hover]} {return}
+        if {$page eq [dict get $Dock hover]} {
+            return
+        }
         after cancel [dict get $Dock timer]
         dict set Dock timer {}
         dict set Dock hover $page
@@ -5621,7 +5890,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
     }
     method OpenHoverTab {page} {
-        if {![my TabDragging] || ([dict get $Dock hover] ne $page)} {return}
+        if {![my TabDragging] || ([dict get $Dock hover] ne $page)} {
+            return
+        }
         dict set Dock timer {}
         $Book select $page
     }
@@ -6338,6 +6609,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # The target sash position is not committed. Safe without an active gesture.
         #
         # Returns: Nothing.
+        my CancelTabOrder
         if {[info exists LivePress] && ($LivePress ne {})} {
             dict set LivePress cancelled 1
         }

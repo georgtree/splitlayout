@@ -27,6 +27,8 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ container\fP \fIvalue\fP
 .br
+\fBSPLITLAYOUTOBJ deletetab\fP \fItab\fP
+.br
 \fBSPLITLAYOUTOBJ dock\fP \fIfloating ?-left target|-right target|-top target|-bottom target|-before target|-after target|-tab page?\fP
 .br
 \fBSPLITLAYOUTOBJ floating\fP \fI?id?\fP
@@ -48,6 +50,8 @@ splitlayout - Commands in namespace splitlayout
 \fBSPLITLAYOUTOBJ minsize\fP \fIid ?width height?\fP
 .br
 \fBSPLITLAYOUTOBJ move\fP \fIleaf -left|-right|-top|-bottom|-before|-after target | leaf -tab page\fP
+.br
+\fBSPLITLAYOUTOBJ movetab\fP \fItab -before page|-after page\fP
 .br
 \fBSPLITLAYOUTOBJ node\fP \fIpath\fP
 .br
@@ -1206,11 +1210,28 @@ pane with a placeholder\&. addtab title -empty starts with zero leaves\&. Moving
 removing its last pane leaves the page empty and selectable\&. An empty page is a single drop target\&.
 move $leaf -tab $page and dock $floating -tab $page place the incoming pane at its root\&.
 addleaf $page creates a fresh leaf there without changing the selected tab\&.
+.SS "REORDERING TABS"
+.PP
+Use movetab $page -before $other or movetab $page -after $other to reorder the tab strip\&. The
+selected page, pane IDs, and split proportions survive the move\&. To reorder with the mouse, press a tab
+label and drag to either half of another label\&. The insertion line shows where release will place the tab\&.
+Escape or release outside a label cancels\&. A click selects the tab\&.
 .PP
 Hold a dragged header over a tab label briefly to open that page\&. Drop inside it using the ordinary centre,
 edge, outer rim and sash destinations\&. Hovering alone never commits a change\&. Releasing over a label leaves
 both trees intact; Escape restores the starting page\&. The usual movement, boundary and subtree constraints
 apply to both trees before a drop commits\&.
+.SS "DELETING A TAB"
+.PP
+deletetab $page destroys its docked tree and every hidden or individually floating pane whose
+remembered home is that page\&. A pane already moved or redocked into another page belongs to that
+page\&. All affected content frames and split nodes are checked for -nodestroy before deletion\&.
+If any are protected, the command raises a constraint error and the entire tab survives\&.
+.PP
+Open the context menu on a tab label and choose \fBDelete tab\fP to delete that page\&. The menu targets
+the clicked label even when a different tab is selected\&. The entry is disabled if deletion is blocked\&.
+Deleting the last tab leaves a plain, rootless manager\&. Use addleaf to populate it directly, or
+addtab title to start a new notebook\&. The application supplies tab names through addtab\&.
 .SH "INSPECTING THE LAYOUT"
 .PP
 Use logical node identifiers when working with the layout structure, and widget pathnames when working with Tk:
@@ -1342,6 +1363,9 @@ Queries or atomically updates restrictions for one node or floating content\&.
 container
 Returns the geometry container for a managed node\&. The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .TP
+deletetab
+Destroys the page and the docked, hidden and floating content belonging to it\&.
+.TP
 dock
 Returns owned floating content to a new leaf in the docked layout\&. The new docked leaf identifier\&.
 .TP
@@ -1374,6 +1398,9 @@ Gets or sets the minimum content-area dimensions of a leaf or floating window\&.
 .TP
 move
 Moves an existing leaf to an edge or sibling position without destroying its content\&.
+.TP
+movetab
+Reorders one notebook page relative to another, preserving the selection and both trees\&.
 .TP
 node
 Finds the logical node associated with an exact widget pathname\&.
@@ -1793,6 +1820,32 @@ Returns the geometry container for a managed node\&.
 The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
 .PP
 .RS -4n
+\fBdeletetab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Destroys the page and the docked, hidden and floating content belonging to it\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ deletetab\fP \fItab\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+tab
+Page returned by addtab\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+All destruction constraints are checked before any pane is removed\&. Deleting the last
+page returns the manager to a plain layout with zero leaves\&.
+.PP
+\fBReturn value\fR
+.PP
+Nothing\&.
+.PP
+.RS -4n
 \fBdock\fR (::splitlayout::splitlayout)
 .RE
 .PP
@@ -2140,6 +2193,33 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 \fBReturn value\fR
 .PP
 The unchanged source leaf identifier\&. Query parent, children, or tree for the resulting structure\&.
+.PP
+.RS -4n
+\fBmovetab\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Reorders one notebook page relative to another, preserving the selection and both trees\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ movetab\fP \fItab -before page|-after page\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+-after page
+Insert immediately after this page\&.
+.TP
+-before page
+Insert immediately before this page\&.
+.TP
+tab
+Page to move\&.
+.RE
+.PP
+\fBReturn value\fR
+.PP
+The moved page pathname\&.
 .PP
 .RS -4n
 \fBnode\fR (::splitlayout::splitlayout)
