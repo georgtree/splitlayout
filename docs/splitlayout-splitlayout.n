@@ -37,7 +37,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-buttons list? ?-closeaction action?\fP
+\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action?\fP
 .br
 \fBSPLITLAYOUTOBJ hidden\fP \fI?args?\fP
 .br
@@ -67,8 +67,6 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ remove\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ renametab\fP \fItab title\fP
-.br
 \fBSPLITLAYOUTOBJ requiredsize\fP \fIid\fP
 .br
 \fBSPLITLAYOUTOBJ retain\fP \fIid\fP
@@ -85,7 +83,7 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ tabs\fP \fI?args?\fP
 .br
-\fBSPLITLAYOUTOBJ title\fP \fIid ?text?\fP
+\fBSPLITLAYOUTOBJ tabtitle\fP \fItab ?text? Enable help for the command itself\&. In the setter, -help is a literal tab label\&.\fP
 .br
 \fBSPLITLAYOUTOBJ tree\fP \fI?id?\fP
 .br
@@ -210,18 +208,19 @@ $manager minsize $leaf 0 0                   ;# Clear the content-area minimum
 .fi
 .RE
 .PP
-minsize id ?width height? accepts a leaf or an owned floating token\&. Both dimensions must be supplied together
-as nonnegative integer pixels; the default is {0 0}\&. Splits have calculated requirements, not independently
-assignable minima\&. Values belong to content: they follow swaps, moves, the child selected by split -keep, and
-undocking/redocking\&. A newly created leaf starts at {0 0}\&. Removing content removes its stored minimum\&.
+minsize id ?width height? accepts a docked leaf ID, floating token, or hidden frame\&. Both dimensions must be
+supplied together as nonnegative integer pixels; the default is {0 0}\&. Splits have calculated requirements,
+not independently assignable minima\&. Values belong to content: they follow swaps, moves, the child selected by
+split -keep, and undocking/redocking\&. A newly created leaf starts at {0 0}\&. Removing content removes its
+stored minimum\&.
 .PP
-requiredsize id accepts a leaf, split, or floating token and returns {width height}\&. It adds header/button
-space and leaf borders to the content minimum\&. For a horizontal split, child widths and themed sash widths are
-summed and the largest child height is used\&. Vertical splits use the opposite axes\&. Each split's structure
-border and padding are added when enabled\&. Removing, inserting, or moving children updates the calculated
-requirement\&. The query excludes the manager hull's padding/border, native window decorations, and application
-widget requests\&. It works before mapping; sash dimensions come from the active ttk theme without modifying its
-styles\&.
+requiredsize id accepts a leaf, split, floating token, or hidden frame and returns {width height}\&. It adds
+header/button space and leaf borders to the content minimum\&. For a horizontal split, child widths and themed
+sash widths are summed and the largest child height is used\&. Vertical splits use the opposite axes\&. Each
+split's structure border and padding are added when enabled\&. Removing, inserting, or moving children updates
+the calculated requirement\&. The query excludes the manager hull's padding/border, native window decorations,
+and application widget requests\&. It works before mapping; sash dimensions come from the active ttk theme
+without modifying its styles\&.
 .PP
 With explicit minima configured, requested proportions are fitted to available space while respecting child
 requirements\&. Both live and deferred sash gestures stop at the adjacent panes' feasible limits\&. When the parent
@@ -243,9 +242,10 @@ modifications through the exposed native panedwindow command bypass the manager 
 application\&.
 .SH "PER-NODE CONSTRAINTS"
 .PP
-Use constraints id to query explicit settings, constraints id option to query one value, and constraints
-id option value \&.\&.\&. to change several settings atomically\&. A floating token is accepted for content
-flags\&. Constraints are independent between manager instances, including nested managers\&.
+Use constraints id to query settings including defaults, constraints id option to query one value, and
+constraints id option value \&.\&.\&. to change several settings atomically\&. Floating tokens and hidden frame
+pathnames are accepted for content flags\&. Constraints are independent between manager instances, including
+nested managers\&.
 .PP
 .RS 4n
 .nf
@@ -283,9 +283,9 @@ $manager constraints $output -noresize true
 .RE
 .SS "WHAT FOLLOWS A PANE DURING SWAP AND MOVE"
 .PP
-swap a b exchanges the two content frames\&. The leaf IDs stay in their original positions\&.
-move leaf \&.\&.\&. relocates the source leaf with its ID and frame\&. Both commands preserve the
-application widgets inside each surviving frame\&.
+swap a b exchanges the two content frames\&. The leaf IDs stay in their original positions\&.  move leaf \&.\&.\&.
+relocates the source leaf with its ID and frame\&. Both commands preserve the application widgets inside each
+surviving frame\&.
 .PP
 .RS 4n
 .nf
@@ -301,8 +301,8 @@ application widgets inside each surviving frame\&.
 │ -minleaves, -maxleaves, -maxdepth         │ Stay on the logical node,         │ Travel with the source leaf ID\&.      │
 │                                           │ including when set on a leaf\&.     │ Affected subtrees must satisfy their │
 │                                           │                                   │ limits\&.                              │
-│ title, minsize, and per-content header    │ Follow the content frame to the   │ Travel with the source frame,        │
-│ options                                   │ other leaf\&.                       │ including across notebook pages\&.     │
+│ minsize and per-content header options    │ Follow the content frame to the   │ Travel with the source frame,        │
+│ (including -title)                        │ other leaf\&.                       │ including across notebook pages\&.     │
 │ Manager defaults and appearance (e\&.g\&.     │ Apply throughout the manager\&.     │ Apply throughout the manager\&.        │
 │ -headerbuttons, -closeaction,             │                                   │                                      │
 │ -titlealign)                              │                                   │                                      │
@@ -736,6 +736,25 @@ default\&. Dictionary updates are validated atomically and retain unspecified ke
 gestures and preserve content, titles, and logical split proportions\&.  Floating borders temporarily use the
 content frame's background as their base color; the prior background is restored when the border is disabled or
 the window is docked\&.
+.SS "ADDRESSING PANE CONTENT"
+.PP
+Pane settings belong to the retained content frame\&. The identifier passed to a command depends on the
+pane's current state\&.
+.PP
+.RS 4n
+.nf
+┌────────────┬──────────────────────────────────────────────────────────────────────┐
+│ Pane state │ Identifier for frame, header, constraints, minsize, and requiredsize │
+├────────────┼──────────────────────────────────────────────────────────────────────┤
+│ Docked     │ Leaf ID\&. Use node $frame to find it from the content frame pathname\&. │
+│ Floating   │ Token returned by undock or listed by floating\&.                      │
+│ Hidden     │ Content frame pathname returned by hide or listed by hidden\&.         │
+└────────────┴──────────────────────────────────────────────────────────────────────┘
+.fi
+.RE
+.PP
+A split ID also works with constraints and requiredsize\&. Use the page pathname returned by addtab
+for tab commands such as tabtitle\&.
 .SS "HEADER APPEARANCE AND TITLES"
 .PP
 The title and empty header area accept dragging; the action buttons do not\&. Header colors and title font follow
@@ -744,9 +763,9 @@ ttk theme defaults\&. Header relief and thickness are global properties; they do
 .RS 4n
 .nf
 $manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
-$manager title $leaf "Waveforms"
-set heading [$manager title $leaf]
-$manager title $leaf "" ;# Remove the heading\&.
+$manager header $leaf -title "Waveforms"
+set heading [$manager header $leaf -title]
+$manager header $leaf -title "" ;# Remove the heading\&.
 .fi
 .RE
 .PP
@@ -754,11 +773,12 @@ $manager title $leaf "" ;# Remove the heading\&.
 -headerborderwidth is a nonnegative integer pixel count (default 1)\&. A zero-width border is invisible\&.
 Changing either property cancels an active drag and applies to existing docked and floating headers\&.
 .PP
-title id ?text? accepts a leaf or floating token\&. Titles belong to content, so they survive swaps, moves,
-retained-content splits, docking, and undocking; removing content removes its title\&. Titles default to empty\&.
-They are independent of the native floating title set by undock -title\&. Display uses one line, replacing
-line breaks with spaces and shortening long headings with an ellipsis\&. The getter returns the original text\&.
-Centering reserves equal space at both ends for either button alignment, keeping the title clear of buttons\&.
+header id -title ?text? accepts a docked leaf ID, floating token, or hidden frame\&. Titles default to empty
+and follow their content through swaps, moves, retained-content splits, docking, and undocking\&. They are
+independent of the native floating title set by undock -title\&. Display uses one line, replacing line breaks
+with spaces and shortening long headings with an ellipsis\&. The getter returns the original text, including a
+literal inherit\&. A setter returns the full header settings dictionary\&.  Centering reserves equal space at
+both ends for either button alignment, keeping the title clear of buttons\&.
 .SS "TITLE ALIGNMENT AND CUSTOM BUTTON IMAGES"
 .PP
 -titlealign left|center|right defaults to center and is independent of -buttonside\&. Left and right titles
@@ -782,7 +802,7 @@ $manager header $leaf -buttons inherit      ;# Use the manager's button selectio
 An omitted button occupies no space and has no tooltip or keyboard focus\&. Hiding the dock button still permits
 drag-to-undock or an explicit undock command when constraints allow it\&. A visible button is disabled whenever
 its operation is prohibited\&. For example, -nohide disables a cross configured to hide, while -closeaction
-none disables the cross regardless of constraints\&. Use inherit for either per-content option to resume
+none disables the cross regardless of constraints\&. Use inherit for -buttons or -closeaction to resume
 following its manager default\&. Overrides survive hide/show and undock/dock\&.
 .PP
 -buttonimages accepts dock, undock, delete, lock, and unlock for pane headers, and
@@ -1273,8 +1293,9 @@ reserves the dimensions of the corresponding close image\&. Choose an add image 
 .PP
 Double-click the tab title to edit it in place\&. Return or a click elsewhere commits the text\&. Escape
 cancels\&. Use edittab $page to open the same editor from application code\&. Set -tabrename false to disable
-interactive editing and discard an open edit\&. The application can always set a title with renametab $page
-$title\&. Changing the title preserves the page pathname and its content\&.
+interactive editing and discard an open edit\&. Use tabtitle $page to read the committed label or
+tabtitle $page $text to set it, even when interactive editing is disabled\&. An empty string clears the label\&.
+Changing the title preserves the page pathname and its content\&.
 .SS "DELETING A TAB"
 .PP
 deletetab $page destroys its docked tree and every hidden or individually floating pane whose remembered home
@@ -1419,7 +1440,7 @@ clear
 Clears the selected page, retaining floating content\&. Pages created with -empty return to zero leaves\&.
 .TP
 constraints
-Queries or atomically updates restrictions for one node or floating content\&.
+Queries or atomically updates restrictions for a node, floating token, or hidden frame\&.
 .TP
 container
 Returns the geometry container for a managed node\&. The hull, parent panedwindow, or enclosing leaf/split wrapper as appropriate\&.
@@ -1437,7 +1458,7 @@ floating
 Lists floating content or describes one floating window owned by this manager\&.
 .TP
 frame
-Returns the retained content frame of a docked leaf or floating window\&. The content frame pathname, unchanged across docking transitions\&.
+Returns the retained content frame of a docked, floating, or hidden pane\&. The content frame pathname, unchanged across docking transitions\&.
 .TP
 header
 Queries or updates the header settings belonging to a content frame\&.
@@ -1458,7 +1479,7 @@ locate
 Finds the leaf containing an application widget\&.
 .TP
 minsize
-Gets or sets the minimum content-area dimensions of a leaf or floating window\&.
+Gets or sets the minimum content-area dimensions of a docked, floating, or hidden pane\&.
 .TP
 move
 Moves an existing leaf to an edge or sibling position without destroying its content\&.
@@ -1484,9 +1505,6 @@ Queries or sets the first pane fraction of a two-child split\&.
 remove
 Removes a docked subtree or destroys owned floating content\&.
 .TP
-renametab
-Changes a tab title without changing its page or selection\&.
-.TP
 requiredsize
 Calculates a node's minimum outer size, including manager-owned decoration\&.
 .TP
@@ -1511,8 +1529,8 @@ Exchanges the content frames assigned to two leaves\&.
 tabs
 Lists tab pathnames in notebook order\&. Empty for a plain layout\&.
 .TP
-title
-Gets or sets the optional header title belonging to managed content\&.
+tabtitle
+Queries or sets a notebook tab label\&.
 .TP
 tree
 Returns a recursive snapshot of the logical layout hierarchy\&. A nested dictionary describing the requested logical subtree, or empty for a rootless page\&.
@@ -1852,7 +1870,7 @@ The new root leaf identifier, or empty for a page created with -empty\&.
 \fBconstraints\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Queries or atomically updates restrictions for one node or floating content\&.
+Queries or atomically updates restrictions for a node, floating token, or hidden frame\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ constraints\fP \fIid ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean? ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count? ?-maxleaves count? ?-maxdepth depth?\fP
 .br
@@ -1862,7 +1880,7 @@ Queries or atomically updates restrictions for one node or floating content\&.
 .RS 4n
 .TP
 id
-Leaf, split, or owned floating token\&.
+Leaf ID, split ID, floating token, or hidden frame\&.
 .TP
 option
 Optional single constraint name to query, or option/value pairs to update\&.
@@ -1870,14 +1888,14 @@ Optional single constraint name to query, or option/value pairs to update\&.
 .PP
 \fBDescription\fR
 .PP
-Leaf flags follow content; split flags and subtree limits belong to node identity\&.
-Movement flags and locked are leaf/floating-only\&. Floating content has no assignable
-subtree limits\&. Queries show explicit settings, not restrictions inherited from descendants\&.
-Locked protects selected incoming placement edges and sets both movement flags\&.
+Leaf flags follow content; split flags and subtree limits belong to node identity\&. Movement flags and locked
+apply to content\&. Floating and hidden panes have no assignable subtree limits\&. Queries include defaults and
+settings for this identifier\&. Protected descendants can also block deletion\&. Locked protects selected
+incoming placement edges and sets both movement flags\&.
 .PP
 \fBReturn value\fR
 .PP
-One queried value, or the complete explicit settings dictionary\&.
+One queried value, or the settings dictionary for this identifier, including defaults\&.
 .PP
 .RS -4n
 \fBcontainer\fR (::splitlayout::splitlayout)
@@ -2041,7 +2059,7 @@ A list of floating tokens, or a dictionary describing one floating window\&.
 \fBframe\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Returns the retained content frame of a docked leaf or floating window\&.
+Returns the retained content frame of a docked, floating, or hidden pane\&.
 The content frame pathname, unchanged across docking transitions\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
@@ -2052,7 +2070,7 @@ The content frame pathname, unchanged across docking transitions\&.
 .RS 4n
 .TP
 id
-Existing leaf identifier or floating token\&.
+Docked leaf ID, floating token, or hidden frame\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2061,7 +2079,7 @@ Raises an error if the node is unknown or is a split\&.
 .PP
 \fBReturn value\fR
 .PP
-Returns the retained content frame of a docked leaf or floating window\&.
+Returns the retained content frame of a docked, floating, or hidden pane\&.
 The content frame pathname, unchanged across docking transitions\&.
 .PP
 .RS -4n
@@ -2070,7 +2088,7 @@ The content frame pathname, unchanged across docking transitions\&.
 .PP
 Queries or updates the header settings belonging to a content frame\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-buttons list? ?-closeaction action?\fP
+\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action?\fP
 .br
 .RE
 .PP
@@ -2083,11 +2101,14 @@ Visible buttons from lock, dock and close\&. Empty hides all\&. Use inherit for 
 -closeaction action
 Action for the close button: destroy, hide, none or inherit\&.
 .TP
+-title text
+Literal heading; an empty string clears it\&.
+.TP
 id
 Docked leaf, floating token or hidden frame\&.
 .TP
 option
-Single option to query\&. Omit to return both effective settings\&.
+Single option to query\&. Omit to return the effective settings dictionary\&.
 .RE
 .PP
 \fBReturn value\fR
@@ -2126,7 +2147,7 @@ Unmaps a leaf or floating window and retains its application widgets\&.
 .RS 4n
 .TP
 id
-Docked leaf identifier or floating token\&.
+Docked leaf ID, floating token, or already hidden frame\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2221,7 +2242,7 @@ The containing leaf identifier, or empty for a missing or unrelated widget\&.
 \fBminsize\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Gets or sets the minimum content-area dimensions of a leaf or floating window\&.
+Gets or sets the minimum content-area dimensions of a docked, floating, or hidden pane\&.
 .RS 4n
 \fBSPLITLAYOUTOBJ minsize\fP \fIid ?width height?\fP
 .br
@@ -2234,7 +2255,7 @@ height
 Optional nonnegative integer minimum content height; must accompany width\&.
 .TP
 id
-Leaf identifier or owned floating token; splits cannot own content minima\&.
+Docked leaf ID, floating token, or hidden frame; splits cannot own content minima\&.
 .TP
 width
 Optional nonnegative integer minimum content width in pixels\&.
@@ -2482,7 +2503,7 @@ Removes a docked subtree or destroys owned floating content\&.
 .RS 4n
 .TP
 id
-Existing node identifier or floating token to remove\&.
+Docked node ID, floating token, or hidden frame to remove\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2494,30 +2515,6 @@ weights\&. If only one child remains, that child replaces the parent split\&. Su
 .PP
 The surviving parent split, its promoted child, or new root\&. Empty when no root remains or
 when removing floating content\&.
-.PP
-.RS -4n
-\fBrenametab\fR (::splitlayout::splitlayout)
-.RE
-.PP
-Changes a tab title without changing its page or selection\&.
-.RS 4n
-\fBSPLITLAYOUTOBJ renametab\fP \fItab title\fP
-.br
-.RE
-.PP
-\fBParameters\fR
-.RS 4n
-.TP
-tab
-Page returned by addtab\&.
-.TP
-title
-New tab label\&.
-.RE
-.PP
-\fBReturn value\fR
-.PP
-The page pathname\&.
 .PP
 .RS -4n
 \fBrequiredsize\fR (::splitlayout::splitlayout)
@@ -2533,7 +2530,7 @@ Calculates a node's minimum outer size, including manager-owned decoration\&.
 .RS 4n
 .TP
 id
-Leaf, split, or owned floating token\&.
+Leaf ID, split ID, floating token, or hidden frame\&.
 .RE
 .PP
 \fBDescription\fR
@@ -2722,34 +2719,28 @@ Lists tab pathnames in notebook order\&. Empty for a plain layout\&.
 List of tab pathnames\&.
 .PP
 .RS -4n
-\fBtitle\fR (::splitlayout::splitlayout)
+\fBtabtitle\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Gets or sets the optional header title belonging to managed content\&.
+Queries or sets a notebook tab label\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ title\fP \fIid ?text?\fP
+\fBSPLITLAYOUTOBJ tabtitle\fP \fItab ?text? Enable help for the command itself\&. In the setter, -help is a literal tab label\&.\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
 .TP
-id
-Docked leaf identifier or owned floating token\&.
+tab
+Page returned by addtab\&.
 .TP
 text
-Optional title; an empty string removes the heading\&.
+New label, including empty\&. Omit to read the current label\&.
 .RE
-.PP
-\fBDescription\fR
-.PP
-Titles follow content through swaps, moves, splitting with retained content, and floating transitions\&.
-They do not change the native window title set by undock -title\&. Rendering uses one line and truncates
-long headings to keep the buttons unobscured; the stored string is returned unchanged\&.
 .PP
 \fBReturn value\fR
 .PP
-The current title string\&.
+The current tab label\&.
 .PP
 .RS -4n
 \fBtree\fR (::splitlayout::splitlayout)

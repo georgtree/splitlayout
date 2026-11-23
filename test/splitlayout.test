@@ -2396,7 +2396,7 @@ foreach side {left right} {
         set m [::sltest::setup]
         $m configure -draghandles true -buttonside $side
         set leaf [$m root]
-        $m title $leaf Heading
+        $m header $leaf -title Heading
         set frame [$m frame $leaf]
         ttk::entry $frame.entry
         grid $frame.entry -sticky nsew
@@ -2452,21 +2452,21 @@ test splitlayout-heading-21.1 {titles follow content through swap split move and
     set fa [$m frame $a]
     set fb [$m frame $b]
 } -body {
-    $m title $a Alpha
-    $m title $b Beta
+    $m header $a -title Alpha
+    $m header $b -title Beta
     $m swap $a $b
-    set swapped [list [$m title $a] [$m title $b]]
+    set swapped [list [$m header $a -title] [$m header $b -title]]
     lassign [$m split $b -orient vertical -keep first] ba bb
-    set splitTitles [list [$m title $ba] [$m title $bb]]
+    set splitTitles [list [$m header $ba -title] [$m header $bb -title]]
     $m move $ba -right $a
     set token [$m undock $ba -title {Native title}]
-    set floatingTitle [$m title $token]
-    $m title $token {Edited while floating}
+    set floatingTitle [$m header $token -title]
+    $m header $token -title {Edited while floating}
     set nativeTitle [wm title $fa]
     set leaf [$m dock $token]
     update
     set grip [::sltest::grip $m $leaf]
-    list $swapped $splitTitles $floatingTitle $nativeTitle [$m title $leaf]\
+    list $swapped $splitTitles $floatingTitle $nativeTitle [$m header $leaf -title]\
             [expr {[$m frame $leaf] eq $fa && [$grip itemcget heading -text] ne {}}] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {{Beta Alpha} {Alpha {}} Alpha {Native title} {Edited while floating} 1 1}
 
@@ -2478,7 +2478,7 @@ test splitlayout-heading-21.2 {long titles are visually truncated and clearing o
     set frame [$m frame $leaf]
     set original [string repeat {Long heading } 100]
 } -body {
-    $m title $leaf $original
+    $m header $leaf -title $original
     set token [$m undock $leaf -geometry 180x200+60+60]
     ::sltest::settle $frame
     set grip [::sltest::floatgrip $m $token]
@@ -2486,13 +2486,13 @@ test splitlayout-heading-21.2 {long titles are visually truncated and clearing o
     lassign [$grip bbox heading] x1 y1 x2 y2
     set clipped [expr {$rendered ne $original && [string index $rendered end] eq {…} &&\
                                $x1 >= 45 && $x2 <= [winfo width $grip]-45}]
-    set stored [expr {[$m title $token] eq $original}]
-    $m title $token {}
-    set empty [expr {[$grip find withtag heading] eq {} && [$m title $token] eq {}}]
-    $m title $token Again
+    set stored [expr {[$m header $token -title] eq $original}]
+    $m header $token -title {}
+    set empty [expr {[$grip find withtag heading] eq {} && [$m header $token -title] eq {}}]
+    $m header $token -title Again
     destroy $frame
     update
-    list $clipped $stored $empty [set [info object namespace $m]::Titles]
+    list $clipped $stored $empty [set [info object namespace $m]::HeaderOptions]
 } -cleanup {::sltest::cleanup} -result {1 1 1 {}}
 
 foreach relief {flat raised sunken ridge groove solid} {
@@ -2500,7 +2500,7 @@ foreach relief {flat raised sunken ridge groove solid} {
             -setup {
         lassign [::sltest::docksetup] m root a b
         set frame [$m frame $a]
-        $m title $a Title
+        $m header $a -title Title
         set token [$m undock $a -geometry 320x240+60+60]
         ::sltest::settle $frame
     } -body {
@@ -2522,23 +2522,23 @@ test splitlayout-heading-21.4 {header options validate and title setter accepts 
     set defaults [list [$m configure -headerrelief] [$m configure -headerborderwidth] [$m configure -tooltips]]
     set errors [list [catch {$m configure -headerrelief invalid}] [catch {$m configure -headerborderwidth -1}]\
                         [catch {$m configure -headerborderwidth 1.5}] [catch {$m configure -tooltips maybe}]\
-                        [catch {$m title missing x}] [catch {$m title $leaf a b}]]
-    $m title $leaf {line one
+                        [catch {$m header missing -title x}] [catch {$m header $leaf -title a b}]]
+    $m header $leaf -title {line one
 line two}
-    set preserved [expr {[$m title $leaf] eq "line one\nline two"}]
-    list $defaults $errors $preserved [$m title $leaf {}]
+    set preserved [expr {[$m header $leaf -title] eq "line one\nline two"}]
+    list $defaults $errors $preserved [dict get [$m header $leaf -title {}] -title]
 } -cleanup {::sltest::cleanup} -result {{flat 1 1} {1 1 1 1 1 1} 1 {}}
 
 test splitlayout-heading-21.5 {title area participates in dragging and changing header geometry cancels gestures}\
         -setup {
     lassign [::sltest::docksetup] m root a b
-    $m title $a Alpha
-    $m title $b Beta
+    $m header $a -title Alpha
+    $m header $b -title Beta
     ::sltest::settle $m
 } -body {
     set grip [::sltest::dockstart $m $a [::sltest::point [$m widget $b]]]
     ::sltest::dockevent $grip <ButtonRelease-1> [::sltest::point [$m widget $b]]
-    set swapped [list [$m title $a] [$m title $b]]
+    set swapped [list [$m header $a -title] [$m header $b -title]]
     ::sltest::dockstart $m $a [::sltest::point [$m widget $b]]
     $m configure -headerborderwidth 2
     list $swapped [::sltest::dockstate $m] [grab current $m]
@@ -2582,8 +2582,8 @@ test splitlayout-tooltip-21.7 {unavailable tooltip package is optional and has n
         set ns [info object namespace $m]
         set result [list [$m configure -tooltips] [set ${ns}::TooltipReady]\
                             [llength [info commands ::tooltip::tooltip]] [llength [info commands .m.tip*]]]
-        $m title [$m root] StillWorking
-        lappend result [$m title [$m root]]
+        $m header [$m root] -title StillWorking
+        lappend result [$m header [$m root] -title]
         $m destroy
         set result
     }
@@ -2591,14 +2591,14 @@ test splitlayout-tooltip-21.7 {unavailable tooltip package is optional and has n
 
 test splitlayout-heading-21.8 {a titled root placeholder is retained when floating content returns} -setup {
     set m [::sltest::setup]
-    $m title [$m root] Original
+    $m header [$m root] -title Original
 } -body {
     set token [$m undock [$m root]]
     set placeholder [$m root]
-    $m title $placeholder Replacement
+    $m header $placeholder -title Replacement
     set restored [$m dock $token]
     update
-    list [llength [$m leaves]] [lmap leaf [$m leaves] {$m title $leaf}] [::sltest::check $m]
+    list [llength [$m leaves]] [lmap leaf [$m leaves] {$m header $leaf -title}] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {2 {Replacement Original} 1}
 
 foreach side {left right} {
@@ -2631,8 +2631,8 @@ foreach side {left right} {
                 {title alignment stays clear of buttons in docked and floating headers} -setup {
             lassign [::sltest::docksetup] m root a b
             $m configure -buttonside $side -titlealign $align
-            $m title $a {Floating title}
-            $m title $b {Docked title}
+            $m header $a -title {Floating title}
+            $m header $b -title {Docked title}
             set token [$m undock $a -geometry 320x240+60+60]
             ::sltest::settle [$m frame $token]
             ::sltest::settle $m
@@ -2661,14 +2661,14 @@ test splitlayout-titlealign-23.2 {alignment validates and can change without alt
     set m [::sltest::setup]
     set leaf [$m root]
     set frame [$m frame $leaf]
-    $m title $leaf {Retained title}
+    $m header $leaf -title {Retained title}
 } -body {
     set default [$m configure -titlealign]
     set invalid [catch {$m configure -titlealign invalid}]
     $m configure -titlealign right -draghandles true
     ::sltest::settle $m
     set grip [::sltest::grip $m $leaf]
-    list $default $invalid [$grip itemcget heading -anchor] [$m title $leaf] [expr {[$m frame $leaf] eq $frame}]
+    list $default $invalid [$grip itemcget heading -anchor] [$m header $leaf -title] [expr {[$m frame $leaf] eq $frame}]
 } -cleanup {::sltest::cleanup} -result {center 1 e {Retained title} 1}
 
 test splitlayout-buttonimages-23.3 {PNG and SVG photo overrides size buttons and remain application-owned} -setup {
@@ -2976,7 +2976,7 @@ test splitlayout-leafborder-25.4 {floating gridded content survives live border 
 test splitlayout-sharedborder-26.1 {one-pixel shared outline has no nested header border and toggles back} -setup {
     lassign [::sltest::docksetup] m root a b
     $m configure -leafborder true -leafborderwidth 1 -headerborderwidth 1 -headerrelief solid
-    $m title $a Title
+    $m header $a -title Title
     update
 } -body {
     set g [::sltest::grip $m $a]
@@ -5137,7 +5137,8 @@ foreach {method phrase} {
     constraints {Query or atomically update node restrictions}
     minsize {Query or set content minimum size}
     requiredsize {Return minimum outer width and height}
-    title {Query or set the title of managed content}
+    header {Query or configure a content header}
+    tabtitle {Query or set the title of a notebook page}
     undock {Move managed leaf content into a floating window}
     dock {Dock owned floating content}
     split {Turn a leaf into a two-child split}
@@ -5523,7 +5524,7 @@ test splitlayout-header-43.2 {invalid updates are atomic and closeaction is abse
 test splitlayout-header-43.3 {omitted buttons reserve no space and stay absent on floating and restored content} -setup {
     set m [::sltest::setup -draghandles true]
     set leaf [$m root]
-    $m title $leaf Traces
+    $m header $leaf -title Traces
     set width [lindex [$m requiredsize $leaf] 0]
     $m header $leaf -buttons {}
 } -body {
@@ -5536,7 +5537,7 @@ test splitlayout-header-43.3 {omitted buttons reserve no space and stay absent o
     set leaf [$m show $hidden]
     $m constraints $leaf -noundock 1
     set g [::sltest::grip $m $leaf]
-    lappend result [$g.toggle instate disabled] [winfo exists $g.delete] [$m title $leaf]
+    lappend result [$g.toggle instate disabled] [winfo exists $g.delete] [$m header $leaf -title]
 } -cleanup {::sltest::cleanup} -result {0 0 0 1 1 0 Traces}
 
 test splitlayout-taborder-44.1 {relative movement in both directions preserves selection and content} -setup {
@@ -5756,21 +5757,21 @@ test splitlayout-tabrename-46.1 {edit, cancel, commit on click and disable inlin
     $e insert 0 {New name}
     ::sltest::await {[focus] eq $e} {entry focus}
     event generate $e <Return>
-    set result [list [$book tab $b -text] [expr {[$m selecttab] eq $a}]]
+    set result [list [$m tabtitle $b] [expr {[$m selecttab] eq $a}]]
     set e [$m edittab $b]
     $e insert end { discarded}
     ::sltest::await {[focus] eq $e} {entry focus}
     event generate $e <Escape>
-    lappend result [$book tab $b -text]
+    lappend result [$m tabtitle $b]
     set e [$m edittab $b]
     $e insert end { committed}
     event generate $a <ButtonPress-1>
-    lappend result [$book tab $b -text]
+    lappend result [$m tabtitle $b]
     set e [$m edittab $a]
     $m configure -tabrename false
     lappend result [winfo exists $e] [catch {$m edittab $a}]
-    $m renametab $a {Manual title}
-    lappend result [$book tab $a -text]
+    $m tabtitle $a {Manual title}
+    lappend result [$m tabtitle $a]
 } -cleanup {::sltest::cleanup} -result {{New name} 1 {New name} {New name committed} 0 1 {Manual title}}
 
 test splitlayout-tabrename-46.2 {a double-click on the title respects the interactive option} -setup {
@@ -5809,10 +5810,10 @@ test splitlayout-tabadd-47.1 {default action fills gaps, selects empty pages and
     set a [$plus invoke]
     set book [winfo parent $a]
     set b [$plus invoke]
-    set result [list [$book tab $a -text] [$book tab $b -text] [$m root $b] [expr {[$m selecttab] eq $b}]]
-    $m renametab $a Custom
+    set result [list [$m tabtitle $a] [$m tabtitle $b] [$m root $b] [expr {[$m selecttab] eq $b}]]
+    $m tabtitle $a Custom
     set c [$plus invoke]
-    lappend result [$book tab $c -text]
+    lappend result [$m tabtitle $c]
     foreach page [$m tabs] {$m deletetab $page}
     update idletasks
     lappend result [$m tabs] [winfo ismapped $plus]
@@ -5849,7 +5850,7 @@ test splitlayout-tabadd-47.3 {button follows the last tab after renaming, reorde
     set result {}
     foreach action {normal rename move resize} {
         switch $action {
-            rename {$m renametab $b {A substantially longer title}}
+            rename {$m tabtitle $b {A substantially longer title}}
             move {$m movetab $a -after $b}
             resize {wm geometry .sltest 200x180}
         }
@@ -6073,14 +6074,14 @@ test splitlayout-tabs-48.7 {background title and button edits leave the selected
     set m [::sltest::setup -draghandles true]
     set visible [$m addtab Visible]
     set leaf [$m root $visible]
-    $m title $leaf Reference
+    $m header $leaf -title Reference
     set grip [::sltest::grip $m $leaf]
     set other [$m addtab Other]
     set background [$m root $other]
     ::sltest::settle $grip
 } -body {
     set item [$grip find withtag heading]
-    $m title $background Changed
+    $m header $background -title Changed
     $m header $background -buttons {close} -closeaction hide
     update idletasks
     set preserved [expr {[llength $item] == 1 && [$grip find withtag heading] eq $item}]
@@ -6113,6 +6114,35 @@ foreach operation {move dock} {
                 [expr {$after eq $before}]
     } -cleanup {::sltest::cleanup} -result {1 1 1 1}
 }
+
+test splitlayout-header-49.1 {literal titles, atomic updates and the hidden content identifier} -setup {
+    set m [::sltest::setup]
+    set id [$m root]
+} -body {
+    set settings [$m header $id -title inherit -buttons {close} -closeaction hide]
+    set invalid [catch {$m header $id -title Replaced -buttons {invalid}}]
+    set same [expr {[$m header $id] eq $settings}]
+    set unknown [catch {$m header $id -bogus} message]
+    set hidden [$m hide $id]
+    set changed [$m header $hidden -title -help -buttons inherit]
+    set id [$m show $hidden]
+    list [dict get $settings -title] $invalid $same $unknown $message [dict get $changed -buttons]\
+            [$m header $id -title] [dict get [$m header $id -title {}] -title]
+} -cleanup {::sltest::cleanup} -result {inherit 1 1 1 {unknown header option '-bogus': expected -title, -buttons or -closeaction} {lock dock close} -help {}}
+
+test splitlayout-tabtitle-49.2 {query reads the committed label and setter supersedes an open edit} -setup {
+    set m [::sltest::setup]
+    set a [$m addtab Alpha]
+    set b [$m addtab Beta]
+    ::sltest::settle $m
+} -body {
+    set e [$m edittab $b]
+    $e insert end { draft}
+    set before [$m tabtitle $b]
+    set open [winfo exists $e]
+    set after [$m tabtitle $b -help]
+    list $before $open $after [winfo exists $e] [$m tabtitle $b {}] [$m tabtitle $b] [expr {[$m selecttab] eq $a}]
+} -cleanup {::sltest::cleanup} -result {Beta 1 -help 0 {} {} 1}
 
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update

@@ -364,18 +364,19 @@ namespace eval ::splitlayout {
         $manager minsize $leaf 0 0                   ;# Clear the content-area minimum
         ```
 
-        `minsize id ?width height?` accepts a leaf or an owned floating token. Both dimensions must be supplied together
-        as nonnegative integer pixels; the default is `{0 0}`. Splits have calculated requirements, not independently
-        assignable minima. Values belong to content: they follow swaps, moves, the child selected by `split -keep`, and
-        undocking/redocking. A newly created leaf starts at `{0 0}`. Removing content removes its stored minimum.
+        `minsize id ?width height?` accepts a docked leaf ID, floating token, or hidden frame. Both dimensions must be
+        supplied together as nonnegative integer pixels; the default is `{0 0}`. Splits have calculated requirements,
+        not independently assignable minima. Values belong to content: they follow swaps, moves, the child selected by
+        `split -keep`, and undocking/redocking. A newly created leaf starts at `{0 0}`. Removing content removes its
+        stored minimum.
 
-        `requiredsize id` accepts a leaf, split, or floating token and returns `{width height}`. It adds header/button
-        space and leaf borders to the content minimum. For a horizontal split, child widths and themed sash widths are
-        summed and the largest child height is used. Vertical splits use the opposite axes. Each split's structure
-        border and padding are added when enabled. Removing, inserting, or moving children updates the calculated
-        requirement. The query excludes the manager hull's padding/border, native window decorations, and application
-        widget requests. It works before mapping; sash dimensions come from the active ttk theme without modifying its
-        styles.
+        `requiredsize id` accepts a leaf, split, floating token, or hidden frame and returns `{width height}`. It adds
+        header/button space and leaf borders to the content minimum. For a horizontal split, child widths and themed
+        sash widths are summed and the largest child height is used. Vertical splits use the opposite axes. Each
+        split's structure border and padding are added when enabled. Removing, inserting, or moving children updates
+        the calculated requirement. The query excludes the manager hull's padding/border, native window decorations,
+        and application widget requests. It works before mapping; sash dimensions come from the active ttk theme
+        without modifying its styles.
 
         With explicit minima configured, requested proportions are fitted to available space while respecting child
         requirements. Both live and deferred sash gestures stop at the adjacent panes' feasible limits. When the parent
@@ -397,9 +398,10 @@ namespace eval ::splitlayout {
         application.
 
         ## Per-node constraints
-        Use `constraints id` to query explicit settings, `constraints id option` to query one value, and `constraints
-        id option value ...` to change several settings atomically. A floating token is accepted for content
-        flags. Constraints are independent between manager instances, including nested managers.
+        Use `constraints id` to query settings including defaults, `constraints id option` to query one value, and
+        `constraints id option value ...` to change several settings atomically. Floating tokens and hidden frame
+        pathnames are accepted for content flags. Constraints are independent between manager instances, including
+        nested managers.
 
         ```tcl
         lassign [$manager split [$manager root]] editor output
@@ -423,9 +425,9 @@ namespace eval ::splitlayout {
         | `-maxdepth`    | -1                        | Docked node                 | Maximum depth below the node; -1 means unlimited.                      |
 
         ### What follows a pane during swap and move
-        `swap a b` exchanges the two content frames. The leaf IDs stay in their original positions.
-        `move leaf ...` relocates the source leaf with its ID and frame. Both commands preserve the
-        application widgets inside each surviving frame.
+        `swap a b` exchanges the two content frames. The leaf IDs stay in their original positions.  `move leaf ...`
+        relocates the source leaf with its ID and frame. Both commands preserve the application widgets inside each
+        surviving frame.
 
         | Setting                                                                                | During a swap                                                             | During a move                                                                |
         |----------------------------------------------------------------------------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------|
@@ -433,7 +435,7 @@ namespace eval ::splitlayout {
         | `-nodestroy`, `-noresize` on a leaf                                                    | Follow the content frame to the other leaf.                               | Travel with the source frame.                                                |
         | `-nodestroy`, `-noresize` on a split                                                   | Stay on that split.                                                       | Stay on that split while it exists.                                          |
         | `-minleaves`, `-maxleaves`, `-maxdepth`                                                | Stay on the logical node, including when set on a leaf.                   | Travel with the source leaf ID. Affected subtrees must satisfy their limits. |
-        | `title`, `minsize`, and per-content `header` options                                   | Follow the content frame to the other leaf.                               | Travel with the source frame, including across notebook pages.               |
+        | `minsize` and per-content `header` options (including `-title`)                                   | Follow the content frame to the other leaf.                               | Travel with the source frame, including across notebook pages.               |
         | Manager defaults and appearance (e.g. `-headerbuttons`, `-closeaction`, `-titlealign`) | Apply throughout the manager.                                             | Apply throughout the manager.                                                |
 
         ### Movement and locked content
@@ -818,25 +820,39 @@ namespace eval ::splitlayout {
         content frame's background as their base color; the prior background is restored when the border is disabled or
         the window is docked.
 
+        ### Addressing pane content
+        Pane settings belong to the retained content frame. The identifier passed to a command depends on the
+        pane's current state.
+
+        | Pane state | Identifier for `frame`, `header`, `constraints`, `minsize`, and `requiredsize` |
+        |------------|--------------------------------------------------------------------------------|
+        | Docked     | Leaf ID. Use `node $frame` to find it from the content frame pathname.         |
+        | Floating   | Token returned by `undock` or listed by `floating`.                            |
+        | Hidden     | Content frame pathname returned by `hide` or listed by `hidden`.               |
+
+        A split ID also works with `constraints` and `requiredsize`. Use the page pathname returned by `addtab`
+        for tab commands such as `tabtitle`.
+
         ### Header appearance and titles
         The title and empty header area accept dragging; the action buttons do not. Header colors and title font follow
         ttk theme defaults. Header relief and thickness are global properties; they do not override ttk button styles:
         ```tcl
         $manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
-        $manager title $leaf "Waveforms"
-        set heading [$manager title $leaf]
-        $manager title $leaf "" ;# Remove the heading.
+        $manager header $leaf -title "Waveforms"
+        set heading [$manager header $leaf -title]
+        $manager header $leaf -title "" ;# Remove the heading.
         ```
 
         `-headerrelief` accepts `flat` (default), `raised`, `sunken`, `ridge`, `groove`, and `solid`.
         `-headerborderwidth` is a nonnegative integer pixel count (default `1`). A zero-width border is invisible.
         Changing either property cancels an active drag and applies to existing docked and floating headers.
 
-        `title id ?text?` accepts a leaf or floating token. Titles belong to content, so they survive swaps, moves,
-        retained-content splits, docking, and undocking; removing content removes its title. Titles default to empty.
-        They are independent of the native floating title set by `undock -title`. Display uses one line, replacing
-        line breaks with spaces and shortening long headings with an ellipsis. The getter returns the original text.
-        Centering reserves equal space at both ends for either button alignment, keeping the title clear of buttons.
+        `header id -title ?text?` accepts a docked leaf ID, floating token, or hidden frame. Titles default to empty
+        and follow their content through swaps, moves, retained-content splits, docking, and undocking. They are
+        independent of the native floating title set by `undock -title`. Display uses one line, replacing line breaks
+        with spaces and shortening long headings with an ellipsis. The getter returns the original text, including a
+        literal `inherit`. A setter returns the full header settings dictionary.  Centering reserves equal space at
+        both ends for either button alignment, keeping the title clear of buttons.
 
         ### Title alignment and custom button images
         `-titlealign left|center|right` defaults to `center` and is independent of `-buttonside`. Left and right titles
@@ -858,7 +874,7 @@ namespace eval ::splitlayout {
         An omitted button occupies no space and has no tooltip or keyboard focus. Hiding the dock button still permits
         drag-to-undock or an explicit undock command when constraints allow it. A visible button is disabled whenever
         its operation is prohibited. For example, `-nohide` disables a cross configured to hide, while `-closeaction
-        none` disables the cross regardless of constraints. Use `inherit` for either per-content option to resume
+        none` disables the cross regardless of constraints. Use `inherit` for `-buttons` or `-closeaction` to resume
         following its manager default. Overrides survive hide/show and undock/dock.
 
         `-buttonimages` accepts `dock`, `undock`, `delete`, `lock`, and `unlock` for pane headers, and
@@ -1013,12 +1029,12 @@ namespace eval ::splitlayout {
         | `-buttonside`        | `right`         | Place header buttons on the left or right; title alignment is independent. |
         | `-titlealign`        | `center`        | Align the optional header title left, center, or right.                    |
         | `-tabaddbutton`      | true            | Show the add button on the tab strip or in a rootless layout.              |
-        | `-tabaddcommand`     | Empty prefix    | Replace the built-in action when the add button is invoked.               |
-        | `-tabrename`         | true            | Enable interactive tab title editing.                                     |
+        | `-tabaddcommand`     | Empty prefix    | Replace the built-in action when the add button is invoked.                |
+        | `-tabrename`         | true            | Enable interactive tab title editing.                                      |
         | `-tabclosebutton`    | hover           | Tab close cross visibility: hover, always or none.                         |
         | `-headerbuttons`     | lock dock close | Visible header buttons for content that inherits the default.              |
         | `-closeaction`       | destroy         | Default cross action: destroy, hide or none.                               |
-        | `-buttonimages`      | Empty values    | Custom Tk images for pane header and notebook tab buttons.        |
+        | `-buttonimages`      | Empty values    | Custom Tk images for pane header and notebook tab buttons.                 |
         | `-headerrelief`      | `flat`          | Rectangular header relief.                                                 |
         | `-leafborder`        | `false`         | Outline each leaf, including floating windows.                             |
         | `-leafborderwidth`   | `1`             | Nonnegative leaf outline thickness in pixels.                              |
@@ -1298,8 +1314,9 @@ namespace eval ::splitlayout {
         ### Renaming a tab
         Double-click the tab title to edit it in place. Return or a click elsewhere commits the text. Escape
         cancels. Use `edittab $page` to open the same editor from application code. Set `-tabrename false` to disable
-        interactive editing and discard an open edit. The application can always set a title with `renametab $page
-        $title`. Changing the title preserves the page pathname and its content.
+        interactive editing and discard an open edit. Use `tabtitle $page` to read the committed label or
+        `tabtitle $page $text` to set it, even when interactive editing is disabled. An empty string clears the label.
+        Changing the title preserves the page pathname and its content.
 
         ### Deleting a tab
         `deletetab $page` destroys its docked tree and every hidden or individually floating pane whose remembered home
@@ -1443,9 +1460,9 @@ oo::configurable create ::splitlayout::splitlayout {
     variable W Hull Nodes Roots AllowEmptyPages InitialLeaf Book EditTab EditOwner TabRename TabAddButton TabAddCommand\
             TabAddDefault TabAddIdle TabOrder TabCloseButton TabCloseImages TabCloseSpecs DirtyTabClose Serial Pending\
             Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating\
-            Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers\
-            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh DirtyHeaders LeafBorder LeafWidth LeafRelief Minimums\
-            NodeRules ContentRules LivePress
+            Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Headers\
+            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh DirtyHeaders LeafBorder LeafWidth\
+            LeafRelief Minimums NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -2005,12 +2022,13 @@ oo::configurable create ::splitlayout::splitlayout {
         # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
         # ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand
         # prefix?
-        foreach var {HeaderRefresh DirtyHeaders Icons LivePress NodeRules ContentRules Minimums Titles Headers\
+        foreach var {HeaderRefresh DirtyHeaders Icons LivePress NodeRules ContentRules Minimums Headers\
                              HeaderOptions Hidden Floating Roots AllowEmptyPages Book EditTab TabAddIdle TabOrder\
                              TabCloseImages TabCloseSpecs DirtyTabClose Vacancies Settings Drag Dock Borders Panels\
                              Pending Nodes} {
             set $var {}
         }
+        set HeaderDefaults [dict create -title {}]
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {} tabadd {} tabclose {}\
                                   tabclosedisabled {}]
         set TooltipReady 0
@@ -2210,21 +2228,28 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return {}
     }
-    method renametab {args} {
-        # Changes a tab title without changing its page or selection.
+    method tabtitle {args} {
+        # Queries or sets a notebook tab label.
         #  tab - Page returned by addtab.
-        #  title - New tab label.
-        # Returns: The page pathname.
-        # Synopsis: tab title
-        argparse -pfirst -help {Set the title of a notebook page} {
-            {tab -help {Page to rename}}
-            {title -help {New tab label}}
+        #  text - New label, including empty. Omit to read the current label.
+        # Returns: The current tab label.
+        # Synopsis: tab ?text?
+        # Enable help for the command itself. In the setter, -help is a literal tab label.
+        set help {}
+        if {$args eq {-help}} {
+            set help [list -help {Query or set the title of a notebook page}]
         }
-        my CheckTab $tab
-        my FinishTabEdit [expr {$tab ne $EditTab}]
-        $Book tab $tab -text $title
-        my ScheduleTabAdd
-        return $tab
+        set opts [argparse -inline -pfirst {*}$help {
+            {tab -help {Page whose label to read or set}}
+            {text -optional -help {New label, including empty; omit to query}}
+        }]
+        set tab [my CheckTab [dict get $opts tab]]
+        if {[dict exists $opts text]} {
+            my FinishTabEdit [expr {$tab ne $EditTab}]
+            $Book tab $tab -text [dict get $opts text]
+            my ScheduleTabAdd
+        }
+        return [$Book tab $tab -text]
     }
     method edittab {args} {
         # Opens the inline title editor on a visible notebook tab.
@@ -2413,15 +2438,15 @@ oo::configurable create ::splitlayout::splitlayout {
         return [dict get $Nodes $id widget]
     }
     method frame {args} {
-        # Returns the retained content frame of a docked leaf or floating window.
-        #  id - Existing leaf identifier or floating token.
+        # Returns the retained content frame of a docked, floating, or hidden pane.
+        #  id - Docked leaf ID, floating token, or hidden frame.
         #
         # Raises an error if the node is unknown or is a split.
         #
         # Returns: The content frame pathname, unchanged across docking transitions.
         # Synopsis: id
-        argparse -pfirst -help {Return the retained content frame of a docked leaf or floating window} {
-            {id -help {Existing leaf identifier or owned floating token}}
+        argparse -pfirst -help {Return the retained content frame of a docked, floating, or hidden pane} {
+            {id -help {Docked leaf ID, floating token, or hidden frame}}
         }
         if {[dict exists $Hidden $id]} {return $id}
         if {[dict exists $Floating $id]} {
@@ -2627,16 +2652,16 @@ oo::configurable create ::splitlayout::splitlayout {
         return [my WidgetTree $path]
     }
     method constraints {args} {
-        # Queries or atomically updates restrictions for one node or floating content.
-        #  id - Leaf, split, or owned floating token.
+        # Queries or atomically updates restrictions for a node, floating token, or hidden frame.
+        #  id - Leaf ID, split ID, floating token, or hidden frame.
         #  option - Optional single constraint name to query, or option/value pairs to update.
         #
-        # Leaf flags follow content; split flags and subtree limits belong to node identity.
-        # Movement flags and locked are leaf/floating-only. Floating content has no assignable
-        # subtree limits. Queries show explicit settings, not restrictions inherited from descendants.
-        # Locked protects selected incoming placement edges and sets both movement flags.
+        # Leaf flags follow content; split flags and subtree limits belong to node identity. Movement flags and locked
+        # apply to content. Floating and hidden panes have no assignable subtree limits. Queries include defaults and
+        # settings for this identifier. Protected descendants can also block deletion. Locked protects selected
+        # incoming placement edges and sets both movement flags.
         #
-        # Returns: One queried value, or the complete explicit settings dictionary.
+        # Returns: One queried value, or the settings dictionary for this identifier, including defaults.
         # Synopsis: id ?option? | id ?-nomove boolean? ?-noundock boolean? ?-nodestroy boolean? ?-nohide boolean?
         # ?-noresize boolean? ?-locked boolean? ?-lockedside sides? ?-minleaves count?
         # ?-maxleaves count? ?-maxdepth depth?
@@ -2647,7 +2672,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         set parsed [argparse -inline -pfirst -help {Query or atomically update node restrictions; omit options\
                                                             to query all, or give one option to query it} {
-            {id -help {Leaf, split, or owned floating token}}
+            {id -help {Leaf ID, split ID, floating token, or hidden frame}}
             {option -optional -help {Single constraint name to query; omit to query all}}
             {-nomove= -type boolean -help {Block direct leaf movement and swaps; ancestors remain movable}}
             {-nohide= -type boolean -help {Prevent hiding this content}}
@@ -2765,8 +2790,8 @@ oo::configurable create ::splitlayout::splitlayout {
         return [my constraints $id]
     }
     method minsize {args} {
-        # Gets or sets the minimum content-area dimensions of a leaf or floating window.
-        #  id - Leaf identifier or owned floating token; splits cannot own content minima.
+        # Gets or sets the minimum content-area dimensions of a docked, floating, or hidden pane.
+        #  id - Docked leaf ID, floating token, or hidden frame; splits cannot own content minima.
         #  width - Optional nonnegative integer minimum content width in pixels.
         #  height - Optional nonnegative integer minimum content height; must accompany width.
         #
@@ -2776,7 +2801,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Synopsis: id ?width height?
         set opts [argparse -inline -pfirst -help {Query or set content minimum size; width and height must be\
                                                           supplied together} {
-            {id -help {Docked leaf or owned floating token; splits cannot own content minima}}
+            {id -help {Docked leaf ID, floating token, or hidden frame; splits cannot own content minima}}
             {width -optional -help {Minimum content width in pixels, from 0 to 2147483647; omit to query}}
             {height -optional -help {Minimum content height in pixels, from 0 to 2147483647; required with width}}
         }]
@@ -2804,7 +2829,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method requiredsize {args} {
         # Calculates a node's minimum outer size, including manager-owned decoration.
-        #  id - Leaf, split, or owned floating token.
+        #  id - Leaf ID, split ID, floating token, or hidden frame.
         #
         # Splits sum child minima and themed sashes along their orientation, and take the maximum across it.
         # Includes header/button space, leaf borders, and split outlines/padding. Does not include hull padding,
@@ -2812,8 +2837,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: A two-element {width height} list in pixels.
         # Synopsis: id
         set opts [argparse -inline -pfirst -help {Return minimum outer width and height, including managed\
-                    decoration, without resizing the owner window} {
-            {id -help {Leaf, split, or owned floating token}}
+                                                          decoration, without resizing the owner window} {
+            {id -help {Leaf ID, split ID, floating token, or hidden frame}}
         }]
         set id [dict get $opts id]
         if {![dict exists $Floating $id] && ![dict exists $Hidden $id] && ([my type $id] eq {split})} {
@@ -2857,17 +2882,24 @@ oo::configurable create ::splitlayout::splitlayout {
     method header {args} {
         # Queries or updates the header settings belonging to a content frame.
         #  id - Docked leaf, floating token or hidden frame.
-        #  option - Single option to query. Omit to return both effective settings.
+        #  option - Single option to query. Omit to return the effective settings dictionary.
+        #  -title text - Literal heading; an empty string clears it.
         #  -buttons list - Visible buttons from lock, dock and close. Empty hides all. Use inherit for the default.
         #  -closeaction action - Action for the close button: destroy, hide, none or inherit.
         # Returns: The effective value or settings dictionary after applying any overrides.
-        # Synopsis: id ?option? | id ?-buttons list? ?-closeaction action?
+        # Synopsis: id ?option? | id ?-title text? ?-buttons list? ?-closeaction action?
         if {[llength $args] == 2 && [lindex $args 1] ne {-help}} {
             set args [linsert $args 1 --]
         }
-        set parsed [argparse -inline -pfirst -help {Query or configure a content header} {
+        # Option values can contain literal -help, including the heading itself.
+        set help {}
+        if {[llength $args] <= 2 && [lindex $args end] eq {-help}} {
+            set help [list -help {Query or configure a content header}]
+        }
+        set parsed [argparse -inline -pfirst {*}$help {
             {id -help {Leaf, floating token or hidden frame}}
             {option -optional -help {Single option to query}}
+            {-title= -help {Literal pane heading, or empty to clear}}
             {-buttons= -help {Visible buttons: lock, dock, close; empty hides all; inherit uses the manager default}}
             {-closeaction= -enum {destroy hide none inherit} -help {Close button action or inherit}}
         }]
@@ -2878,7 +2910,11 @@ oo::configurable create ::splitlayout::splitlayout {
             if {[dict size $updates]} {
                 return -code error {cannot combine a header query with updates}
             }
-            return [dict get [my HeaderSettings $frame] [dict get $parsed option]]
+            set option [dict get $parsed option]
+            if {![dict exists $HeaderDefaults $option]} {
+                return -code error "unknown header option '$option': expected -title, -buttons or -closeaction"
+            }
+            return [dict get [my HeaderSettings $frame] $option]
         }
         if {[dict size $updates]} {
             set overrides {}
@@ -2886,7 +2922,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 set overrides [dict get $HeaderOptions $frame]
             }
             dict for {key value} $updates {
-                if {$value eq {inherit}} {
+                if {($key ne {title}) && ($value eq {inherit})} {
                     dict unset overrides -$key
                 } elseif {$key eq {buttons}} {
                     dict set overrides -buttons [my CheckButtons $value]
@@ -2894,7 +2930,9 @@ oo::configurable create ::splitlayout::splitlayout {
                     dict set overrides -$key $value
                 }
             }
-            my CancelDrag
+            if {[dict exists $updates buttons] || [dict exists $updates closeaction]} {
+                my CancelDrag
+            }
             if {[dict size $overrides]} {
                 dict set HeaderOptions $frame $overrides
             } else {
@@ -2903,33 +2941,6 @@ oo::configurable create ::splitlayout::splitlayout {
             my RefreshHeaders [list [my HeaderGrip $id]]
         }
         return [my HeaderSettings $frame]
-    }
-    method title {args} {
-        # Gets or sets the optional header title belonging to managed content.
-        #  id - Docked leaf identifier or owned floating token.
-        #  text - Optional title; an empty string removes the heading.
-        #
-        # Titles follow content through swaps, moves, splitting with retained content, and floating transitions.
-        # They do not change the native window title set by undock -title. Rendering uses one line and truncates
-        # long headings to keep the buttons unobscured; the stored string is returned unchanged.
-        # Returns: The current title string.
-        # Synopsis: id ?text?
-        set opts [argparse -inline -pfirst -help {Query or set the title of managed content; the title follows\
-                    content through moves and docking} {
-            {id -help {Docked leaf or owned floating token}}
-            {text -optional -help {Header title; empty clears it, omit to query; does not change the native window\
-                                           title}}
-        }]
-        set id [dict get $opts id]
-        set frame [my frame $id]
-        if {[dict exists $opts text]} {
-            dict set Titles $frame [dict get $opts text]
-            my RefreshHeaders [list [my HeaderGrip $id]]
-        }
-        if {[dict exists $Titles $frame]} {
-            return [dict get $Titles $frame]
-        }
-        return
     }
     method floating {args} {
         # Lists floating content or describes one floating window owned by this manager.
@@ -3233,7 +3244,7 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method remove {args} {
         # Removes a docked subtree or destroys owned floating content.
-        #  id - Existing node identifier or floating token to remove.
+        #  id - Docked node ID, floating token, or hidden frame to remove.
         #
         # Removing the root behaves like clear. Otherwise, the parent retains its remaining children with normalized
         # weights. If only one child remains, that child replaces the parent split. Surviving content is preserved.
@@ -3242,7 +3253,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # when removing floating content.
         # Synopsis: id
         argparse -pfirst -help {Remove a docked subtree or destroy owned floating content, subject to constraints} {
-            {id -help {Node identifier or floating token to remove}}
+            {id -help {Docked node ID, floating token, or hidden frame to remove}}
         }
         if {[dict exists $Hidden $id]} {
             my ValidateOperation remove $id
@@ -3423,11 +3434,11 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method hide {args} {
         # Unmaps a leaf or floating window and retains its application widgets.
-        #  id - Docked leaf identifier or floating token.
+        #  id - Docked leaf ID, floating token, or already hidden frame.
         # The leaf ID or floating token expires. The frame pathname remains valid.
         # Returns: The retained frame pathname for use with show.
         argparse -pfirst -help {Hide content and return its retained frame pathname} {
-            {id -help {Docked leaf or floating token}}
+            {id -help {Docked leaf ID, floating token, or already hidden frame}}
         }
         set frame [my frame $id]
         if {[dict exists $Hidden $id]} {
@@ -3570,7 +3581,7 @@ oo::configurable create ::splitlayout::splitlayout {
         return [expr {![llength [winfo children $frame]] && ![llength [pack slaves $frame]] &&\
                               ![llength [grid slaves $frame]] && ![llength [place slaves $frame]] &&\
                               ![dict exists $HeaderOptions $frame] && ![dict exists $ContentRules $frame] &&\
-                              ![dict exists $NodeRules $root] && ![dict exists $Titles $frame] &&\
+                              ![dict exists $NodeRules $root] &&\
                               ![dict exists $Minimums $frame]}]
     }
     method AdoptPlainLayout {page empty} {
@@ -5364,7 +5375,7 @@ oo::configurable create ::splitlayout::splitlayout {
             return [list tab $page 0 {}]
         }
         set replace [expr {![llength $destinations] && [dict exists $Vacancies $root] && ([my type $root] eq {leaf}) &&\
-                                   ![llength [winfo children [my frame $root]]] && ([my title $root] eq {})}]
+                                   ![llength [winfo children [my frame $root]]] && ([my header $root -title] eq {})}]
         set side right
         set target $root
         if {[llength $destinations]} {
@@ -5694,9 +5705,6 @@ oo::configurable create ::splitlayout::splitlayout {
             dict unset Hidden $frame
             dict unset HeaderOptions $frame
             dict unset ContentRules $frame
-            if {[dict exists $Titles $frame]} {
-                dict unset Titles $frame
-            }
             if {[dict exists $Minimums $frame]} {
                 dict unset Minimums $frame
             }
@@ -6340,11 +6348,11 @@ oo::configurable create ::splitlayout::splitlayout {
         if {![dict exists $Floating $id] && (![dict exists $Nodes $id] || ([my type $id] ne {leaf}))} {
             return
         }
-        set frame [my frame $id]
-        if {![dict exists $Titles $frame] || ([dict get $Titles $frame] eq {})} {
+        set title [dict get $settings -title]
+        if {$title eq {}} {
             return
         }
-        set text [string map [list \n { } \r { } \t { }] [dict get $Titles $frame]]
+        set text [string map [list \n { } \r { } \t { }] $title]
         set left [expr {$edge+4+($ButtonSide eq {left} ? $buttonsWidth : 0)}]
         set right [expr {[winfo width $grip]-$edge-4-($ButtonSide eq {right} ? $buttonsWidth : 0)}]
         switch $TitleAlign {
@@ -6815,7 +6823,7 @@ oo::configurable create ::splitlayout::splitlayout {
             set rect [list $px $py $width $height]
             if {($side eq {}) && $floating} {
                 if {[dict exists $Vacancies $id] && ([my NodePage $id] eq [my ActivePage]) &&\
-                            ![llength [winfo children [my frame $id]]] && ([my title $id] eq {})} {
+                            ![llength [winfo children [my frame $id]]] && ([my header $id -title] eq {})} {
                     return [dict create op dock target $id side {} kind center rect $rect]
                 }
                 set side right
