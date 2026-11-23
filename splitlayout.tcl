@@ -3080,9 +3080,7 @@ oo::configurable create ::splitlayout::splitlayout {
             my DetachFromTree $source $parent
             dict set Nodes $source parent {}
             dict set Roots $target $source
-            if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
-                my Promote $parent [lindex [my children $parent] 0]
-            }
+            my CollapseParent $parent
             my Rebuild $pages
             return $source
         }
@@ -3141,9 +3139,7 @@ oo::configurable create ::splitlayout::splitlayout {
             my InsertSibling $source $target $before
         }
         # Delay collapse until destination links are installed, including moves beside an ancestor.
-        if {($oldParent ne {}) && ([llength [my children $oldParent]] == 1)} {
-            my Promote $oldParent [lindex [my children $oldParent] 0]
-        }
+        my CollapseParent $oldParent
         my Rebuild $pages
         return $source
     }
@@ -3263,29 +3259,18 @@ oo::configurable create ::splitlayout::splitlayout {
         my Check $id
         my ValidateOperation remove $id
         set page [my NodePage $id]
-        if {[my parent $id] eq {}} {
-            my Drop $id
-            set root [my VacateRoot $id]
-            my Rebuild [list $page]
-            return $root
-        }
-        my CaptureAll [list $page]
         set parent [my parent $id]
-        set children [my children $parent]
-        set index [lsearch -exact $children $id]
-        set children [lreplace $children $index $index]
-        set weights [lreplace [dict get $Nodes $parent proportions] $index $index]
-        my Drop $id
-        dict set Nodes $parent children $children
-        if {[llength $children] >= 2} {
-            dict set Nodes $parent proportions [my Normalize $weights [llength $children]]
-            my Rebuild [list $page]
-            return $parent
+        if {$parent eq {}} {
+            my Drop $id
+            set result [my VacateRoot $id]
+        } else {
+            my CaptureAll [list $page]
+            my Drop $id
+            my DetachFromTree $id $parent
+            set result [my CollapseParent $parent]
         }
-        set survivor [lindex $children 0]
-        my Promote $parent $survivor
         my Rebuild [list $page]
-        return $survivor
+        return $result
     }
     method retain {args} {
         # Keeps a node while removing its siblings and collapsing its parent.
@@ -3482,14 +3467,12 @@ oo::configurable create ::splitlayout::splitlayout {
         # Removes an already detached leaf from the tree and promotes a sole survivor.
         dict unset Nodes $id
         my DetachFromTree $id $parent
-        if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
-            my Promote $parent [lindex [my children $parent] 0]
-        }
+        my CollapseParent $parent
         my Rebuild [list $page]
         my RefreshMinimums
     }
     method DetachFromTree {id parent} {
-        # Unlink a leaf and redistribute its share before the caller handles promotion.
+        # Unlink a node and redistribute its share. Moves finish inserting it before collapsing the old parent.
         if {$parent eq {}} {
             my VacateRoot $id 1
         } else {
@@ -4608,6 +4591,19 @@ oo::configurable create ::splitlayout::splitlayout {
         dict unset NodeRules $id
         dict unset Nodes $id
         destroy $path
+    }
+    method CollapseParent {parent} {
+        # Return the remaining split, its promoted child, or empty when the removed node was a root.
+        if {$parent eq {}} {
+            return {}
+        }
+        set children [my children $parent]
+        if {[llength $children] == 1} {
+            set survivor [lindex $children 0]
+            my Promote $parent $survivor
+            return $survivor
+        }
+        return $parent
     }
     method Promote {parent survivor} {
         # Replaces a split with its surviving child.
