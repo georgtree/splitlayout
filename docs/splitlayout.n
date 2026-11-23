@@ -4,7 +4,7 @@
 .TH "splitlayout" 3tcl 0\&.1 "splitlayout" "splitlayout package"
 .SH NAME
 Introduction - splitlayout package
-.SH "SPLITLAYOUT — DYNAMIC PANE LAYOUTS FOR TCL/TK"
+.SH "SPLITLAYOUT - DYNAMIC PANE LAYOUTS FOR TCL/TK"
 .PP
 splitlayout is a pure Tcl megawidget for creating dynamically resizable layouts from nested ttk::panedwindow
 widgets\&. Split a content area, add panes beside existing ones, remove subtrees, or exchange content between panes

@@ -1,4 +1,4 @@
-# splitlayout — Dynamic pane layouts for Tcl/Tk
+# splitlayout - Dynamic pane layouts for Tcl/Tk
 
 [![Tests: Linux, Windows UCRT64 and MSVC](https://img.shields.io/github/actions/workflow/status/georgtree/splitlayout/tests.yml?branch=main&label=Tests%3A%20Linux%2C%20Windows%20UCRT64%20and%20MSVC)](https://github.com/georgtree/splitlayout/actions/workflows/tests.yml)
 

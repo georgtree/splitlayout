@@ -3476,7 +3476,7 @@ oo::configurable create ::splitlayout::splitlayout {
     ### Detached content management
     method ReleaseLeaf {id parent page} {
         # Removes an already detached leaf from the tree and promotes a sole survivor.
-        dict unset Nodes $id
+        my ForgetNode $id
         my DetachFromTree $id $parent
         my CollapseParent $parent
         my Rebuild [list $page]
@@ -4333,11 +4333,6 @@ oo::configurable create ::splitlayout::splitlayout {
         # Detach all affected pages before attaching any, so content can move between geometry containers.
         #  pages - Page paths affected by a tree edit, or * for a manager-wide change.
         my CancelDrag
-        dict for {id settings} $NodeRules {
-            if {![dict exists $Nodes $id]} {
-                dict unset NodeRules $id
-            }
-        }
         set nodes [my PageNodes $pages]
         dict for {id data} $nodes {
             my Detach [dict get $data widget]
@@ -4579,6 +4574,11 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my Capture $id
     }
+    method ForgetNode {id} {
+        # Discard the node record and its position-specific constraints together.
+        dict unset Nodes $id
+        dict unset NodeRules $id
+    }
     method Drop {id} {
         # Destroys a logical subtree and all of its content.
         #  id - Existing subtree root identifier.
@@ -4604,8 +4604,7 @@ oo::configurable create ::splitlayout::splitlayout {
             destroy [dict get $Borders $id]
             dict unset Borders $id
         }
-        dict unset NodeRules $id
-        dict unset Nodes $id
+        my ForgetNode $id
         destroy $path
     }
     method CollapseParent {parent} {
@@ -4642,7 +4641,7 @@ oo::configurable create ::splitlayout::splitlayout {
             destroy [dict get $Borders $parent]
             dict unset Borders $parent
         }
-        dict unset Nodes $parent
+        my ForgetNode $parent
         destroy $pw
         dict set Nodes $survivor parent $grand
         if {$grand eq {}} {
