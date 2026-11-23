@@ -1396,7 +1396,9 @@ returns the selected or specified root. For example:</p>
 </div>
 <p>Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply
 to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
-a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.</p>
+a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
+Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes.
+Moving or swapping panes rebuilds only the source and destination pages.</p>
 <section id="starting-without-a-root">
 <span id="r-splitlayout-starting-without-a-root"></span><span id="r-3a3asplitlayoutqzstarting20without20a20root"></span><h3>Starting without a root<a class="headerlink" href="#starting-without-a-root" title="Link to this heading"></a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">-empty</span></code> allows the layout to have zero leaves. With <code class="docutils literal notranslate"><span class="pre">splitlayout</span> <span class="pre">.layout</span> <span class="pre">-empty</span></code>, the hull exists

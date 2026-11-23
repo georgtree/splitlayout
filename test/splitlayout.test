@@ -5917,6 +5917,67 @@ test splitlayout-buttonimages-47.6 {custom notebook artwork, hover sizing, prote
     image delete $plus $cross $gray
 } -result {1 1 19 17 1 15 11 1 1 1 photo photo photo}
 
+test splitlayout-tabs-48.1 {adding roots and editing background trees leave the visible page mapped} -setup {
+    set m [::sltest::setup -draghandles true -showstructure true]
+    set visible [$m addtab Visible]
+    set root [$m root]
+    lassign [$m split $root -ratio 0.3] left right
+    set frame [$m frame $left]
+    ::sltest::settle $frame
+    set sash [[$m panedwindow $root] sashpos 0]
+    set ::sltest::unmaps 0
+    bind $frame <Unmap> {incr ::sltest::unmaps}
+} -body {
+    set a [$m addtab A -empty]
+    set b [$m addtab B]
+    set leaf [$m addleaf $a]
+    set other [$m root $b]
+    $m swap $leaf $other
+    $m move $leaf -right $other
+    update
+    list $::sltest::unmaps [winfo ismapped $frame] [expr {[$m selecttab] eq $visible}]\
+            [expr {$sash == [[$m panedwindow $root] sashpos 0]}] [$m root $a] [llength [$m leaves [$m root $b]]]
+} -cleanup {
+    ::sltest::cleanup
+    unset -nocomplain ::sltest::unmaps
+} -result {0 1 1 1 {} 2}
+
+test splitlayout-tabs-48.2 {tab protection follows the content in a background swap and move} -setup {
+    set m [::sltest::setup -tabclosebutton always]
+    set visible [$m addtab Visible]
+    set a [$m addtab A -empty]
+    set b [$m addtab B]
+    set leaf [$m addleaf $a]
+    set other [$m root $b]
+    set book [winfo parent $a]
+    $m constraints $leaf -nodestroy true
+    update idletasks
+    set protected [$book tab $a -image]
+    set normal [$book tab $b -image]
+} -body {
+    $m swap $leaf $other
+    update idletasks
+    set checks [list [expr {$protected ne $normal && [$book tab $a -image] eq $normal &&\
+            [$book tab $b -image] eq $protected}]]
+    $m move $other -right $leaf
+    update idletasks
+    lappend checks [expr {[$book tab $a -image] eq $protected && [$book tab $b -image] eq $normal}]\
+            [expr {[$m selecttab] eq $visible}]
+} -cleanup {::sltest::cleanup} -result {1 1 1}
+
+test splitlayout-tabs-48.3 {ending a nested editor after undocking preserves the original owner's binding} -setup {
+    lassign [::sltest::nestedsetup] outer host other inner a b
+    set page [$inner addtab Plot]
+    set original {set ::sltest::clicked %W}
+    bind .sltest <ButtonPress-1> $original
+    ::sltest::settle $inner
+} -body {
+    $inner edittab $page
+    $outer undock $host
+    $inner configure -tabrename false
+    expr {[bind .sltest <ButtonPress-1>] eq $original}
+} -cleanup {::sltest::cleanup} -result 1
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

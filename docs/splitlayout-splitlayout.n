@@ -1192,6 +1192,8 @@ set ac [\&.layout addtab AC]
 Commands accepting node IDs can operate across pages\&. With no node argument, tree, leaves and clear apply
 to the selected page\&. Hidden and floating content remembers its home page for implicit restoration, even if
 a different tab is selected\&. Ordinary pages receive a fresh root leaf when their last pane leaves\&.
+Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes\&.
+Moving or swapping panes rebuilds only the source and destination pages\&.
 .SS "STARTING WITHOUT A ROOT"
 .PP
 -empty allows the layout to have zero leaves\&. With splitlayout \&.layout -empty, the hull exists

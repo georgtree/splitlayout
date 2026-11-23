@@ -1225,6 +1225,8 @@ namespace eval ::splitlayout {
         Commands accepting node IDs can operate across pages. With no node argument, tree, leaves and clear apply
         to the selected page. Hidden and floating content remembers its home page for implicit restoration, even if
         a different tab is selected. Ordinary pages receive a fresh root leaf when their last pane leaves.
+        Once the notebook exists, adding a page or its first leaf preserves the mapping of existing panes.
+        Moving or swapping panes rebuilds only the source and destination pages.
 
         ### Starting without a root
         `-empty` allows the layout to have zero leaves. With `splitlayout .layout -empty`, the hull exists
@@ -1436,12 +1438,12 @@ proc ::splitlayout::CreationHelp {args} {
 }
 
 oo::configurable create ::splitlayout::splitlayout {
-    variable W Hull Nodes Roots EmptyTabs InitialLeaf Book EditTab TabRename TabAddButton TabAddCommand TabAddDefault\
-            TabAddIdle TabOrder TabCloseButton TabCloseImages Serial Pending Tag Closing Owned Opaque Drag Preview\
-            Owner Handles Panels Dock Structure Borders Settings Hidden Floating Vacancies Icons ButtonSide\
-            LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers HeaderDefaults HeaderOptions\
-            TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums NodeRules ContentRules\
-            LivePress
+    variable W Hull Nodes Roots AllowEmptyPages InitialLeaf Book EditTab EditOwner TabRename TabAddButton TabAddCommand\
+            TabAddDefault TabAddIdle TabOrder TabCloseButton TabCloseImages TabCloseSpecs DirtyTabClose Serial Pending\
+            Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating\
+            Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers\
+            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums\
+            NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
         #
@@ -2002,8 +2004,8 @@ oo::configurable create ::splitlayout::splitlayout {
         # ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand
         # prefix?
         foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
-                             Floating Roots EmptyTabs Book EditTab TabAddIdle TabOrder TabCloseImages Vacancies\
-                             Settings Drag Dock Borders Panels Pending Nodes} {
+                             Floating Roots AllowEmptyPages Book EditTab TabAddIdle TabOrder TabCloseImages\
+                             TabCloseSpecs DirtyTabClose Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {} tabadd {} tabclose {}\
@@ -2053,7 +2055,7 @@ oo::configurable create ::splitlayout::splitlayout {
         my SyncOwner
         set InitialLeaf {}
         if {[dict get $options empty]} {
-            dict set EmptyTabs $W 1
+            dict set AllowEmptyPages $W 1
         } else {
             set InitialLeaf [my NewLeaf {}]
         }
@@ -2142,89 +2144,39 @@ oo::configurable create ::splitlayout::splitlayout {
             {-empty -boolean -help {Create a page that can hold zero leaves}}
         }
         my CancelDrag
-        my CaptureAll
-        if {$Book eq {}} {
+        set first [expr {$Book eq {}}]
+        if {$first} {
+            my CaptureAll
             set Book [ttk::notebook $W.notebook]
-            set root [dict get $Roots $W]
-            if {[dict exists $EmptyTabs $W]} {
-                set empty 1
-                dict unset EmptyTabs $W
-            } elseif {$empty && ($root eq $InitialLeaf) && ([my type $root] eq {leaf})} {
-                # Only the unused default leaf can be discarded when the first page opts in.
-                set frame [my frame $root]
-                if {![llength [winfo children $frame]] && ![llength [pack slaves $frame]] &&\
-                            ![llength [grid slaves $frame]] && ![llength [place slaves $frame]] &&\
-                            ![dict exists $HeaderOptions $frame] && ![dict exists $ContentRules $frame] &&\
-                            ![dict exists $NodeRules $root] && ![dict exists $Titles $frame] &&\
-                            ![dict exists $Minimums $frame]} {
-                    my Drop $root
-                    dict unset Vacancies $root
-                    set root {}
-                }
-            }
-            unset InitialLeaf
-            dict unset Roots $W
             pack $Book -fill both -expand 1
-            # Label gestures start only on the notebook. Pane drags have their own bindings and state.
-            bind $Book <<ThemeChanged>> [namespace code {my SyncTabClose 1}]
-            bind $Book <ButtonPress-1> [namespace code {my TabOrderPress %X %Y}]
-            bind $Book <Double-ButtonPress-1> [namespace code {my TabDoublePress %x %y %X %Y}]
-            bind $Book <Escape> [namespace code {my CancelTabOrder}]
-            bind $Book <FocusOut> [namespace code {
-                if {[focus -displayof $Book] ne $Book} {
-                    my CancelTabOrder
-                }
-            }]
-            bind $Book <Unmap> [namespace code {
-                my CancelTabOrder
-                my FinishTabEdit 1
-            }]
-            bind $Book <Configure> [namespace code {
-                my FinishTabEdit 1
-                my ScheduleTabAdd
-            }]
-            bind $Book <<NotebookTabChanged>> [namespace code {my ScheduleTabAdd}]
-            bind ${Tag}TabDrag <B1-Motion> [namespace code {
-                if {$TabOrder ne {}} {
-                    my TabOrderMotion %X %Y
-                } else {
-                    my DockMotion %X %Y
-                }
-            }]
-            bind ${Tag}TabDrag <ButtonRelease-1> [namespace code {
-                if {$TabOrder ne {}} {
-                    my TabOrderRelease %X %Y
-                } else {
-                    my DockRelease %X %Y
-                }
-            }]
-            bind ${Tag}TabDrag <Escape> [namespace code {my DockEscape}]
-            bind ${Tag}TabDrag <FocusOut> [namespace code {my TabFocusOut %W}]
-            bindtags $Book [linsert [bindtags $Book] 0 ${Tag}TabDrag]
-        } elseif {$empty} {
-            set root {}
-        } else {
-            set root [my NewLeaf {}]
+            my BindNotebook
         }
         set page [ttk::frame $Book.page[incr Serial]]
-        if {![dict size $Roots]} {
-            # Content detached before the first tab was created belongs to the adopted page.
-            foreach token [dict keys $Floating] {
-                dict set Floating $token placement page $page
+        if {$first} {
+            my AdoptPlainLayout $page $empty
+        } else {
+            if {$empty} {
+                set root {}
+                dict set AllowEmptyPages $page 1
+            } else {
+                set root [my NewLeaf {}]
             }
-            foreach frame [dict keys $Hidden] {
-                dict set Hidden $frame page $page
-            }
+            dict set Roots $page $root
         }
         bindtags $page [linsert [bindtags $page] 0 ${Tag}TabDrag]
         bind $page <Map> [namespace code {my ScheduleTabAdd}]
         pack propagate $page 0
         $Book add $page -text $title
-        dict set Roots $page $root
-        if {$empty} {
-            dict set EmptyTabs $page 1
+        if {$first} {
+            my Rebuild
+            my SyncTabClose
+        } else {
+            if {$root ne {}} {
+                my AttachNewLeaf $page $root
+            }
+            my UpdateTabClose [list $page]
+            my ScheduleTabAdd
         }
-        my Rebuild
         return $page
     }
     method addleaf {args} {
@@ -2241,7 +2193,9 @@ oo::configurable create ::splitlayout::splitlayout {
         my CheckEmptyTab $tab
         set root [my NewLeaf {}]
         dict set Roots $tab $root
-        my Rebuild
+        my CancelDrag
+        my AttachNewLeaf $tab $root
+        my ScheduleTabAdd
         return $root
     }
     method tabs {args} {
@@ -2294,6 +2248,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         lassign $bounds x y width height
         set EditTab $tab
+        set EditOwner [winfo toplevel $Book]
         ttk::entry $entry
         $entry insert 0 [$Book tab $tab -text]
         $entry selection range 0 end
@@ -2311,7 +2266,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         bind $entry <FocusOut> [namespace code {my FinishTabEdit 1}]
         # A click on a frame need not change keyboard focus.
-        bind [winfo toplevel $Book] <ButtonPress-1> +[namespace code {my TabEditClick %W}]
+        bind $EditOwner <ButtonPress-1> +[namespace code {my TabEditClick %W}]
         focus $entry
         return $entry
     }
@@ -2340,14 +2295,10 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         $Book forget $tab
         dict unset Roots $tab
-        dict unset EmptyTabs $tab
+        dict unset AllowEmptyPages $tab
         destroy $tab
         if {![dict size $Roots]} {
-            destroy $Book
-            set Book {}
-            set InitialLeaf {}
-            dict set Roots $W {}
-            dict set EmptyTabs $W 1
+            my RestorePlainLayout
         }
         my Rebuild
         my RefreshMinimums
@@ -2796,6 +2747,16 @@ oo::configurable create ::splitlayout::splitlayout {
             my CancelDrag
             set NodeRules $nodes
             set ContentRules $contents
+            if {$Book ne {}} {
+                if {[dict exists $Floating $id]} {
+                    set page [dict get $Floating $id placement page]
+                } elseif {[dict exists $Hidden $id]} {
+                    set page [dict get $Hidden $id page]
+                } else {
+                    set page [my NodePage $id]
+                }
+                dict set DirtyTabClose $page 1
+            }
             my RefreshHeaders
         }
         return [my constraints $id]
@@ -3120,9 +3081,10 @@ oo::configurable create ::splitlayout::splitlayout {
         set target [dict get $opts $where]
         if {$where eq {tab}} {
             my CheckEmptyTab $target
+            set pages [list [my NodePage $source] $target]
             my ValidateOperation move $source tab $target
             my CancelDrag
-            my CaptureAll
+            my CaptureAll $pages
             my Detach [my frame $source]
             set parent [my parent $source]
             my DetachFromTree $source $parent
@@ -3131,10 +3093,11 @@ oo::configurable create ::splitlayout::splitlayout {
             if {($parent ne {}) && ([llength [my children $parent]] == 1)} {
                 my Promote $parent [lindex [my children $parent] 0]
             }
-            my Rebuild
+            my Rebuild $pages
             return $source
         }
         my Check $target
+        set pages [lsort -unique [list [my NodePage $source] [my NodePage $target]]]
         set edge [expr {$where in {left right top bottom}}]
         # A self-drop is a no-op even for the sole root leaf.
         if {$source eq $target} {
@@ -3163,13 +3126,13 @@ oo::configurable create ::splitlayout::splitlayout {
             }
             my ValidateOperation move $source $where $target
             my CancelDrag
-            my CaptureAll
+            my CaptureAll $pages
             set weights [dict get $Nodes $oldParent proportions]
             set share [lindex $weights $from]
             set weights [linsert [lreplace $weights $from $from] $at $share]
             dict set Nodes $oldParent children $reordered
             dict set Nodes $oldParent proportions $weights
-            my Rebuild
+            my Rebuild $pages
             return $source
         }
         my ValidateOperation move $source $where $target
@@ -3183,7 +3146,7 @@ oo::configurable create ::splitlayout::splitlayout {
             set pw [my NewSplitWidget $wrapper $orient]
         }
         my CancelDrag
-        my CaptureAll
+        my CaptureAll $pages
         my Detach [my frame $source]
         my DetachFromTree $source $oldParent
         if {$wrapSplit} {
@@ -3226,7 +3189,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {($oldParent ne {}) && ([llength [my children $oldParent]] == 1)} {
             my Promote $oldParent [lindex [my children $oldParent] 0]
         }
-        my Rebuild
+        my Rebuild $pages
         return $source
     }
     method proportions {args} {
@@ -3308,12 +3271,13 @@ oo::configurable create ::splitlayout::splitlayout {
             return
         }
         my ValidateOperation swap $a $b
-        my CaptureAll
+        set pages [lsort -unique [list [my NodePage $a] [my NodePage $b]]]
+        my CaptureAll $pages
         set fa [my frame $a]
         set fb [my frame $b]
         dict set Nodes $a widget $fb
         dict set Nodes $b widget $fa
-        my Rebuild
+        my Rebuild $pages
         return
     }
     method remove {args} {
@@ -3689,6 +3653,88 @@ oo::configurable create ::splitlayout::splitlayout {
     }
 
     ### Common private methods
+    method InitialLeafUnused {root} {
+        # Only the pristine default leaf can be discarded on adoption.
+        if {($root ne $InitialLeaf) || ($root eq {}) || ([my type $root] ne {leaf})} {
+            return 0
+        }
+        set frame [my frame $root]
+        return [expr {![llength [winfo children $frame]] && ![llength [pack slaves $frame]] &&\
+                              ![llength [grid slaves $frame]] && ![llength [place slaves $frame]] &&\
+                              ![dict exists $HeaderOptions $frame] && ![dict exists $ContentRules $frame] &&\
+                              ![dict exists $NodeRules $root] && ![dict exists $Titles $frame] &&\
+                              ![dict exists $Minimums $frame]}]
+    }
+    method AdoptPlainLayout {page empty} {
+        # Transfer the hull's root and detached placements to the first notebook page.
+        set root [dict get $Roots $W]
+        if {[dict exists $AllowEmptyPages $W]} {
+            set empty 1
+            dict unset AllowEmptyPages $W
+        } elseif {$empty && [my InitialLeafUnused $root]} {
+            my Drop $root
+            dict unset Vacancies $root
+            set root {}
+        }
+        unset InitialLeaf
+        dict unset Roots $W
+        dict set Roots $page $root
+        if {$empty} {
+            dict set AllowEmptyPages $page 1
+        }
+        foreach token [dict keys $Floating] {
+            dict set Floating $token placement page $page
+        }
+        foreach frame [dict keys $Hidden] {
+            dict set Hidden $frame page $page
+        }
+    }
+    method RestorePlainLayout {} {
+        # Removing the last page leaves the plain hull ready to receive content.
+        destroy $Book
+        set Book {}
+        set InitialLeaf {}
+        dict set Roots $W {}
+        dict set AllowEmptyPages $W 1
+    }
+    method BindNotebook {} {
+        # Label gestures start only on the notebook. Pane drags have their own bindings and state.
+        bind $Book <<ThemeChanged>> [namespace code {my SyncTabClose 1}]
+        bind $Book <ButtonPress-1> [namespace code {my TabOrderPress %X %Y}]
+        bind $Book <Double-ButtonPress-1> [namespace code {my TabDoublePress %x %y %X %Y}]
+        bind $Book <Escape> [namespace code {my CancelTabOrder}]
+        bind $Book <FocusOut> [namespace code {
+            if {[focus -displayof $Book] ne $Book} {
+                my CancelTabOrder
+            }
+        }]
+        bind $Book <Unmap> [namespace code {
+            my CancelTabOrder
+            my FinishTabEdit 1
+        }]
+        bind $Book <Configure> [namespace code {
+            my FinishTabEdit 1
+            my ScheduleTabAdd
+        }]
+        bind $Book <<NotebookTabChanged>> [namespace code {my ScheduleTabAdd}]
+        bind ${Tag}TabDrag <B1-Motion> [namespace code {
+            if {$TabOrder ne {}} {
+                my TabOrderMotion %X %Y
+            } else {
+                my DockMotion %X %Y
+            }
+        }]
+        bind ${Tag}TabDrag <ButtonRelease-1> [namespace code {
+            if {$TabOrder ne {}} {
+                my TabOrderRelease %X %Y
+            } else {
+                my DockRelease %X %Y
+            }
+        }]
+        bind ${Tag}TabDrag <Escape> [namespace code {my DockEscape}]
+        bind ${Tag}TabDrag <FocusOut> [namespace code {my TabFocusOut %W}]
+        bindtags $Book [linsert [bindtags $Book] 0 ${Tag}TabDrag]
+    }
     method TabDeletionFrames {tab} {
         # Preflight the complete deletion and collect detached frames owned by this page.
         set root [dict get $Roots $tab]
@@ -3844,10 +3890,11 @@ oo::configurable create ::splitlayout::splitlayout {
         set EditTab {}
         set entry $Book.tabEditor
         set script [namespace code {my TabEditClick %W}]
-        if {[winfo exists $Owner]} {
-            set lines [split [bind $Owner <ButtonPress-1>] \n]
-            bind $Owner <ButtonPress-1> [join [lsearch -all -inline -not -exact $lines $script] \n]
+        if {[winfo exists $EditOwner]} {
+            set lines [split [bind $EditOwner <ButtonPress-1>] \n]
+            bind $EditOwner <ButtonPress-1> [join [lsearch -all -inline -not -exact $lines $script] \n]
         }
+        unset EditOwner
         if {[winfo exists $entry]} {
             if {$commit && [dict exists $Roots $tab]} {
                 $Book tab $tab -text [$entry get]
@@ -3950,6 +3997,7 @@ oo::configurable create ::splitlayout::splitlayout {
         if {($Book eq {}) || ![winfo exists $Book] || $Closing} {
             return
         }
+        set TabCloseSpecs {}
         if {$TabCloseButton ne {none}} {
             if {{SplitlayoutClose} ni [ttk::style element names]} {
                 ttk::style element create SplitlayoutClose from default image
@@ -3972,13 +4020,18 @@ oo::configurable create ::splitlayout::splitlayout {
                     $icon configure -foreground $color
                 }
                 set action [expr {$state eq {normal} ? {tabclose} : {tabclosedisabled}}]
-                set symbol($state) [my ButtonImage $action $icon]
+                set symbol [my ButtonImage $action $icon]
                 set blank [dict get $TabCloseImages blank-$state]
-                set width [image width $symbol($state)]
-                set height [image height $symbol($state)]
+                set width [image width $symbol]
+                set height [image height $symbol]
                 if {([$blank cget -width] != $width) || ([$blank cget -height] != $height)} {
                     $blank configure -width $width -height $height
                 }
+                set spec [list $symbol]
+                if {$TabCloseButton eq {hover}} {
+                    set spec [linsert $spec 0 $blank active]
+                }
+                dict set TabCloseSpecs $state $spec
             }
         }
         set style [expr {$TabCloseButton eq {none} ? {} : {Splitlayout.TNotebook}}]
@@ -3988,20 +4041,28 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$themeChanged || ([$Book cget -style] ne $style)} {
             $Book configure -style $style
         }
-        foreach tab [$Book tabs] {
+        my UpdateTabClose [$Book tabs]
+        my ScheduleTabAdd
+    }
+    method UpdateTabClose {pages} {
+        # Apply the current theme's images to pages whose deletion eligibility changed.
+        if {![winfo exists $Book]} {
+            return
+        }
+        foreach tab $pages {
+            if {![dict exists $Roots $tab]} {
+                continue
+            }
             set spec {}
-            if {$TabCloseButton ne {none}} {
+            if {[dict size $TabCloseSpecs]} {
                 set state [expr {[my TabCloseAllowed $tab] ? {normal} : {disabled}}]
-                set spec [list $symbol($state)]
-                if {$TabCloseButton eq {hover}} {
-                    set spec [linsert $spec 0 [dict get $TabCloseImages blank-$state] active]
-                }
+                set spec [dict get $TabCloseSpecs $state]
             }
             if {[$Book tab $tab -image] ne $spec} {
                 $Book tab $tab -image $spec -compound text
             }
+            dict unset DirtyTabClose $tab
         }
-        my ScheduleTabAdd
     }
     method OnTabClose {x y} {
         if {$TabCloseButton eq {none}} {
@@ -4037,14 +4098,14 @@ oo::configurable create ::splitlayout::splitlayout {
     }
     method CheckEmptyTab {page} {
         # Require the plain layout or an owned page with no current tree.
-        if {![dict exists $EmptyTabs $page] || ([dict get $Roots $page] ne {})} {
+        if {![dict exists $AllowEmptyPages $page] || ([dict get $Roots $page] ne {})} {
             return -code error "expected a layout or notebook page with zero leaves, got '$page'"
         }
     }
     method VacateRoot {id {remember 0}} {
         # Retain a placeholder only on pages that require a root.
         set root {}
-        if {![dict exists $EmptyTabs [my PageOfRoot $id]]} {
+        if {![dict exists $AllowEmptyPages [my PageOfRoot $id]]} {
             set root [my NewLeaf {}]
             if {$remember} {
                 dict set Vacancies $root 1
@@ -4233,33 +4294,55 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method Rebuild {} {
-        # Reattaches the logical tree and restores widget stacking.
-        #
-        # Cancels an active deferred drag, detaches all managed widgets, attaches the split hierarchy, and packs the
-        # root into the hull. Content widgets are retained, and split geometry is scheduled for idle application.
-        #
-        # Returns: Nothing.
+    method PageNodes {pages} {
+        # Return node records for the requested pages, or the whole layout.
+        if {$pages eq {*}} {
+            return $Nodes
+        }
+        set nodes {}
+        set pending {}
+        foreach page $pages {
+            set root [dict get $Roots $page]
+            if {$root ne {}} {
+                lappend pending $root
+            }
+        }
+        for {set i 0} {$i < [llength $pending]} {incr i} {
+            set id [lindex $pending $i]
+            set data [dict get $Nodes $id]
+            dict set nodes $id $data
+            if {[dict exists $data children]} {
+                lappend pending {*}[dict get $data children]
+            }
+        }
+        return $nodes
+    }
+    method Rebuild {{pages *}} {
+        # Detach all affected pages before attaching any, so content can move between geometry containers.
+        #  pages - Page paths affected by a tree edit, or * for a manager-wide change.
         my CancelDrag
         dict for {id settings} $NodeRules {
             if {![dict exists $Nodes $id]} {
                 dict unset NodeRules $id
             }
         }
-        # Detach all known windows before adding any: this also handles swaps
-        # where both frames were originally in the same panedwindow.
-        dict for {id data} $Nodes {
+        set nodes [my PageNodes $pages]
+        dict for {id data} $nodes {
             my Detach [dict get $data widget]
+            if {[dict exists $Borders $id]} {
+                my Detach [dict get $Borders $id]
+            }
+            if {[dict exists $Panels $id]} {
+                my Detach [dict get $Panels $id pane]
+            }
         }
-        dict for {id border} $Borders {
-            my Detach $border
+        my SyncPanels $nodes
+        my SyncBorders $nodes
+        if {$pages eq {*}} {
+            set pages [dict keys $Roots]
         }
-        dict for {id panel} $Panels {
-            my Detach [dict get $panel pane]
-        }
-        my SyncPanels
-        my SyncBorders
-        dict for {page root} $Roots {
+        foreach page $pages {
+            set root [dict get $Roots $page]
             if {$root eq {}} {
                 continue
             }
@@ -4267,7 +4350,20 @@ oo::configurable create ::splitlayout::splitlayout {
             pack [my widget $root] -in $page -fill both -expand 1
             my Stack $root
         }
+        if {$Book ne {}} {
+            foreach page $pages {
+                dict set DirtyTabClose $page 1
+            }
+        }
         my ScheduleTabAdd
+        my RefreshHeaders
+    }
+    method AttachNewLeaf {page root} {
+        # New roots have no geometry to detach and no siblings to restack.
+        my SyncLeafPanel $root
+        my Attach $root
+        pack [my widget $root] -in $page -fill both -expand 1
+        my Stack $root
         my RefreshHeaders
     }
     method Attach {id} {
@@ -4441,13 +4537,13 @@ oo::configurable create ::splitlayout::splitlayout {
             dict set Nodes $id proportions [my Normalize $weights $count]
         }
     }
-    method CaptureAll {} {
-        # Captures usable sash proportions for every split.
+    method CaptureAll {{pages *}} {
+        # Captures usable sash proportions for splits on the requested pages.
         #
         # Each split is subject to the pending-geometry and visibility checks performed by Capture.
         #
         # Returns: Nothing.
-        dict for {id data} $Nodes {
+        dict for {id data} [my PageNodes $pages] {
             if {[dict get $data type] eq {split}} {
                 my Capture $id
             }
@@ -5495,7 +5591,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return
     }
-    method SyncBorders {} {
+    method SyncBorders {nodes} {
         # Synchronizes optional split outlines after all geometry widgets have been detached.
         #
         # Wrappers are hull children, just like native panedwindows and content frames. The configured outline width
@@ -5510,14 +5606,15 @@ oo::configurable create ::splitlayout::splitlayout {
         if {!$Structure} {
             return
         }
-        dict for {id data} $Nodes {
-            if {([dict get $data type] ne {split}) || [dict exists $Borders $id]} {
+        dict for {id data} $nodes {
+            if {[dict get $data type] ne {split}} {
                 continue
             }
-            set border [frame $W.outline[incr Serial] -borderwidth 0 -takefocus 0]
-            dict set Borders $id $border
-        }
-        dict for {id border} $Borders {
+            if {![dict exists $Borders $id]} {
+                set border [frame $W.outline[incr Serial] -borderwidth 0 -takefocus 0]
+                dict set Borders $id $border
+            }
+            set border [dict get $Borders $id]
             $border configure -highlightthickness [dict get $Settings structureopts -borderwidth]\
                     -highlightbackground [dict get $Settings structureopts -color]\
                     -highlightcolor [dict get $Settings structureopts -color]
@@ -5567,8 +5664,13 @@ oo::configurable create ::splitlayout::splitlayout {
         #
         # Returns: Nothing.
         if {$frame eq $path} {
-            if {!$Closing && ($Book ne {}) && ($HeaderRefresh eq {}) && [dict exists $ContentRules $frame -nodestroy]} {
-                set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
+            if {!$Closing && [dict exists $ContentRules $frame -nodestroy] && [winfo exists $Book]} {
+                foreach page [$Book tabs] {
+                    dict set DirtyTabClose $page 1
+                }
+                if {$HeaderRefresh eq {}} {
+                    set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
+                }
             }
             dict unset Hidden $frame
             dict unset HeaderOptions $frame
@@ -5859,7 +5961,8 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$Closing} {
             return
         }
-        my SyncTabClose
+        my UpdateTabClose [dict keys $DirtyTabClose]
+        set DirtyTabClose {}
         dict for {grip id} $Headers {
             if {[winfo exists $grip]} {
                 my DrawGrip $grip
@@ -6003,7 +6106,7 @@ oo::configurable create ::splitlayout::splitlayout {
             dict unset Headers $grip
         }
     }
-    method SyncPanels {} {
+    method SyncPanels {nodes} {
         # Synchronizes optional pane wrappers with the logical leaves.
         #
         # Content must be detached before obsolete wrappers are destroyed. Wrappers belong to leaf positions;
@@ -6017,40 +6120,47 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
         my SyncFloatingGrips
-        dict for {id data} $Nodes {
-            if {[dict get $data type] ne {leaf}} {
-                continue
+        dict for {id data} $nodes {
+            if {[dict get $data type] eq {leaf}} {
+                my SyncLeafPanel $id
             }
-            # A redocked content frame no longer supplies its own floating border.
-            [my frame $id] configure -borderwidth 0 -relief flat
-            if {!$Handles && !$LeafBorder} {continue}
-            if {![dict exists $Panels $id]} {
-                set pane [::frame $W.pane[incr Serial] -borderwidth 0 -highlightthickness 0]
-                dict set Panels $id [dict create pane $pane grip {}]
-                bind $pane <Map> [namespace code [list my PanelMapped $id]]
-                bind $pane <Configure> [namespace code {if {![my TabDragging]} {
+        }
+    }
+    method SyncLeafPanel {id} {
+        # Create or update the wrapper and grip for one docked leaf.
+        # A redocked content frame no longer supplies its own floating border.
+        [my frame $id] configure -borderwidth 0 -relief flat
+        if {!$Handles && !$LeafBorder} {
+            return
+        }
+        if {![dict exists $Panels $id]} {
+            set pane [::frame $W.pane[incr Serial] -borderwidth 0 -highlightthickness 0]
+            dict set Panels $id [dict create pane $pane grip {}]
+            bind $pane <Map> [namespace code [list my PanelMapped $id]]
+            bind $pane <Configure> [namespace code {
+                if {![my TabDragging]} {
                     my CancelDock
-                }}]
-            }
-            set pane [dict get $Panels $id pane]
-            set bg [ttk::style lookup TFrame -background]
-            if {$bg eq {}} {
-                set bg #d9d9d9
-            }
-            $pane configure -background $bg
-            my ApplyLeafBorder $pane
-            set grip [dict get $Panels $id grip]
-            if {$Handles} {
-                if {$grip eq {}} {
-                    set grip [my MakeGrip $pane.grip $id]
-                    dict set Panels $id grip $grip
                 }
-                pack $grip -side top -fill x
-                my DrawGrip $grip
-            } elseif {$grip ne {}} {
-                destroy $grip
-                dict set Panels $id grip {}
+            }]
+        }
+        set pane [dict get $Panels $id pane]
+        set bg [ttk::style lookup TFrame -background]
+        if {$bg eq {}} {
+            set bg #d9d9d9
+        }
+        $pane configure -background $bg
+        my ApplyLeafBorder $pane
+        set grip [dict get $Panels $id grip]
+        if {$Handles} {
+            if {$grip eq {}} {
+                set grip [my MakeGrip $pane.grip $id]
+                dict set Panels $id grip $grip
             }
+            pack $grip -side top -fill x
+            my DrawGrip $grip
+        } elseif {$grip ne {}} {
+            destroy $grip
+            dict set Panels $id grip {}
         }
     }
     method ContentMapped {path} {
