@@ -6069,6 +6069,27 @@ test splitlayout-tabs-48.6 {bulk close-image refresh and deletion agree on each 
     lappend results [expr {[$m tabs] eq [list $normal]}]
 } -cleanup {::sltest::cleanup} -result {1 1 1 1 1 1 1 1 1}
 
+test splitlayout-tabs-48.7 {background title and button edits leave the selected pane's heading intact} -setup {
+    set m [::sltest::setup -draghandles true]
+    set visible [$m addtab Visible]
+    set leaf [$m root $visible]
+    $m title $leaf Reference
+    set grip [::sltest::grip $m $leaf]
+    set other [$m addtab Other]
+    set background [$m root $other]
+    ::sltest::settle $grip
+} -body {
+    set item [$grip find withtag heading]
+    $m title $background Changed
+    $m header $background -buttons {close} -closeaction hide
+    update idletasks
+    set preserved [expr {[llength $item] == 1 && [$grip find withtag heading] eq $item}]
+    $m selecttab $other
+    set edited [::sltest::grip $m $background]
+    ::sltest::settle $edited
+    list $preserved [$edited itemcget heading -text] [winfo exists $edited.delete] [winfo exists $edited.toggle]
+} -cleanup {::sltest::cleanup} -result {1 Changed 1 0}
+
 test splitlayout-errors-8.1 {no background callback errors during tests} -body {
     update
     set ::sltest::errors

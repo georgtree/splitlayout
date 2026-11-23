@@ -1444,7 +1444,7 @@ oo::configurable create ::splitlayout::splitlayout {
             TabAddDefault TabAddIdle TabOrder TabCloseButton TabCloseImages TabCloseSpecs DirtyTabClose Serial Pending\
             Tag Closing Owned Opaque Drag Preview Owner Handles Panels Dock Structure Borders Settings Hidden Floating\
             Vacancies Icons ButtonSide LockButtonMode HeaderRelief HeaderBorder Tooltips TooltipReady Titles Headers\
-            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh LeafBorder LeafWidth LeafRelief Minimums\
+            HeaderDefaults HeaderOptions TitleAlign ButtonImages HeaderRefresh DirtyHeaders LeafBorder LeafWidth LeafRelief Minimums\
             NodeRules ContentRules LivePress
     classmethod _ruffClassHook {} {
         # Supplies class and property documentation to Ruff.
@@ -2005,9 +2005,10 @@ oo::configurable create ::splitlayout::splitlayout {
         # ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary?
         # ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand
         # prefix?
-        foreach var {HeaderRefresh Icons LivePress NodeRules ContentRules Minimums Titles Headers HeaderOptions Hidden\
-                             Floating Roots AllowEmptyPages Book EditTab TabAddIdle TabOrder TabCloseImages\
-                             TabCloseSpecs DirtyTabClose Vacancies Settings Drag Dock Borders Panels Pending Nodes} {
+        foreach var {HeaderRefresh DirtyHeaders Icons LivePress NodeRules ContentRules Minimums Titles Headers\
+                             HeaderOptions Hidden Floating Roots AllowEmptyPages Book EditTab TabAddIdle TabOrder\
+                             TabCloseImages TabCloseSpecs DirtyTabClose Vacancies Settings Drag Dock Borders Panels\
+                             Pending Nodes} {
             set $var {}
         }
         set ButtonImages [dict create dock {} undock {} delete {} lock {} unlock {} tabadd {} tabclose {}\
@@ -2834,16 +2835,8 @@ oo::configurable create ::splitlayout::splitlayout {
         set inset [expr {$LeafBorder ? 2*$LeafWidth : 0}]
         if {$Handles} {
             set buttons 0
-            set grip {}
-            set action undock
-            if {[dict exists $Floating $id]} {
-                set action dock
-                if {[dict exists $Floating $id grip]} {
-                    set grip [dict get $Floating $id grip]
-                }
-            } elseif {[dict exists $Panels $id]} {
-                set grip [dict get $Panels $id grip]
-            }
+            set grip [my HeaderGrip $id]
+            set action [expr {[dict exists $Floating $id] ? {dock} : {undock}}]
             set lockAction [expr {[my constraints $id -locked] ? {unlock} : {lock}}]
             set visible [dict get [my HeaderSettings [my frame $id]] -buttons]
             foreach button {lock dock close} kind [list $lockAction $action delete] name {lock toggle delete} {
@@ -2878,7 +2871,8 @@ oo::configurable create ::splitlayout::splitlayout {
             {-buttons= -help {Visible buttons: lock, dock, close; empty hides all; inherit uses the manager default}}
             {-closeaction= -enum {destroy hide none inherit} -help {Close button action or inherit}}
         }]
-        set frame [my frame [dict get $parsed id]]
+        set id [dict get $parsed id]
+        set frame [my frame $id]
         set updates [dict remove $parsed id option]
         if {[dict exists $parsed option]} {
             if {[dict size $updates]} {
@@ -2906,7 +2900,7 @@ oo::configurable create ::splitlayout::splitlayout {
             } else {
                 dict unset HeaderOptions $frame
             }
-            my RefreshHeaders
+            my RefreshHeaders [list [my HeaderGrip $id]]
         }
         return [my HeaderSettings $frame]
     }
@@ -2926,10 +2920,11 @@ oo::configurable create ::splitlayout::splitlayout {
             {text -optional -help {Header title; empty clears it, omit to query; does not change the native window\
                                            title}}
         }]
-        set frame [my frame [dict get $opts id]]
+        set id [dict get $opts id]
+        set frame [my frame $id]
         if {[dict exists $opts text]} {
             dict set Titles $frame [dict get $opts text]
-            my RefreshHeaders
+            my RefreshHeaders [list [my HeaderGrip $id]]
         }
         if {[dict exists $Titles $frame]} {
             return [dict get $Titles $frame]
@@ -5820,6 +5815,16 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return $HeaderDefaults
     }
+    method HeaderGrip {id} {
+        # Returns the docked or floating header canvas for id, or empty when no header exists.
+        if {[dict exists $Floating $id grip]} {
+            return [dict get $Floating $id grip]
+        }
+        if {[dict exists $Panels $id]} {
+            return [dict get $Panels $id grip]
+        }
+        return {}
+    }
     method MakeGrip {grip id} {
         # Creates a rectangular drag header and its configured action buttons.
         #  grip - New canvas pathname.
@@ -5832,7 +5837,7 @@ oo::configurable create ::splitlayout::splitlayout {
                 -takefocus 0 -cursor {}
         dict set Headers $grip $id
         bind $grip <Configure> [namespace code [list my DrawGrip $grip]]
-        bind $grip <<ThemeChanged>> [namespace code {my RefreshHeaders}]
+        bind $grip <<ThemeChanged>> [namespace code [list my RefreshHeaders [list $grip]]]
         bind $grip <ButtonPress-1> [namespace code [list my DockPress $id %X %Y]]
         bind $grip <B1-Motion> [namespace code {my DockMotion %X %Y}]
         bind $grip <ButtonRelease-1> [namespace code {my DockRelease %X %Y}]
@@ -5845,7 +5850,7 @@ oo::configurable create ::splitlayout::splitlayout {
         }]
         bind $grip <Destroy> [namespace code [list my HeaderDestroyed $grip]]
         my DrawGrip $grip
-        my SyncHeaderTips
+        my SyncHeaderTips [list $grip]
         return $grip
     }
     method LockButtonSides {id} {
@@ -5992,17 +5997,22 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         return [expr {$height+($LeafBorder ? 1 : 2)*$HeaderBorder}]
     }
-    method RefreshHeaders {} {
-        # Redraws existing headers and coalesces a second pass after ttk updates image geometry requests.
+    method RefreshHeaders {{grips *}} {
+        # Redraws the requested headers and coalesces their second pass after ttk updates image geometry.
+        #  grips - List of header paths, or * for all registered headers.
         #
         # No nested event loop is used. The idle pass lets headers shrink after large icons are replaced.
         # Returns: Nothing.
-        dict for {grip id} $Headers {
-            if {[winfo exists $grip]} {
+        if {$grips eq {*}} {
+            set grips [dict keys $Headers]
+        }
+        foreach grip $grips {
+            if {[dict exists $Headers $grip] && [winfo exists $grip]} {
+                dict set DirtyHeaders $grip 1
                 my DrawGrip $grip
             }
         }
-        my SyncHeaderTips
+        my SyncHeaderTips $grips
         if {!$Closing && ($HeaderRefresh eq {})} {
             set HeaderRefresh [after idle [namespace code {my FinishHeaderRefresh}]]
         }
@@ -6017,7 +6027,9 @@ oo::configurable create ::splitlayout::splitlayout {
         }
         my UpdateTabClose [dict keys $DirtyTabClose]
         set DirtyTabClose {}
-        dict for {grip id} $Headers {
+        set grips [dict keys $DirtyHeaders]
+        set DirtyHeaders {}
+        foreach grip $grips {
             if {[winfo exists $grip]} {
                 my DrawGrip $grip
             }
@@ -6107,15 +6119,20 @@ oo::configurable create ::splitlayout::splitlayout {
             }
         }
     }
-    method SyncHeaderTips {} {
+    method SyncHeaderTips {{grips *}} {
         # Synchronizes handle cursors and applies the tooltip preference using the optional Tklib package.
+        #  grips - List of header paths, or * for all registered headers.
         #
         # Missing or incompatible tooltip packages leave headers operational without tooltips.
         # Returns: Nothing.
-        dict for {grip id} $Headers {
-            if {![winfo exists $grip]} {
+        if {$grips eq {*}} {
+            set grips [dict keys $Headers]
+        }
+        foreach grip $grips {
+            if {![dict exists $Headers $grip] || ![winfo exists $grip]} {
                 continue
             }
+            set id [dict get $Headers $grip]
             my SyncHandleCursor $grip $id
             if {!$TooltipReady} {
                 continue
@@ -6156,6 +6173,7 @@ oo::configurable create ::splitlayout::splitlayout {
         # Returns: Nothing.
         my CancelDock
         my ClearHeaderTips $grip
+        dict unset DirtyHeaders $grip
         if {[dict exists $Headers $grip]} {
             dict unset Headers $grip
         }
