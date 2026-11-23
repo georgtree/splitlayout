@@ -72,6 +72,18 @@ runs:
       with:
         path: _ci/runtime
         key: ${{ steps.key.outputs.runtime }}
+    - name: Enable Windows test crash diagnostics
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Print each test body start and each completed pass, plus normal failure details.
+        'TESTFLAGS=-verbose tpbe' >> $env:GITHUB_ENV
+        $dir = Join-Path $env:RUNNER_TEMP 'splitlayout-dumps'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\tclsh91.exe'
+        New-Item -Path $key -Force | Out-Null
+        New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dir -Force | Out-Null
+        New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
     - if: inputs.toolchain != 'windows-msvc'
       shell: ${{ inputs.toolchain == 'windows-ucrt64' && 'msys2 {0}' || 'bash' }}
       env:
@@ -84,3 +96,13 @@ runs:
         RUNTIME_CACHE_HIT: ${{ steps.runtime.outputs.cache-hit }}
         MAKE_DIST: ${{ inputs.make-dist }}
       run: ./.github/scripts/build-msvc.ps1
+    - name: Preserve Windows test crash evidence
+      if: failure() && runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-crash-${{ inputs.toolchain }}-${{ github.run_attempt }}
+        path: |
+          _ci/layout-build/test.log
+          ${{ runner.temp }}/splitlayout-dumps/*.dmp
+        if-no-files-found: ignore
+        retention-days: 7
