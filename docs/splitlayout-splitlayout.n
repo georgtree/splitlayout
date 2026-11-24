@@ -5,9 +5,9 @@
 .SH NAME
 splitlayout - Commands in namespace splitlayout
 .SH SYNOPSIS
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
 \fBSPLITLAYOUTOBJ destroy\fP
 .br
@@ -33,13 +33,15 @@ splitlayout - Commands in namespace splitlayout
 .br
 \fBSPLITLAYOUTOBJ frame\fP \fIid\fP
 .br
-\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action?\fP
+\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action? ?-titlealign align? ?-buttonside side? ?-borderwidth pixels? ?-relief relief?\fP
 .br
 \fBSPLITLAYOUTOBJ hidden\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ hide\fP \fI?args?\fP
 .br
 \fBSPLITLAYOUTOBJ insert\fP \fInode ?-side side?\fP
+.br
+\fBSPLITLAYOUTOBJ leaf\fP \fIid ?option? | id ?-border boolean? ?-borderwidth pixels? ?-color color? ?-relief relief?\fP
 .br
 \fBSPLITLAYOUTOBJ leaves\fP \fI?id?\fP
 .br
@@ -140,8 +142,8 @@ pack $rightFrame\&.editor -fill both -expand 1
 .RE
 .PP
 The splitlayout \&.layout \&.\&.\&. command returns the widget pathname\&. Use that pathname both as the layout command
-and with Tk geometry managers\&. The constructor accepts -width, -height, -opaqueresize, -sashpreview,
--draghandles, -buttonside, -showstructure, -dockopts, -structureopts, and -sashpreviewopts\&.
+and with Tk geometry managers\&. See \fBOptions\fP for the constructor settings and \fBAppearance and drag
+detection\fP for individual resource names and defaults\&.
 .SH "SPLITTING EXISTING CONTENT"
 .PP
 Continue from the quick-start example:
@@ -285,24 +287,26 @@ surviving frame\&.
 .PP
 .RS 4n
 .nf
-┌───────────────────────────────────────────┬───────────────────────────────────┬──────────────────────────────────────┐
-│ Setting                                   │ During a swap                     │ During a move                        │
-├───────────────────────────────────────────┼───────────────────────────────────┼──────────────────────────────────────┤
-│ -nomove, -noundock, -nohide, -locked,     │ Belong to the content frame\&. A    │ Follow the source frame when         │
-│ -lockedside                               │ move lock on either frame blocks  │ movement is allowed\&.                 │
-│                                           │ the swap\&.                         │                                      │
-│ -nodestroy, -noresize on a leaf           │ Follow the content frame to the   │ Travel with the source frame\&.        │
-│                                           │ other leaf\&.                       │                                      │
-│ -nodestroy, -noresize on a split          │ Stay on that split\&.               │ Stay on that split while it exists\&.  │
-│ -minleaves, -maxleaves, -maxdepth         │ Stay on the logical node,         │ Travel with the source leaf ID\&.      │
-│                                           │ including when set on a leaf\&.     │ Affected subtrees must satisfy their │
-│                                           │                                   │ limits\&.                              │
-│ minsize and per-content header options    │ Follow the content frame to the   │ Travel with the source frame,        │
-│ (including -title)                        │ other leaf\&.                       │ including across notebook pages\&.     │
-│ Manager defaults and appearance (e\&.g\&.     │ Apply throughout the manager\&.     │ Apply throughout the manager\&.        │
-│ -headerbuttons, -closeaction,             │                                   │                                      │
-│ -titlealign)                              │                                   │                                      │
-└───────────────────────────────────────────┴───────────────────────────────────┴──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┬──────────────────────────┬────────────────────────────┐
+│ Setting                                                      │ During a swap            │ During a move              │
+├──────────────────────────────────────────────────────────────┼──────────────────────────┼────────────────────────────┤
+│ -nomove, -noundock, -nohide, -locked, -lockedside            │ Belong to the content    │ Follow the source frame    │
+│                                                              │ frame\&. A move lock on    │ when movement is allowed\&.  │
+│                                                              │ either frame blocks the  │                            │
+│                                                              │ swap\&.                    │                            │
+│ -nodestroy, -noresize on a leaf                              │ Follow the content frame │ Travel with the source     │
+│                                                              │ to the other leaf\&.       │ frame\&.                     │
+│ -nodestroy, -noresize on a split                             │ Stay on that split\&.      │ Stay on that split while   │
+│                                                              │                          │ it exists\&.                 │
+│ -minleaves, -maxleaves, -maxdepth                            │ Stay on the logical      │ Travel with the source     │
+│                                                              │ node, including when set │ leaf ID\&. Affected subtrees │
+│                                                              │ on a leaf\&.               │ must satisfy their limits\&. │
+│ minsize and per-content header and leaf options              │ Follow the content frame │ Travel with the source     │
+│                                                              │ to the other leaf\&.       │ frame, including across    │
+│                                                              │                          │ notebook pages\&.            │
+│ Manager defaults and appearance (e\&.g\&. -headeropts -buttons,  │ Apply throughout the     │ Apply throughout the       │
+│ -headeropts -closeaction, -headeropts -titlealign)           │ manager\&.                 │ manager\&.                   │
+└──────────────────────────────────────────────────────────────┴──────────────────────────┴────────────────────────────┘
 .fi
 .RE
 .SS "MOVEMENT AND LOCKED CONTENT"
@@ -620,11 +624,12 @@ policy controls only the native floating window close request (including Alt+F4)
 and do not start dragging\&. The global -draghandles property controls both strips, including these buttons\&. A
 floating strip spans the window width and reserves space using the content labelframe's label-widget area,
 preserving application pack and grid settings\&. The manager owns the content frame's label-widget options;
-applications should configure children inside the content frame\&. Use -buttonside left|right (default right)
-at construction or with configure to align buttons globally\&. Both docked and floating headers follow it;
-title alignment is controlled independently by -titlealign\&. Changing alignment cancels an active drag without
-moving content\&. It is independent of ttk button styling\&. Button appearance follows ttk; the bitmap foreground
-follows the theme\&. Preview styling and hit areas continue to use -dockopts and its option-database resources\&.
+applications should configure children inside the content frame\&. Use -headeropts {-buttonside left} at
+construction or with configure to change the default button side from right to left\&. Docked and floating
+headers inherit this setting\&.  The -titlealign key controls title alignment independently\&. Changing alignment
+cancels an active drag without moving content\&. It is independent of ttk button styling\&. Button appearance
+follows ttk; the bitmap foreground follows the theme\&. Preview styling and hit areas continue to use -dockopts
+and its option-database resources\&.
 .PP
 A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
 drag-area tooltip, and does not take a grab on press\&. Button tooltips remain available\&. If either operation
@@ -707,31 +712,50 @@ them\&. To recalculate, unlock and lock again\&. Changing the mode does not chan
 existing flags, or an active drag\&. The mode belongs to each manager independently, including nested managers\&.
 .SS "LEAF OUTLINES"
 .PP
-Enable -leafborder true to surround each leaf's header and content with one independent outline\&.
+Use -leafopts {-border true} to surround each leaf's header and content with one independent outline\&.
 .PP
 The header and content share the same inner left and right edges\&. Floating windows use the same settings\&.
 With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted\&.
--headerborderwidth sets separator thickness and -headerrelief its native bottom-edge relief\&. Flat or zero
-thickness hides the separator\&. Disabling leaf outlines restores the header's complete rectangle\&.
-The outline remains when -draghandles false; -showstructure continues to describe split groups separately\&.
-No application widgets are recreated or reparented\&. Geometry managers reserve the border's thickness\&.
+-headeropts -borderwidth sets separator thickness and -headeropts -relief its native bottom-edge
+relief\&. Flat or zero thickness hides the separator\&. Disabling leaf outlines restores the header's complete
+rectangle\&.  The outline remains when -draghandles false; -showstructure continues to describe split groups
+separately\&.  No application widgets are recreated or reparented\&. Geometry managers reserve the border's
+thickness\&.
 .PP
 .RS 4n
 .nf
-$manager configure -leafborder true -leafborderwidth 2 -leafrelief ridge
+$manager configure -leafopts {-border true -borderwidth 2 -relief ridge}
 $manager configure -leafopts {-color #808080}
 .fi
 .RE
 .PP
--leafborder defaults to false, -leafborderwidth to 1, and -leafrelief to solid\&.  Relief accepts flat,
-solid, raised, sunken, ridge, and groove\&. Flat or zero width hides the visible line\&.  -leafopts accepts
--color, the classic border's base color (default #909090); raised relief shades derive from that color, while
-solid relief uses Tk's solid-border rendering\&. It does not override ttk styles\&.  Set the option database
-resource *splitlayoutLeafColor (class SplitlayoutLeafColor) before construction to change the
+-leafopts -border defaults to false, -leafopts -borderwidth to 1, and -leafopts -relief to solid\&. Relief
+accepts flat, solid, raised, sunken, ridge, and groove\&. Flat or zero width hides the visible line\&.  -leafopts
+accepts -color, the classic border's base color (default #909090); raised relief shades derive from that
+color, while solid relief uses Tk's solid-border rendering\&. It does not override ttk styles\&.  Set the option
+database resource *splitlayoutLeafColor (class SplitlayoutLeafColor) before construction to change the
 default\&. Dictionary updates are validated atomically and retain unspecified keys\&.  Changes cancel active
 gestures and preserve content, titles, and logical split proportions\&.  Floating borders temporarily use the
 content frame's background as their base color; the prior background is restored when the border is disabled or
 the window is docked\&.
+.SS "PER-CONTENT APPEARANCE"
+.PP
+header id and leaf id return effective dictionaries\&. Their keys match -headeropts and -leafopts;
+header also accepts a literal -title\&. Query a single key or update several keys together:
+.PP
+.RS 4n
+.nf
+$manager header $plot -title Transient -titlealign left -buttonside right
+$manager leaf $plot -border true -borderwidth 2 -color orange
+$manager leaf $plot -color inherit
+set alignment [$manager header $plot -titlealign]
+.fi
+.RE
+.PP
+An explicit key follows its content frame through swap, move, hide/show and undock/dock\&. Use the docked leaf
+ID, floating token or hidden frame as appropriate\&. Each inherited key follows later manager changes\&. The
+title is always literal, including the word inherit\&. An empty title clears it\&. Resource defaults are read
+only for the manager\&. The effective settings also determine the reserved header space and required size\&.
 .SS "ADDRESSING PANE CONTENT"
 .PP
 Pane settings belong to the retained content frame\&. The identifier passed to a command depends on the
@@ -739,13 +763,13 @@ pane's current state\&.
 .PP
 .RS 4n
 .nf
-┌────────────┬──────────────────────────────────────────────────────────────────────┐
-│ Pane state │ Identifier for frame, header, constraints, minsize, and requiredsize │
-├────────────┼──────────────────────────────────────────────────────────────────────┤
-│ Docked     │ Leaf ID\&. Use node $frame to find it from the content frame pathname\&. │
-│ Floating   │ Token returned by undock or listed by floating\&.                      │
-│ Hidden     │ Content frame pathname returned by hide or listed by hidden\&.         │
-└────────────┴──────────────────────────────────────────────────────────────────────┘
+┌────────────┬────────────────────────────────────────────────────────────────────────────┐
+│ Pane state │ Identifier for frame, header, leaf, constraints, minsize, and requiredsize │
+├────────────┼────────────────────────────────────────────────────────────────────────────┤
+│ Docked     │ Leaf ID\&. Use node $frame to find it from the content frame pathname\&.       │
+│ Floating   │ Token returned by undock or listed by floating\&.                            │
+│ Hidden     │ Content frame pathname returned by hide or listed by hidden\&.               │
+└────────────┴────────────────────────────────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
@@ -754,19 +778,20 @@ for tab commands such as tabtitle\&.
 .SS "HEADER APPEARANCE AND TITLES"
 .PP
 The title and empty header area accept dragging; the action buttons do not\&. Header colors and title font follow
-ttk theme defaults\&. Header relief and thickness are global properties; they do not override ttk button styles:
+ttk theme defaults\&. Set the default header relief and thickness in -headeropts\&. Individual panes can override
+both through header\&.
 .PP
 .RS 4n
 .nf
-$manager configure -headerrelief ridge -headerborderwidth 2 -buttonside left
+$manager configure -headeropts {-relief ridge -borderwidth 2 -buttonside left}
 $manager header $leaf -title "Waveforms"
 set heading [$manager header $leaf -title]
 $manager header $leaf -title "" ;# Remove the heading\&.
 .fi
 .RE
 .PP
--headerrelief accepts flat (default), raised, sunken, ridge, groove, and solid\&.
--headerborderwidth is a nonnegative integer pixel count (default 1)\&. A zero-width border is invisible\&.
+-headeropts -relief accepts flat (default), raised, sunken, ridge, groove, and solid\&.
+-headeropts -borderwidth is a nonnegative integer pixel count (default 1)\&. A zero-width border is invisible\&.
 Changing either property cancels an active drag and applies to existing docked and floating headers\&.
 .PP
 header id -title ?text? accepts a docked leaf ID, floating token, or hidden frame\&. Titles default to empty
@@ -777,18 +802,19 @@ literal inherit\&. A setter returns the full header settings dictionary\&.  Cent
 both ends for either button alignment, keeping the title clear of buttons\&.
 .SS "TITLE ALIGNMENT AND CUSTOM BUTTON IMAGES"
 .PP
--titlealign left|center|right defaults to center and is independent of -buttonside\&. Left and right titles
-use the respective edge of the free header area, with padding\&. Centered titles remain centered in the whole
-header\&. All alignments shorten long text to avoid the buttons; the stored title remains unchanged\&.
+The -titlealign header key accepts left, center (default), or right, independently of
+-buttonside\&. Left and right titles use the respective edge of the free header area, with padding\&. Centered
+titles remain centered in the whole header\&. All alignments shorten long text to avoid the buttons; the stored
+title remains unchanged\&.
 .SS "CHOOSING WHICH HEADER BUTTONS APPEAR"
 .PP
--headerbuttons selects the manager-wide set of visible buttons\&. The default is {lock dock close}\&.
+-headeropts -buttons selects the manager-wide set of visible buttons\&. The default is {lock dock close}\&.
 The dock button toggles docking and undocking\&. The close button uses -closeaction, which defaults to
 destroy\&. Use header to override either setting for one content frame:
 .PP
 .RS 4n
 .nf
-$manager configure -headerbuttons {lock dock}
+$manager configure -headeropts {-buttons {lock dock}}
 $manager header $leaf -buttons {dock close} -closeaction hide
 $manager header $leaf -buttons {}           ;# Title and grip only\&.
 $manager header $leaf -buttons inherit      ;# Use the manager's button selection again\&.
@@ -809,7 +835,7 @@ Tk image names, not filenames or raw SVG data\&. PNG and SVG files/data can be l
 .nf
 set undockImage [image create photo -file undock\&.png]
 set dockImage [image create photo -file dock\&.svg -format svg]
-$manager configure -titlealign left -buttonimages [dict create undock $undockImage dock $dockImage]
+$manager configure -headeropts {-titlealign left} -buttonimages [dict create undock $undockImage dock $dockImage]
 $manager configure -buttonimages {delete {}} ;# Use the built-in delete bitmap\&.
 .fi
 .RE
@@ -968,33 +994,25 @@ widgets\&.
 .PP
 .RS 4n
 .nf
-┌────────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────┐
-│ Option             │ Default         │ Meaning                                                                    │
-├────────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────┤
-│ -width             │ 800             │ Nonnegative requested hull width in pixels\&.                                │
-│ -height            │ 600             │ Nonnegative requested hull height in pixels\&.                               │
-│ -opaqueresize      │ true            │ Resize pane content continuously while dragging a sash\&.                    │
-│ -sashpreview       │ window          │ Deferred preview mode: window, inline, or none\&.                            │
-│ -lockbuttonmode    │ all             │ Lock-button side policy: all edges or immediate parent split boundaries\&.   │
-│ -buttonside        │ right           │ Place header buttons on the left or right; title alignment is independent\&. │
-│ -titlealign        │ center          │ Align the optional header title left, center, or right\&.                    │
-│ -tabaddbutton      │ true            │ Show the add button on the tab strip or in a rootless layout\&.              │
-│ -tabaddcommand     │ Empty prefix    │ Replace the built-in action when the add button is invoked\&.                │
-│ -tabrename         │ true            │ Enable interactive tab title editing\&.                                      │
-│ -tabclosebutton    │ hover           │ Tab close cross visibility: hover, always or none\&.                         │
-│ -headerbuttons     │ lock dock close │ Visible header buttons for content that inherits the default\&.              │
-│ -closeaction       │ destroy         │ Default cross action: destroy, hide or none\&.                               │
-│ -buttonimages      │ Empty values    │ Custom Tk images for pane header and notebook tab buttons\&.                 │
-│ -headerrelief      │ flat            │ Rectangular header relief\&.                                                 │
-│ -leafborder        │ false           │ Outline each leaf, including floating windows\&.                             │
-│ -leafborderwidth   │ 1               │ Nonnegative leaf outline thickness in pixels\&.                              │
-│ -leafrelief        │ solid           │ Leaf outline relief, independent of the header\&.                            │
-│ -leafopts          │ option database │ Leaf border base color (-color)\&.                                           │
-│ -headerborderwidth │ 1               │ Nonnegative header border thickness in pixels\&.                             │
-│ -tooltips          │ true            │ Use Tklib tooltips when available\&.                                         │
-│ -draghandles       │ false           │ Show docking grips on all current and future leaves\&.                       │
-│ -showstructure     │ false           │ Outline and inset all current and future splits\&.                           │
-└────────────────────┴─────────────────┴────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────┬─────────────────┬──────────────────────────────────────────────────────────────────────────┐
+│ Option          │ Default         │ Meaning                                                                  │
+├─────────────────┼─────────────────┼──────────────────────────────────────────────────────────────────────────┤
+│ -width          │ 800             │ Nonnegative requested hull width in pixels\&.                              │
+│ -height         │ 600             │ Nonnegative requested hull height in pixels\&.                             │
+│ -opaqueresize   │ true            │ Resize pane content continuously while dragging a sash\&.                  │
+│ -sashpreview    │ window          │ Deferred preview mode: window, inline, or none\&.                          │
+│ -lockbuttonmode │ all             │ Lock-button side policy: all edges or immediate parent split boundaries\&. │
+│ -tabaddbutton   │ true            │ Show the add button on the tab strip or in a rootless layout\&.            │
+│ -tabaddcommand  │ Empty prefix    │ Replace the built-in action when the add button is invoked\&.              │
+│ -tabrename      │ true            │ Enable interactive tab title editing\&.                                    │
+│ -tabclosebutton │ hover           │ Tab close cross visibility: hover, always or none\&.                       │
+│ -buttonimages   │ Empty values    │ Custom Tk images for pane header and notebook tab buttons\&.               │
+│ -headeropts     │ option database │ Header alignment, buttons, close action, relief and border width\&.        │
+│ -leafopts       │ option database │ Leaf outline visibility, width, relief and base color\&.                   │
+│ -tooltips       │ true            │ Use Tklib tooltips when available\&.                                       │
+│ -draghandles    │ false           │ Show docking grips on all current and future leaves\&.                     │
+│ -showstructure  │ false           │ Outline and inset all current and future splits\&.                         │
+└─────────────────┴─────────────────┴──────────────────────────────────────────────────────────────────────────┘
 .fi
 .RE
 .PP
@@ -1015,10 +1033,8 @@ set properties [\&.layout configure]
 .RE
 .PP
 The hull properties -width, -height, -padding, -borderwidth, -relief, -cursor, -takefocus, and
--style delegate to the ttk frame\&. -class is read-only\&. The constructor accepts the six creation options
-listed above and the three appearance dictionaries described below; other writable properties can be set after
-construction\&. No Tk option-database resources are added for -opaqueresize, -sashpreview, -draghandles, or
--showstructure\&.
+-style delegate to the ttk frame\&. -class is read-only\&. Splitlayout reads its own resources on the hull
+during construction\&. Explicit constructor values override database values, including false and empty values\&.
 .PP
 Native property setters run in argument order\&. If a later value is invalid, earlier successful changes remain
 in effect\&. Invalid resizing values leave that property's value and any active drag unchanged; changing a valid
@@ -1051,22 +1067,54 @@ set docking [\&.layout configure -dockopts]
 .PP
 .RS 4n
 .nf
-┌──────────────────┬──────────────┬─────────────────────────────────┬─────────────────────────────────┬─────────┐
-│ Property         │ Key          │ Resource name                   │ Resource class                  │ Default │
-├──────────────────┼──────────────┼─────────────────────────────────┼─────────────────────────────────┼─────────┤
-│ -dockopts        │ -color       │ splitlayoutDockColor            │ SplitlayoutDockColor            │ #448aff │
-│ -dockopts        │ -linewidth   │ splitlayoutDockLineWidth        │ SplitlayoutDockLineWidth        │ 3       │
-│ -dockopts        │ -edgewidth   │ splitlayoutDockEdgeWidth        │ SplitlayoutDockEdgeWidth        │ 24      │
-│ -dockopts        │ -outerwidth  │ splitlayoutDockOuterWidth       │ SplitlayoutDockOuterWidth       │ 12      │
-│ -dockopts        │ -threshold   │ splitlayoutDockThreshold        │ SplitlayoutDockThreshold        │ 5       │
-│ -leafopts        │ -color       │ splitlayoutLeafColor            │ SplitlayoutLeafColor            │ #909090 │
-│ -structureopts   │ -color       │ splitlayoutStructureColor       │ SplitlayoutStructureColor       │ #909090 │
-│ -structureopts   │ -activecolor │ splitlayoutStructureActiveColor │ SplitlayoutStructureActiveColor │ #448aff │
-│ -structureopts   │ -borderwidth │ splitlayoutStructureBorderWidth │ SplitlayoutStructureBorderWidth │ 1       │
-│ -structureopts   │ -padding     │ splitlayoutStructurePadding     │ SplitlayoutStructurePadding     │ 2       │
-│ -sashpreviewopts │ -color       │ splitlayoutSashPreviewColor     │ SplitlayoutSashPreviewColor     │ #606060 │
-│ -sashpreviewopts │ -width       │ splitlayoutSashPreviewWidth     │ SplitlayoutSashPreviewWidth     │ 3       │
-└──────────────────┴──────────────┴─────────────────────────────────┴─────────────────────────────────┴─────────┘
+┌──────────────────┬──────────────────┬───────────────────────────────┬──────────────────────────────┬─────────────────┐
+│ Property         │ Key              │ Resource name                 │ Resource class               │ Default         │
+├──────────────────┼──────────────────┼───────────────────────────────┼──────────────────────────────┼─────────────────┤
+│ -dockopts        │ -color           │ splitlayoutDockColor          │ SplitlayoutDockColor         │ #448aff         │
+│ -dockopts        │ -linewidth       │ splitlayoutDockLineWidth      │ SplitlayoutDockLineWidth     │ 3               │
+│ -dockopts        │ -edgewidth       │ splitlayoutDockEdgeWidth      │ SplitlayoutDockEdgeWidth     │ 24              │
+│ -dockopts        │ -outerwidth      │ splitlayoutDockOuterWidth     │ SplitlayoutDockOuterWidth    │ 12              │
+│ -dockopts        │ -threshold       │ splitlayoutDockThreshold      │ SplitlayoutDockThreshold     │ 5               │
+│ -headeropts      │ -titlealign      │ splitlayoutHeaderTitleAlign   │ SplitlayoutHeaderTitleAlign  │ center          │
+│ -headeropts      │ -buttonside      │ splitlayoutHeaderButtonSide   │ SplitlayoutHeaderButtonSide  │ right           │
+│ -headeropts      │ -relief          │ splitlayoutHeaderRelief       │ SplitlayoutHeaderRelief      │ flat            │
+│ -headeropts      │ -borderwidth     │ splitlayoutHeaderBorderWidth  │ SplitlayoutHeaderBorderWidth │ 1               │
+│ -headeropts      │ -buttons         │ splitlayoutHeaderButtons      │ SplitlayoutHeaderButtons     │ lock dock close │
+│ -headeropts      │ -closeaction     │ splitlayoutHeaderCloseAction  │ SplitlayoutHeaderCloseAction │ destroy         │
+│ -leafopts        │ -border          │ splitlayoutLeafBorder         │ SplitlayoutLeafBorder        │ 0               │
+│ -leafopts        │ -borderwidth     │ splitlayoutLeafBorderWidth    │ SplitlayoutLeafBorderWidth   │ 1               │
+│ -leafopts        │ -relief          │ splitlayoutLeafRelief         │ SplitlayoutLeafRelief        │ solid           │
+│ -opaqueresize    │                  │ splitlayoutOpaqueResize       │ SplitlayoutOpaqueResize      │ true            │
+│ -sashpreview     │                  │ splitlayoutSashPreview        │ SplitlayoutSashPreview       │ window          │
+│ -draghandles     │                  │ splitlayoutDragHandles        │ SplitlayoutDragHandles       │ false           │
+│ -showstructure   │                  │ splitlayoutShowStructure      │ SplitlayoutShowStructure     │ false           │
+│ -lockbuttonmode  │                  │ splitlayoutLockButtonMode     │ SplitlayoutLockButtonMode    │ all             │
+│ -tabaddbutton    │                  │ splitlayoutTabAddButton       │ SplitlayoutTabAddButton      │ true            │
+│ -tabaddcommand   │                  │ splitlayoutTabAddCommand      │ SplitlayoutTabAddCommand     │ {}              │
+│ -tabrename       │                  │ splitlayoutTabRename          │ SplitlayoutTabRename         │ true            │
+│ -tabclosebutton  │                  │ splitlayoutTabCloseButton     │ SplitlayoutTabCloseButton    │ hover           │
+│ -buttonimages    │ dock             │ splitlayoutDockImage          │ SplitlayoutDockImage         │ Empty           │
+│ -buttonimages    │ undock           │ splitlayoutUndockImage        │ SplitlayoutUndockImage       │ Empty           │
+│ -buttonimages    │ delete           │ splitlayoutDeleteImage        │ SplitlayoutDeleteImage       │ Empty           │
+│ -buttonimages    │ lock             │ splitlayoutLockImage          │ SplitlayoutLockImage         │ Empty           │
+│ -buttonimages    │ unlock           │ splitlayoutUnlockImage        │ SplitlayoutUnlockImage       │ Empty           │
+│ -buttonimages    │ tabadd           │ splitlayoutTabAddImage        │ SplitlayoutTabAddImage       │ Empty           │
+│ -buttonimages    │ tabclose         │ splitlayoutTabCloseImage      │ SplitlayoutTabCloseImage     │ Empty           │
+│ -buttonimages    │ tabclosedisabled │ splitlayoutTabCloseDisabledIm │ SplitlayoutTabCloseDisabledI │ Empty           │
+│                  │                  │ age                           │ mage                         │                 │
+│ -tooltips        │                  │ splitlayoutTooltips           │ SplitlayoutTooltips          │ true            │
+│ -width           │                  │ splitlayoutWidth              │ SplitlayoutWidth             │ 800             │
+│ -height          │                  │ splitlayoutHeight             │ SplitlayoutHeight            │ 600             │
+│ -leafopts        │ -color           │ splitlayoutLeafColor          │ SplitlayoutLeafColor         │ #909090         │
+│ -structureopts   │ -color           │ splitlayoutStructureColor     │ SplitlayoutStructureColor    │ #909090         │
+│ -structureopts   │ -activecolor     │ splitlayoutStructureActiveCol │ SplitlayoutStructureActiveCo │ #448aff         │
+│                  │                  │ or                            │ lor                          │                 │
+│ -structureopts   │ -borderwidth     │ splitlayoutStructureBorderWid │ SplitlayoutStructureBorderWi │ 1               │
+│                  │                  │ th                            │ dth                          │                 │
+│ -structureopts   │ -padding         │ splitlayoutStructurePadding   │ SplitlayoutStructurePadding  │ 2               │
+│ -sashpreviewopts │ -color           │ splitlayoutSashPreviewColor   │ SplitlayoutSashPreviewColor  │ #606060         │
+│ -sashpreviewopts │ -width           │ splitlayoutSashPreviewWidth   │ SplitlayoutSashPreviewWidth  │ 3               │
+└──────────────────┴──────────────────┴───────────────────────────────┴──────────────────────────────┴─────────────────┘
 .fi
 .RE
 .PP
@@ -1074,8 +1122,8 @@ The database is queried against the layout hull once during construction\&. Stan
 priorities apply; for example, *editor\&.layout\&.splitlayoutDockColor scopes a resource to a layout below
 \&.editor\&. Explicit constructor dictionary keys override database values\&. Later database changes affect newly
 created layouts only; use configure for an existing layout\&. Built-in defaults are still available if the
-application calls option clear\&. The three dictionaries are accepted both at construction and by configure;
-an empty dictionary leaves current settings unchanged\&.
+application calls option clear\&. The appearance dictionaries are accepted both at construction and by
+configure; an empty dictionary leaves current settings unchanged\&.
 .PP
 All dimensions are integer \fBscreen pixels\fP, from zero to 2147483647, without additional DPI scaling\&. Colors
 must be valid Tk colors\&. Preview line widths (-dockopts -linewidth and -sashpreviewopts -width) must be at
@@ -1229,10 +1277,10 @@ set comparison [\&.layout addtab Comparison -empty]
 .fi
 .RE
 .PP
-\fBThe first tab inherits the layout\&.\fP It adopts the current tree, including pane IDs and content frames,
-and inherits the constructor's permission to have zero leaves\&. You may also opt in when creating the
-first tab with addtab Main -empty on an ordinary manager\&. A populated tree is adopted intact\&.
-An unused default root leaf is discarded so a fresh manager can still create its first tab empty\&.
+\fBThe first tab inherits the layout\&.\fP It adopts the current tree, including pane IDs and content frames, and
+inherits the constructor's permission to have zero leaves\&. You may also opt in when creating the first tab with
+addtab Main -empty on an ordinary manager\&. A populated tree is adopted intact\&.  An unused default root leaf
+is discarded so a fresh manager can still create its first tab empty\&.
 .PP
 \fBLater tabs choose independently\&.\fP addtab title creates one root leaf and replaces the last departing
 pane with a placeholder\&. addtab title -empty starts with zero leaves\&. Moving, hiding, undocking or
@@ -1421,7 +1469,7 @@ frame
 Returns the retained content frame of a docked, floating, or hidden pane\&. The content frame pathname, unchanged across docking transitions\&.
 .TP
 header
-Queries or updates the header settings belonging to a content frame\&.
+Query or update header settings for a docked leaf, floating token or hidden frame\&.
 .TP
 hidden
 Lists the retained content frames hidden by this manager\&.
@@ -1431,6 +1479,9 @@ Unmaps a leaf or floating window and retains its application widgets\&.
 .TP
 insert
 Inserts an empty leaf beside an existing non-root node\&.
+.TP
+leaf
+Query or update outline settings for a docked leaf, floating token or hidden frame\&.
 .TP
 leaves
 Collects the leaves below a logical node\&.
@@ -1517,14 +1568,8 @@ Readable, writable\&. Hull border width, delegated to the ttk frame\&.
 -buttonimages
 Readable, writable\&. Dictionary mapping dock, undock, delete, lock, unlock, tabadd, tabclose, and tabclosedisabled to Tk images\&. Empty values select built-in bitmaps and are the default\&. Updates merge atomically; an empty value restores one default\&. Supplied images are application-owned\&. Buttons and header height accommodate image dimensions\&. Changing images cancels an active drag\&. Empty dictionaries leave existing overrides unchanged\&.
 .TP
--buttonside
-Readable, writable\&. Side of the grip strip containing the action buttons: left or right; default right\&. Applies immediately to docked and floating headers\&. Title alignment is controlled independently by titlealign\&. Changing the value cancels an active content drag\&. Button appearance remains controlled by ttk\&.
-.TP
 -class
 Readable\&. Read-only hull class override; empty when the default ttk class is used\&.
-.TP
--closeaction
-Readable, writable\&. Default action for the header close button: destroy, hide or none\&.
 .TP
 -cursor
 Readable, writable\&. Hull cursor, delegated to the ttk frame\&.
@@ -1535,29 +1580,14 @@ Readable, writable\&. Dictionary of docking preview and detection settings: -col
 -draghandles
 Readable, writable\&. Boolean enabling manager-owned rectangular headers for every leaf; default false\&. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash\&. Escape cancels; an outside drop undocks\&. Floating grips move and dock owned content\&. Disabling removes docked and floating grips without destroying content\&. This setting is independent of -opaqueresize and applies to future leaves as well\&.
 .TP
--headerborderwidth
-Readable, writable\&. Nonnegative integer header border thickness in pixels; default 1\&. Changes cancel an active drag and update the reserved header height\&.
-.TP
--headerbuttons
-Readable, writable\&. Default visible header buttons, in display order lock, dock, close\&. Empty hides all buttons\&.
-.TP
--headerrelief
-Readable, writable\&. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat\&. Controls the full header rectangle, or only its bottom separator when leafborder is enabled\&. Button styling remains controlled by ttk\&. Changes cancel an active drag\&.
+-headeropts
+Readable, writable\&. Manager header defaults: -titlealign, -buttonside, -relief, -borderwidth, -buttons and -closeaction\&. Partial updates retain other keys\&.
 .TP
 -height
 Readable, writable\&. Requested hull height, delegated to the ttk frame; constructor default 600\&.
 .TP
--leafborder
-Readable, writable\&. Boolean enabling a border around each leaf's header and content; default false\&. Works for floating windows and with draghandles disabled, independently of showstructure\&.
-.TP
--leafborderwidth
-Readable, writable\&. Nonnegative integer leaf border thickness in pixels; default 1\&. Zero hides the border\&.
-.TP
 -leafopts
-Readable, writable\&. Dictionary with -color, the classic leaf border base color; default #909090\&. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database\&. Changes cancel gestures, preserve content, and update docked and floating leaves\&.
-.TP
--leafrelief
-Readable, writable\&. Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid\&.
+Readable, writable\&. Leaf outline -border, -borderwidth, -relief and -color; defaults are false, 1, solid and #909090\&. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database\&. Changes cancel gestures, preserve content, and update docked and floating leaves\&.
 .TP
 -lockbuttonmode
 Readable, writable\&. Lock-button policy: all or outer; default all\&. All blocks all four edges\&. Outer computes edges on the immediate parent split boundary when clicked\&. Root leaves and floating content use all four edges\&. Changing the mode does not rewrite existing constraints or affect direct commands\&.
@@ -1601,9 +1631,6 @@ Readable, writable\&. Enable interactive tab title editing; default true\&.
 -takefocus
 Readable, writable\&. Hull focus traversal setting, delegated to the ttk frame\&.
 .TP
--titlealign
-Readable, writable\&. Header title alignment: left, center, or right; default center\&. Independent of buttonside\&. Applies to docked and floating headers\&. Titles are truncated within the space clear of buttons\&.
-.TP
 -tooltips
 Readable, writable\&. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true\&. Missing packages are silently tolerated\&. This property expresses the preference, not package availability\&. Only this manager's registrations are changed; Tklib's global settings remain application-controlled\&.
 .TP
@@ -1617,9 +1644,9 @@ Readable, writable\&. Requested hull width, delegated to the ttk frame; construc
 .PP
 Creates a split layout with one root leaf by default\&.
 .RS 4n
-\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
+\fBsplitlayout create OBJNAME\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
-\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
+\fBsplitlayout new\fP \fIpath ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?\fP
 .br
 .RE
 .PP
@@ -1628,12 +1655,6 @@ Creates a split layout with one root leaf by default\&.
 .TP
 -buttonimages dictionary
 Optional pane header and notebook tab images; default built-in bitmaps\&.
-.TP
--buttonside side
-Align header buttons left or right in docked and floating content; default right\&.
-.TP
--closeaction action
-Default header close action: destroy, hide or none\&.
 .TP
 -dockopts dictionary
 Docking colors, preview line width, and detection distances; option-database defaults\&.
@@ -1644,29 +1665,14 @@ Enable rectangular docking headers on all leaves; default false\&.
 -empty
 Start with zero leaves\&. The first notebook page inherits this setting\&.
 .TP
--headerborderwidth pixels
-Nonnegative header border thickness; default 1\&.
-.TP
--headerbuttons buttons
-Visible buttons from lock, dock and close; defaults to all three\&.
-.TP
--headerrelief relief
-Header border: flat, raised, sunken, ridge, groove, or solid; default flat\&.
+-headeropts dictionary
+Default header alignment, buttons, close action and border appearance\&.
 .TP
 -height height
 Nonnegative requested hull height in pixels; default 600\&.
 .TP
--leafborder boolean
-Enable independent leaf outlines; default false\&.
-.TP
--leafborderwidth pixels
-Nonnegative leaf outline thickness; default 1\&.
-.TP
 -leafopts dictionary
-Leaf border base color; option-database defaults\&.
-.TP
--leafrelief relief
-Leaf border relief; default solid\&.
+Leaf outline visibility, color, width and relief\&.
 .TP
 -lockbuttonmode mode
 Lock-button side policy all or outer; default all\&.
@@ -1697,9 +1703,6 @@ Show the notebook tab close cross on hover, always, or never (none)\&.
 .TP
 -tabrename boolean
 Enable interactive editing of tab titles; default true\&.
-.TP
--titlealign alignment
-Header title alignment: left, center, or right; default center\&.
 .TP
 -tooltips boolean
 Show Tklib tooltips when the optional package is available; default true\&.
@@ -2046,34 +2049,29 @@ The content frame pathname, unchanged across docking transitions\&.
 \fBheader\fR (::splitlayout::splitlayout)
 .RE
 .PP
-Queries or updates the header settings belonging to a content frame\&.
+Query or update header settings for a docked leaf, floating token or hidden frame\&.
 .RS 4n
-\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action?\fP
+\fBSPLITLAYOUTOBJ header\fP \fIid ?option? | id ?-title text? ?-buttons list? ?-closeaction action? ?-titlealign align? ?-buttonside side? ?-borderwidth pixels? ?-relief relief?\fP
 .br
 .RE
 .PP
 \fBParameters\fR
 .RS 4n
 .TP
--buttons list
-Visible buttons from lock, dock and close\&. Empty hides all\&. Use inherit for the default\&.
-.TP
--closeaction action
-Action for the close button: destroy, hide, none or inherit\&.
-.TP
--title text
-Literal heading; an empty string clears it\&.
-.TP
 id
-Docked leaf, floating token or hidden frame\&.
+Content identifier\&.
 .TP
 option
-Single option to query\&. Omit to return the effective settings dictionary\&.
+Single effective option to query\&.
 .RE
+.PP
+\fBDescription\fR
+.PP
+Use inherit to reset one override\&. Titles are always literal; an empty title clears the heading\&.
 .PP
 \fBReturn value\fR
 .PP
-The effective value or settings dictionary after applying any overrides\&.
+The effective settings dictionary, or one option value\&.
 .PP
 .RS -4n
 \fBhidden\fR (::splitlayout::splitlayout)
@@ -2146,6 +2144,34 @@ Inserting beside the root raises an error; split the root first\&.
 \fBReturn value\fR
 .PP
 The new leaf identifier\&.
+.PP
+.RS -4n
+\fBleaf\fR (::splitlayout::splitlayout)
+.RE
+.PP
+Query or update outline settings for a docked leaf, floating token or hidden frame\&.
+.RS 4n
+\fBSPLITLAYOUTOBJ leaf\fP \fIid ?option? | id ?-border boolean? ?-borderwidth pixels? ?-color color? ?-relief relief?\fP
+.br
+.RE
+.PP
+\fBParameters\fR
+.RS 4n
+.TP
+id
+Content identifier\&.
+.TP
+option
+Single effective option to query\&.
+.RE
+.PP
+\fBDescription\fR
+.PP
+Use inherit to reset one override\&. Settings follow the application frame through layout edits\&.
+.PP
+\fBReturn value\fR
+.PP
+The effective settings dictionary, or one option value\&.
 .PP
 .RS -4n
 \fBleaves\fR (::splitlayout::splitlayout)

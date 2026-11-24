@@ -75,6 +75,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#dragging-panes">Dragging panes</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#lock-button">Lock button</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#leaf-outlines">Leaf outlines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#per-content-appearance">Per-content appearance</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#addressing-pane-content">Addressing pane content</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#header-appearance-and-titles">Header appearance and titles</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#title-alignment-and-custom-button-images">Title alignment and custom button images</a></li>
@@ -117,6 +118,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#hidden"><code class="docutils literal notranslate"><span class="pre">hidden</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#hide"><code class="docutils literal notranslate"><span class="pre">hide</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#insert"><code class="docutils literal notranslate"><span class="pre">insert</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#leaf"><code class="docutils literal notranslate"><span class="pre">leaf</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#leaves"><code class="docutils literal notranslate"><span class="pre">leaves</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#locate"><code class="docutils literal notranslate"><span class="pre">locate</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#minsize"><code class="docutils literal notranslate"><span class="pre">minsize</span></code></a></li>
@@ -219,8 +221,8 @@ constructor help. Formatting uses argparse’s <code class="docutils literal not
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">splitlayout</span> <span class="pre">.layout</span> <span class="pre">...</span></code> command returns the widget pathname. Use that pathname both as the layout command
-and with Tk geometry managers. The constructor accepts <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>,
-<code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>, <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>, <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code>, <code class="docutils literal notranslate"><span class="pre">-structureopts</span></code>, and <code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code>.</p>
+and with Tk geometry managers. See <strong>Options</strong> for the constructor settings and <strong>Appearance and drag
+detection</strong> for individual resource names and defaults.</p>
 </section>
 <section id="splitting-existing-content">
 <span id="r-splitlayout-splitting-existing-content"></span><span id="r-3a3asplitlayoutqzsplitting20existing20content"></span><h2>Splitting existing content<a class="headerlink" href="#splitting-existing-content" title="Link to this heading"></a></h2>
@@ -414,11 +416,11 @@ surviving frame.</p>
 <td><p>Stay on the logical node, including when set on a leaf.</p></td>
 <td><p>Travel with the source leaf ID. Affected subtrees must satisfy their limits.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">minsize</span></code> and per-content <code class="docutils literal notranslate"><span class="pre">header</span></code> options (including <code class="docutils literal notranslate"><span class="pre">-title</span></code>)</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">minsize</span></code> and per-content <code class="docutils literal notranslate"><span class="pre">header</span></code> and <code class="docutils literal notranslate"><span class="pre">leaf</span></code> options</p></td>
 <td><p>Follow the content frame to the other leaf.</p></td>
 <td><p>Travel with the source frame, including across notebook pages.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Manager defaults and appearance (e.g. <code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code>, <code class="docutils literal notranslate"><span class="pre">-closeaction</span></code>, <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>)</p></td>
+<tr class="row-odd"><td><p>Manager defaults and appearance (e.g. <code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-buttons</span></code>, <code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-closeaction</span></code>, <code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-titlealign</span></code>)</p></td>
 <td><p>Apply throughout the manager.</p></td>
 <td><p>Apply throughout the manager.</p></td>
 </tr>
@@ -752,11 +754,12 @@ policy controls only the native floating window close request (including Alt+F4)
 and do not start dragging. The global <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code> property controls both strips, including these buttons. A
 floating strip spans the window width and reserves space using the content labelframe’s label-widget area,
 preserving application <code class="docutils literal notranslate"><span class="pre">pack</span></code> and <code class="docutils literal notranslate"><span class="pre">grid</span></code> settings. The manager owns the content frame’s label-widget options;
-applications should configure children inside the content frame. Use <code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">left|right</span></code> (default <code class="docutils literal notranslate"><span class="pre">right</span></code>)
-at construction or with <code class="docutils literal notranslate"><span class="pre">configure</span></code> to align buttons globally. Both docked and floating headers follow it;
-title alignment is controlled independently by <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code>. Changing alignment cancels an active drag without
-moving content. It is independent of ttk button styling. Button appearance follows ttk; the bitmap foreground
-follows the theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code> and its option-database resources.</p>
+applications should configure children inside the content frame. Use <code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">{-buttonside</span> <span class="pre">left}</span></code> at
+construction or with <code class="docutils literal notranslate"><span class="pre">configure</span></code> to change the default button side from right to left. Docked and floating
+headers inherit this setting.  The <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code> key controls title alignment independently. Changing alignment
+cancels an active drag without moving content. It is independent of ttk button styling. Button appearance
+follows ttk; the bitmap foreground follows the theme. Preview styling and hit areas continue to use <code class="docutils literal notranslate"><span class="pre">-dockopts</span></code>
+and its option-database resources.</p>
 <p>A docked header with both layout movement and undocking blocked inherits its normal parent cursor, has no
 drag-area tooltip, and does not take a grab on press. Button tooltips remain available. If either operation
 remains possible, the hover cursor is an open hand; destination constraints still apply to each drop. An
@@ -834,26 +837,42 @@ existing flags, or an active drag. The mode belongs to each manager independentl
 </section>
 <section id="leaf-outlines">
 <span id="r-splitlayout-leaf-outlines"></span><span id="r-3a3asplitlayoutqzleaf20outlines"></span><h3>Leaf outlines<a class="headerlink" href="#leaf-outlines" title="Link to this heading"></a></h3>
-<p>Enable <code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">true</span></code> to surround each leaf’s header and content with one independent outline.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">{-border</span> <span class="pre">true}</span></code> to surround each leaf’s header and content with one independent outline.</p>
 <p>The header and content share the same inner left and right edges. Floating windows use the same settings.
 With leaf outlines enabled, the header draws only its bottom separator; its top and side borders are omitted.
-<code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code> sets separator thickness and <code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code> its native bottom-edge relief. Flat or zero
-thickness hides the separator. Disabling leaf outlines restores the header’s complete rectangle.
-The outline remains when <code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">false</span></code>; <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code> continues to describe split groups separately.
-No application widgets are recreated or reparented. Geometry managers reserve the border’s thickness.</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>leafborder<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>leafborderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>leafrelief<span class="w"> </span>ridge
+<code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-borderwidth</span></code> sets separator thickness and <code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-relief</span></code> its native bottom-edge
+relief. Flat or zero thickness hides the separator. Disabling leaf outlines restores the header’s complete
+rectangle.  The outline remains when <code class="docutils literal notranslate"><span class="pre">-draghandles</span> <span class="pre">false</span></code>; <code class="docutils literal notranslate"><span class="pre">-showstructure</span></code> continues to describe split groups
+separately.  No application widgets are recreated or reparented. Geometry managers reserve the border’s
+thickness.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>leafopts<span class="w"> </span><span class="k">{</span><span class="nv">-border</span><span class="w"> </span>true<span class="w"> </span><span class="o">-</span>borderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>relief<span class="w"> </span>ridge<span class="k">}</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>leafopts<span class="w"> </span><span class="k">{</span><span class="nv">-color</span><span class="w"> </span><span class="err">#</span><span class="mi">808080</span><span class="k">}</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code> defaults to false, <code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code> to 1, and <code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code> to solid.  Relief accepts flat,
-solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.  <code class="docutils literal notranslate"><span class="pre">-leafopts</span></code> accepts
-<code class="docutils literal notranslate"><span class="pre">-color</span></code>, the classic border’s base color (default #909090); raised relief shades derive from that color, while
-solid relief uses Tk’s solid-border rendering. It does not override ttk styles.  Set the option database
-resource <code class="docutils literal notranslate"><span class="pre">*splitlayoutLeafColor</span></code> (class <code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafColor</span></code>) before construction to change the
+<p><code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">-border</span></code> defaults to false, <code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">-borderwidth</span></code> to 1, and <code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">-relief</span></code> to solid. Relief
+accepts flat, solid, raised, sunken, ridge, and groove. Flat or zero width hides the visible line.  <code class="docutils literal notranslate"><span class="pre">-leafopts</span></code>
+accepts <code class="docutils literal notranslate"><span class="pre">-color</span></code>, the classic border’s base color (default #909090); raised relief shades derive from that
+color, while solid relief uses Tk’s solid-border rendering. It does not override ttk styles.  Set the option
+database resource <code class="docutils literal notranslate"><span class="pre">*splitlayoutLeafColor</span></code> (class <code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafColor</span></code>) before construction to change the
 default. Dictionary updates are validated atomically and retain unspecified keys.  Changes cancel active
 gestures and preserve content, titles, and logical split proportions.  Floating borders temporarily use the
 content frame’s background as their base color; the prior background is restored when the border is disabled or
 the window is docked.</p>
+</section>
+<section id="per-content-appearance">
+<span id="r-splitlayout-per-content-appearance"></span><span id="r-3a3asplitlayoutqzper2dcontent20appearance"></span><h3>Per-content appearance<a class="headerlink" href="#per-content-appearance" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">header</span> <span class="pre">id</span></code> and <code class="docutils literal notranslate"><span class="pre">leaf</span> <span class="pre">id</span></code> return effective dictionaries. Their keys match <code class="docutils literal notranslate"><span class="pre">-headeropts</span></code> and <code class="docutils literal notranslate"><span class="pre">-leafopts</span></code>;
+<code class="docutils literal notranslate"><span class="pre">header</span></code> also accepts a literal <code class="docutils literal notranslate"><span class="pre">-title</span></code>. Query a single key or update several keys together:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$plot</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span>Transient<span class="w"> </span><span class="o">-</span>titlealign<span class="w"> </span>left<span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>right
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">leaf</span><span class="w"> </span><span class="nv">$plot</span><span class="w"> </span><span class="o">-</span>border<span class="w"> </span>true<span class="w"> </span><span class="o">-</span>borderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>color<span class="w"> </span>orange
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">leaf</span><span class="w"> </span><span class="nv">$plot</span><span class="w"> </span><span class="o">-</span>color<span class="w"> </span>inherit
+<span class="k">set</span><span class="w"> </span>alignment<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$plot</span><span class="w"> </span><span class="o">-</span>titlealign<span class="k">]</span>
+</pre></div>
+</div>
+<p>An explicit key follows its content frame through swap, move, hide/show and undock/dock. Use the docked leaf
+ID, floating token or hidden frame as appropriate. Each inherited key follows later manager changes. The
+title is always literal, including the word <code class="docutils literal notranslate"><span class="pre">inherit</span></code>. An empty title clears it. Resource defaults are read
+only for the manager. The effective settings also determine the reserved header space and required size.</p>
 </section>
 <section id="addressing-pane-content">
 <span id="r-splitlayout-addressing-pane-content"></span><span id="r-3a3asplitlayoutqzaddressing20pane20content"></span><h3>Addressing pane content<a class="headerlink" href="#addressing-pane-content" title="Link to this heading"></a></h3>
@@ -866,7 +885,7 @@ pane’s current state.</p>
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Pane state</p></th>
-<th class="head"><p>Identifier for <code class="docutils literal notranslate"><span class="pre">frame</span></code>, <code class="docutils literal notranslate"><span class="pre">header</span></code>, <code class="docutils literal notranslate"><span class="pre">constraints</span></code>, <code class="docutils literal notranslate"><span class="pre">minsize</span></code>, and <code class="docutils literal notranslate"><span class="pre">requiredsize</span></code></p></th>
+<th class="head"><p>Identifier for <code class="docutils literal notranslate"><span class="pre">frame</span></code>, <code class="docutils literal notranslate"><span class="pre">header</span></code>, <code class="docutils literal notranslate"><span class="pre">leaf</span></code>, <code class="docutils literal notranslate"><span class="pre">constraints</span></code>, <code class="docutils literal notranslate"><span class="pre">minsize</span></code>, and <code class="docutils literal notranslate"><span class="pre">requiredsize</span></code></p></th>
 </tr>
 </thead>
 <tbody>
@@ -887,15 +906,16 @@ for tab commands such as <code class="docutils literal notranslate"><span class=
 <section id="header-appearance-and-titles">
 <span id="r-splitlayout-header-appearance-and-titles"></span><span id="r-3a3asplitlayoutqzheader20appearance20and20titles"></span><h3>Header appearance and titles<a class="headerlink" href="#header-appearance-and-titles" title="Link to this heading"></a></h3>
 <p>The title and empty header area accept dragging; the action buttons do not. Header colors and title font follow
-ttk theme defaults. Header relief and thickness are global properties; they do not override ttk button styles:</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headerrelief<span class="w"> </span>ridge<span class="w"> </span><span class="o">-</span>headerborderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>left
+ttk theme defaults. Set the default header relief and thickness in <code class="docutils literal notranslate"><span class="pre">-headeropts</span></code>. Individual panes can override
+both through <code class="docutils literal notranslate"><span class="pre">header</span></code>.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headeropts<span class="w"> </span><span class="k">{</span><span class="nv">-relief</span><span class="w"> </span>ridge<span class="w"> </span><span class="o">-</span>borderwidth<span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">-</span>buttonside<span class="w"> </span>left<span class="k">}</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span><span class="s2">"Waveforms"</span>
 <span class="k">set</span><span class="w"> </span>heading<span class="w"> </span><span class="k">[</span><span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="k">]</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>title<span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="k">;</span><span class="c"># Remove the heading.</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code> accepts <code class="docutils literal notranslate"><span class="pre">flat</span></code> (default), <code class="docutils literal notranslate"><span class="pre">raised</span></code>, <code class="docutils literal notranslate"><span class="pre">sunken</span></code>, <code class="docutils literal notranslate"><span class="pre">ridge</span></code>, <code class="docutils literal notranslate"><span class="pre">groove</span></code>, and <code class="docutils literal notranslate"><span class="pre">solid</span></code>.
-<code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code> is a nonnegative integer pixel count (default <code class="docutils literal notranslate"><span class="pre">1</span></code>). A zero-width border is invisible.
+<p><code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-relief</span></code> accepts <code class="docutils literal notranslate"><span class="pre">flat</span></code> (default), <code class="docutils literal notranslate"><span class="pre">raised</span></code>, <code class="docutils literal notranslate"><span class="pre">sunken</span></code>, <code class="docutils literal notranslate"><span class="pre">ridge</span></code>, <code class="docutils literal notranslate"><span class="pre">groove</span></code>, and <code class="docutils literal notranslate"><span class="pre">solid</span></code>.
+<code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-borderwidth</span></code> is a nonnegative integer pixel count (default <code class="docutils literal notranslate"><span class="pre">1</span></code>). A zero-width border is invisible.
 Changing either property cancels an active drag and applies to existing docked and floating headers.</p>
 <p><code class="docutils literal notranslate"><span class="pre">header</span> <span class="pre">id</span> <span class="pre">-title</span> <span class="pre">?text?</span></code> accepts a docked leaf ID, floating token, or hidden frame. Titles default to empty
 and follow their content through swaps, moves, retained-content splits, docking, and undocking. They are
@@ -906,16 +926,17 @@ both ends for either button alignment, keeping the title clear of buttons.</p>
 </section>
 <section id="title-alignment-and-custom-button-images">
 <span id="r-splitlayout-title-alignment-and-custom-button-images"></span><span id="r-3a3asplitlayoutqztitle20alignment20and20custom20button20images"></span><h3>Title alignment and custom button images<a class="headerlink" href="#title-alignment-and-custom-button-images" title="Link to this heading"></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">left|center|right</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">center</span></code> and is independent of <code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>. Left and right titles
-use the respective edge of the free header area, with padding. Centered titles remain centered in the whole
-header. All alignments shorten long text to avoid the buttons; the stored title remains unchanged.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-titlealign</span></code> header key accepts <code class="docutils literal notranslate"><span class="pre">left</span></code>, <code class="docutils literal notranslate"><span class="pre">center</span></code> (default), or <code class="docutils literal notranslate"><span class="pre">right</span></code>, independently of
+<code class="docutils literal notranslate"><span class="pre">-buttonside</span></code>. Left and right titles use the respective edge of the free header area, with padding. Centered
+titles remain centered in the whole header. All alignments shorten long text to avoid the buttons; the stored
+title remains unchanged.</p>
 </section>
 <section id="choosing-which-header-buttons-appear">
 <span id="r-splitlayout-choosing-which-header-buttons-appear"></span><span id="r-3a3asplitlayoutqzchoosing20which20header20buttons20appear"></span><h3>Choosing which header buttons appear<a class="headerlink" href="#choosing-which-header-buttons-appear" title="Link to this heading"></a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code> selects the manager-wide set of visible buttons. The default is <code class="docutils literal notranslate"><span class="pre">{lock</span> <span class="pre">dock</span> <span class="pre">close}</span></code>.
+<p><code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">-buttons</span></code> selects the manager-wide set of visible buttons. The default is <code class="docutils literal notranslate"><span class="pre">{lock</span> <span class="pre">dock</span> <span class="pre">close}</span></code>.
 The dock button toggles docking and undocking. The close button uses <code class="docutils literal notranslate"><span class="pre">-closeaction</span></code>, which defaults to
 <code class="docutils literal notranslate"><span class="pre">destroy</span></code>. Use <code class="docutils literal notranslate"><span class="pre">header</span></code> to override either setting for one content frame:</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headerbuttons<span class="w"> </span><span class="k">{</span><span class="nv">lock</span><span class="w"> </span>dock<span class="k">}</span>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headeropts<span class="w"> </span><span class="k">{</span><span class="nv">-buttons</span><span class="w"> </span><span class="k">{</span><span class="nv">lock</span><span class="w"> </span>dock<span class="k">}}</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>buttons<span class="w"> </span><span class="k">{</span><span class="nv">dock</span><span class="w"> </span>close<span class="k">}</span><span class="w"> </span><span class="o">-</span>closeaction<span class="w"> </span>hide
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>buttons<span class="w"> </span><span class="k">{}</span><span class="w">           </span><span class="k">;</span><span class="c"># Title and grip only.</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">header</span><span class="w"> </span><span class="nv">$leaf</span><span class="w"> </span><span class="o">-</span>buttons<span class="w"> </span>inherit<span class="w">      </span><span class="k">;</span><span class="c"># Use the manager's button selection again.</span>
@@ -931,7 +952,7 @@ following its manager default. Overrides survive hide/show and undock/dock.</p>
 Tk image names, not filenames or raw SVG data. PNG and SVG files/data can be loaded into Tk photo images first:</p>
 <div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>undockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>undock.png<span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>dockImage<span class="w"> </span><span class="k">[</span><span class="nv">image</span><span class="w"> </span>create<span class="w"> </span>photo<span class="w"> </span><span class="o">-</span>file<span class="w"> </span>dock.svg<span class="w"> </span><span class="o">-</span>format<span class="w"> </span>svg<span class="k">]</span>
-<span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>titlealign<span class="w"> </span>left<span class="w"> </span><span class="o">-</span>buttonimages<span class="w"> </span><span class="k">[</span><span class="nb">dict</span><span class="w"> </span>create<span class="w"> </span>undock<span class="w"> </span><span class="nv">$undockImage</span><span class="w"> </span>dock<span class="w"> </span><span class="nv">$dockImage</span><span class="k">]</span>
+<span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>headeropts<span class="w"> </span><span class="k">{</span><span class="nv">-titlealign</span><span class="w"> </span>left<span class="k">}</span><span class="w"> </span><span class="o">-</span>buttonimages<span class="w"> </span><span class="k">[</span><span class="nb">dict</span><span class="w"> </span>create<span class="w"> </span>undock<span class="w"> </span><span class="nv">$undockImage</span><span class="w"> </span>dock<span class="w"> </span><span class="nv">$dockImage</span><span class="k">]</span>
 <span class="nv">$manager</span><span class="w"> </span><span class="nv">configure</span><span class="w"> </span><span class="o">-</span>buttonimages<span class="w"> </span><span class="k">{</span><span class="nv">delete</span><span class="w"> </span><span class="k">{}}</span><span class="w"> </span><span class="k">;</span><span class="c"># Use the built-in delete bitmap.</span>
 </pre></div>
 </div>
@@ -1106,14 +1127,6 @@ widgets.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
 <td><p>Lock-button side policy: all edges or immediate parent split boundaries.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">right</span></code></p></td>
-<td><p>Place header buttons on the left or right; title alignment is independent.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">center</span></code></p></td>
-<td><p>Align the optional header title left, center, or right.</p></td>
-</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span></code></p></td>
 <td><p>true</p></td>
 <td><p>Show the add button on the tab strip or in a rootless layout.</p></td>
@@ -1130,41 +1143,17 @@ widgets.</p>
 <td><p>hover</p></td>
 <td><p>Tab close cross visibility: hover, always or none.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code></p></td>
-<td><p>lock dock close</p></td>
-<td><p>Visible header buttons for content that inherits the default.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-closeaction</span></code></p></td>
-<td><p>destroy</p></td>
-<td><p>Default cross action: destroy, hide or none.</p></td>
-</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
 <td><p>Empty values</p></td>
 <td><p>Custom Tk images for pane header and notebook tab buttons.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
-<td><p>Rectangular header relief.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
-<td><p>Outline each leaf, including floating windows.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
-<td><p>Nonnegative leaf outline thickness in pixels.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">solid</span></code></p></td>
-<td><p>Leaf outline relief, independent of the header.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
 <td><p>option database</p></td>
-<td><p>Leaf border base color (<code class="docutils literal notranslate"><span class="pre">-color</span></code>).</p></td>
+<td><p>Header alignment, buttons, close action, relief and border width.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
-<td><p>Nonnegative header border thickness in pixels.</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p>option database</p></td>
+<td><p>Leaf outline visibility, width, relief and base color.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
@@ -1192,10 +1181,8 @@ rather than Tk-style option descriptors:</p>
 </pre></div>
 </div>
 <p>The hull properties <code class="docutils literal notranslate"><span class="pre">-width</span></code>, <code class="docutils literal notranslate"><span class="pre">-height</span></code>, <code class="docutils literal notranslate"><span class="pre">-padding</span></code>, <code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code>, <code class="docutils literal notranslate"><span class="pre">-relief</span></code>, <code class="docutils literal notranslate"><span class="pre">-cursor</span></code>, <code class="docutils literal notranslate"><span class="pre">-takefocus</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">-style</span></code> delegate to the ttk frame. <code class="docutils literal notranslate"><span class="pre">-class</span></code> is read-only. The constructor accepts the six creation options
-listed above and the three appearance dictionaries described below; other writable properties can be set after
-construction. No Tk option-database resources are added for <code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code>, <code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code>, <code class="docutils literal notranslate"><span class="pre">-draghandles</span></code>, or
-<code class="docutils literal notranslate"><span class="pre">-showstructure</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">-style</span></code> delegate to the ttk frame. <code class="docutils literal notranslate"><span class="pre">-class</span></code> is read-only. Splitlayout reads its own resources on the hull
+during construction. Explicit constructor values override database values, including false and empty values.</p>
 <p>Native property setters run in argument order. If a later value is invalid, earlier successful changes remain
 in effect. Invalid resizing values leave that property’s value and any active drag unchanged; changing a valid
 resizing value cancels the active drag. Setting the same value preserves it.</p>
@@ -1269,43 +1256,217 @@ explicit per-instance overrides. No option instances are created.</p>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockThreshold</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderTitleAlign</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderTitleAlign</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">center</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderButtonSide</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderButtonSide</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">right</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-relief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderRelief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderRelief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">flat</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-buttons</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderButtons</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderButtons</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lock</span> <span class="pre">dock</span> <span class="pre">close</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-closeaction</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeaderCloseAction</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeaderCloseAction</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">destroy</span></code></p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-border</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLeafBorder</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafBorder</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLeafBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafBorderWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-relief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLeafRelief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafRelief</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">solid</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutOpaqueResize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutOpaqueResize</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreview</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreview</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDragHandles</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDragHandles</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutShowStructure</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutShowStructure</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLockButtonMode</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLockButtonMode</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">all</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabAddButton</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabAddButton</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-tabaddcommand</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabAddCommand</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabAddCommand</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tabrename</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabRename</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabRename</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabCloseButton</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabCloseButton</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">hover</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dock</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDockImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDockImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">undock</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutUndockImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutUndockImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">delete</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutDeleteImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutDeleteImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">lock</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLockImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLockImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">unlock</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutUnlockImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutUnlockImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tabadd</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabAddImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabAddImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tabclose</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabCloseImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabCloseImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tabclosedisabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTabCloseDisabledImage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTabCloseDisabledImage</span></code></p></td>
+<td><p>Empty</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutTooltips</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutTooltips</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutWidth</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">800</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-height</span></code></p></td>
+<td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutHeight</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutHeight</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">600</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutLeafColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutLeafColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#909090</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#909090</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-activecolor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureActiveColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureActiveColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#448aff</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-borderwidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructureBorderWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructureBorderWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-padding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutStructurePadding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutStructurePadding</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-color</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewColor</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">#606060</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">-width</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">splitlayoutSashPreviewWidth</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SplitlayoutSashPreviewWidth</span></code></p></td>
@@ -1317,8 +1478,8 @@ explicit per-instance overrides. No option instances are created.</p>
 priorities apply; for example, <code class="docutils literal notranslate"><span class="pre">*editor.layout.splitlayoutDockColor</span></code> scopes a resource to a layout below
 <code class="docutils literal notranslate"><span class="pre">.editor</span></code>. Explicit constructor dictionary keys override database values. Later database changes affect newly
 created layouts only; use <code class="docutils literal notranslate"><span class="pre">configure</span></code> for an existing layout. Built-in defaults are still available if the
-application calls <code class="docutils literal notranslate"><span class="pre">option</span> <span class="pre">clear</span></code>. The three dictionaries are accepted both at construction and by <code class="docutils literal notranslate"><span class="pre">configure</span></code>;
-an empty dictionary leaves current settings unchanged.</p>
+application calls <code class="docutils literal notranslate"><span class="pre">option</span> <span class="pre">clear</span></code>. The appearance dictionaries are accepted both at construction and by
+<code class="docutils literal notranslate"><span class="pre">configure</span></code>; an empty dictionary leaves current settings unchanged.</p>
 <p>All dimensions are integer <strong>screen pixels</strong>, from zero to 2147483647, without additional DPI scaling. Colors
 must be valid Tk colors. Preview line widths (<code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">-linewidth</span></code> and <code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">-width</span></code>) must be at
 least one.</p>
@@ -1441,10 +1602,10 @@ Use <code class="docutils literal notranslate"><span class="pre">addleaf</span><
 <span class="c"># Main now has zero leaves. Comparison's root is the original plot.</span>
 </pre></div>
 </div>
-<p><strong>The first tab inherits the layout.</strong> It adopts the current tree, including pane IDs and content frames,
-and inherits the constructor’s permission to have zero leaves. You may also opt in when creating the
-first tab with <code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">Main</span> <span class="pre">-empty</span></code> on an ordinary manager. A populated tree is adopted intact.
-An unused default root leaf is discarded so a fresh manager can still create its first tab empty.</p>
+<p><strong>The first tab inherits the layout.</strong> It adopts the current tree, including pane IDs and content frames, and
+inherits the constructor’s permission to have zero leaves. You may also opt in when creating the first tab with
+<code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">Main</span> <span class="pre">-empty</span></code> on an ordinary manager. A populated tree is adopted intact.  An unused default root leaf
+is discarded so a fresh manager can still create its first tab empty.</p>
 <p><strong>Later tabs choose independently.</strong> <code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">title</span></code> creates one root leaf and replaces the last departing
 pane with a placeholder. <code class="docutils literal notranslate"><span class="pre">addtab</span> <span class="pre">title</span> <span class="pre">-empty</span></code> starts with zero leaves. Moving, hiding, undocking or
 removing its last pane leaves the page empty and selectable. An empty page is a single drop target.
@@ -1594,13 +1755,15 @@ database; see the namespace resource reference.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aframe"><span class="std std-ref">frame</span></a></dt><dd><p>Returns the retained content frame of a docked, floating, or hidden pane. The content frame pathname, unchanged across docking transitions.</p>
 </dd>
-<dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aheader"><span class="std std-ref">header</span></a></dt><dd><p>Queries or updates the header settings belonging to a content frame.</p>
+<dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aheader"><span class="std std-ref">header</span></a></dt><dd><p>Query or update header settings for a docked leaf, floating token or hidden frame.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3ahidden"><span class="std std-ref">hidden</span></a></dt><dd><p>Lists the retained content frames hidden by this manager.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3ahide"><span class="std std-ref">hide</span></a></dt><dd><p>Unmaps a leaf or floating window and retains its application widgets.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"><span class="std std-ref">insert</span></a></dt><dd><p>Inserts an empty leaf beside an existing non-root node.</p>
+</dd>
+<dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaf"><span class="std std-ref">leaf</span></a></dt><dd><p>Query or update outline settings for a docked leaf, floating token or hidden frame.</p>
 </dd>
 <dt><a class="reference internal" href="#r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"><span class="std std-ref">leaves</span></a></dt><dd><p>Collects the leaves below a logical node.</p>
 </dd>
@@ -1661,14 +1824,8 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Dictionary mapping dock, undock, delete, lock, unlock, tabadd, tabclose, and tabclosedisabled to Tk images. Empty values select built-in bitmaps and are the default. Updates merge atomically; an empty value restores one default. Supplied images are application-owned. Buttons and header height accommodate image dimensions. Changing images cancels an active drag. Empty dictionaries leave existing overrides unchanged.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonside</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Side of the grip strip containing the action buttons: left or right; default right. Applies immediately to docked and floating headers. Title alignment is controlled independently by titlealign. Changing the value cancels an active content drag. Button appearance remains controlled by ttk.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-class</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable. Read-only hull class override; empty when the default ttk class is used.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-closeaction</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Default action for the header close button: destroy, hide or none.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-class</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable. Read-only hull class override; empty when the default ttk class is used.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-cursor</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Hull cursor, delegated to the ttk frame.</p>
@@ -1679,74 +1836,56 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-draghandles</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Boolean enabling manager-owned rectangular headers for every leaf; default false. Drag a grip to swap at a leaf center, move at an edge, or insert at a sash. Escape cancels; an outside drop undocks. Floating grips move and dock owned content. Disabling removes docked and floating grips without destroying content. This setting is independent of -opaqueresize and applies to future leaves as well.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Nonnegative integer header border thickness in pixels; default 1. Changes cancel an active drag and update the reserved header height.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Default visible header buttons, in display order lock, dock, close. Empty hides all buttons.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headerrelief</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Header relief: flat, raised, sunken, ridge, groove, or solid; default flat. Controls the full header rectangle, or only its bottom separator when leafborder is enabled. Button styling remains controlled by ttk. Changes cancel an active drag.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headeropts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Manager header defaults: -titlealign, -buttonside, -relief, -borderwidth, -buttons and -closeaction. Partial updates retain other keys.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Requested hull height, delegated to the ttk frame; constructor default 600.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafborder</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Boolean enabling a border around each leaf’s header and content; default false. Works for floating windows and with draghandles disabled, independently of showstructure.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Nonnegative integer leaf border thickness in pixels; default 1. Zero hides the border.</p>
-</dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafopts</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Dictionary with -color, the classic leaf border base color; default #909090. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database. Changes cancel gestures, preserve content, and update docked and floating leaves.</p>
+<dd class="field-odd"><p>Readable, writable. Leaf outline -border, -borderwidth, -relief and -color; defaults are false, 1, solid and #909090. Reads splitlayoutLeafColor / SplitlayoutLeafColor from the option database. Changes cancel gestures, preserve content, and update docked and floating leaves.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Leaf border relief: flat, solid, raised, sunken, ridge, or groove; default solid.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Lock-button policy: all or outer; default all. All blocks all four edges. Outer computes edges on the immediate parent split boundary when clicked. Root leaves and floating content use all four edges. Changing the mode does not rewrite existing constraints or affect direct commands.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Lock-button policy: all or outer; default all. All blocks all four edges. Outer computes edges on the immediate parent split boundary when clicked. Root leaves and floating content use all four edges. Changing the mode does not rewrite existing constraints or affect direct commands.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Boolean enabling live sash resizing; default true. Values are normalized to 0 or 1. Changing the value cancels an active deferred drag without committing its target.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-padding</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Internal hull padding, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-relief</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull relief, delegated to the ttk frame.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Deferred sash preview: window, inline, or none; default window. Changing the value cancels an active deferred drag. Invalid values preserve the old value.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline preview modes. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Dictionary of deferred sash preview settings: -color and -width. Applies to window and inline preview modes. Defaults come from the Tk option database. Partial updates retain other keys.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-showstructure</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Boolean showing an outline and inset around every split; default false. Appearance is set by -structureopts. Applies to existing and future splits. Changing it cancels active gestures, preserves content, and rebuilds geometry. During docking the receiving split outline is highlighted.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding. Defaults come from the Tk option database. Partial updates retain other keys.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Dictionary of split outline settings: -color, -activecolor, -borderwidth, and -padding. Defaults come from the Tk option database. Partial updates retain other keys.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-style</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Hull ttk style, delegated to the ttk frame.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Show the notebook add button; default true.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Show the notebook add button; default true.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabaddcommand</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Override the built-in add action with a command prefix receiving the layout pathname.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabaddcommand</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Override the built-in add action with a command prefix receiving the layout pathname.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Notebook tab close cross visibility: hover (default), always, or none.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Notebook tab close cross visibility: hover (default), always, or none.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabrename</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Readable, writable. Enable interactive tab title editing; default true.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabrename</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Enable interactive tab title editing; default true.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Readable, writable. Header title alignment: left, center, or right; default center. Independent of buttonside. Applies to docked and floating headers. Titles are truncated within the space clear of buttons.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-takefocus</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Readable, writable. Hull focus traversal setting, delegated to the ttk frame.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Readable, writable. Boolean enabling drag-area and header-button tooltips when the optional Tklib tooltip package loads; default true. Missing packages are silently tolerated. This property expresses the preference, not package availability. Only this manager’s registrations are changed; Tklib’s global settings remain application-controlled.</p>
@@ -1758,18 +1897,12 @@ database; see the namespace resource reference.</p>
 <section id="constructor">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aconstructor"></span><span id="index-3"></span><span id="index-2"></span><h4><code class="docutils literal notranslate"><span class="pre">constructor</span></code><a class="headerlink" href="#constructor" title="Link to this heading"></a></h4>
 <p>Creates a split layout with one root leaf by default.</p>
-<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?</em>
-<strong>splitlayout new</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-buttonside side? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-leafborder boolean? ?-leafborderwidth pixels? ?-leafrelief relief? ?-leafopts dictionary? ?-headerrelief relief? ?-headerborderwidth pixels? ?-tooltips boolean? ?-headerbuttons buttons? ?-closeaction action? ?-titlealign alignment? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?</em></pre>
+<pre class="literal-block"><strong>splitlayout create OBJNAME</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?</em>
+<strong>splitlayout new</strong> <em>path ?-empty? ?-width width? ?-height height? ?-opaqueresize boolean? ?-sashpreview mode? ?-draghandles boolean? ?-showstructure boolean? ?-dockopts dictionary? ?-structureopts dictionary? ?-sashpreviewopts dictionary? ?-headeropts dictionary? ?-leafopts dictionary? ?-tooltips boolean? ?-buttonimages dictionary? ?-lockbuttonmode mode? ?-tabclosebutton mode? ?-tabrename boolean? ?-tabaddbutton boolean? ?-tabaddcommand prefix?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttonimages</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
 <dd class="field-odd"><p>Optional pane header and notebook tab images; default built-in bitmaps.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-buttonside</span> <span class="pre">side</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Align header buttons left or right in docked and floating content; default right.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-closeaction</span> <span class="pre">action</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Default header close action: destroy, hide or none.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-dockopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Docking colors, preview line width, and detection distances; option-database defaults.</p>
@@ -1780,62 +1913,44 @@ database; see the namespace resource reference.</p>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-empty</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Start with zero leaves. The first notebook page inherits this setting.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headerborderwidth</span> <span class="pre">pixels</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Nonnegative header border thickness; default 1.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-headerbuttons</span> <span class="pre">buttons</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Visible buttons from lock, dock and close; defaults to all three.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headerrelief</span> <span class="pre">relief</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Header border: flat, raised, sunken, ridge, groove, or solid; default flat.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-headeropts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Default header alignment, buttons, close action and border appearance.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-height</span> <span class="pre">height</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Nonnegative requested hull height in pixels; default 600.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafborder</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Enable independent leaf outlines; default false.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafborderwidth</span> <span class="pre">pixels</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Nonnegative leaf outline thickness; default 1.</p>
-</dd>
 <dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-leafopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Leaf border base color; option-database defaults.</p>
+<dd class="field-odd"><p>Leaf outline visibility, color, width and relief.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-leafrelief</span> <span class="pre">relief</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Leaf border relief; default solid.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Lock-button side policy all or outer; default all.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-lockbuttonmode</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Lock-button side policy all or outer; default all.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Enable live sash resizing; default true.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-opaqueresize</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Enable live sash resizing; default true.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Deferred preview mode: window, inline, or none; default window.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreview</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Deferred preview mode: window, inline, or none; default window.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Deferred sash preview color and width; option-database defaults.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-sashpreviewopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Deferred sash preview color and width; option-database defaults.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-showstructure</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Outline and inset all split regions; default false.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-showstructure</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Outline and inset all split regions; default false.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-structureopts</span> <span class="pre">dictionary</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Split outline colors, border width, and spacing; option-database defaults.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Show the notebook add button; default true.</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabaddbutton</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Show the notebook add button; default true.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabaddcommand</span> <span class="pre">prefix</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Override the built-in tab creation action.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabaddcommand</span> <span class="pre">prefix</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Override the built-in tab creation action.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Show the notebook tab close cross on hover, always, or never (none).</p>
 </dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabclosebutton</span> <span class="pre">mode</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Show the notebook tab close cross on hover, always, or never (none).</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tabrename</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Enable interactive editing of tab titles; default true.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-titlealign</span> <span class="pre">alignment</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Header title alignment: left, center, or right; default center.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-tabrename</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Enable interactive editing of tab titles; default true.</p>
 </dd>
 <dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-tooltips</span> <span class="pre">boolean</span></code><span class="colon">:</span></dt>
 <dd class="field-even"><p>Show Tklib tooltips when the optional package is available; default true.</p>
@@ -2065,28 +2180,21 @@ The content frame pathname, unchanged across docking transitions.</p>
 </section>
 <section id="header">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aheader"></span><span id="index-29"></span><span id="index-28"></span><h4><code class="docutils literal notranslate"><span class="pre">header</span></code><a class="headerlink" href="#header" title="Link to this heading"></a></h4>
-<p>Queries or updates the header settings belonging to a content frame.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ header</strong> <em>id ?option? | id ?-title text? ?-buttons list? ?-closeaction action?</em></pre>
+<p>Query or update header settings for a docked leaf, floating token or hidden frame.</p>
+<pre class="literal-block"><strong>SPLITLAYOUTOBJ header</strong> <em>id ?option? | id ?-title text? ?-buttons list? ?-closeaction action? ?-titlealign align? ?-buttonside side? ?-borderwidth pixels? ?-relief relief?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-buttons</span> <span class="pre">list</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Visible buttons from lock, dock and close. Empty hides all. Use inherit for the default.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">id</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Content identifier.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-closeaction</span> <span class="pre">action</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Action for the close button: destroy, hide, none or inherit.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-title</span> <span class="pre">text</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Literal heading; an empty string clears it.</p>
-</dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">id</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Docked leaf, floating token or hidden frame.</p>
-</dd>
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">option</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Single option to query. Omit to return the effective settings dictionary.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">option</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Single effective option to query.</p>
 </dd>
 </dl>
+<p class="rubric">Description</p>
+<p>Use inherit to reset one override. Titles are always literal; an empty title clears the heading.</p>
 <p class="rubric">Return value</p>
-<p>The effective value or settings dictionary after applying any overrides.</p>
+<p>The effective settings dictionary, or one option value.</p>
 </section>
 <section id="hidden">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ahidden"></span><span id="index-31"></span><span id="index-30"></span><h4><code class="docutils literal notranslate"><span class="pre">hidden</span></code><a class="headerlink" href="#hidden" title="Link to this heading"></a></h4>
@@ -2130,8 +2238,26 @@ Inserting beside the root raises an error; split the root first.</p>
 <p class="rubric">Return value</p>
 <p>The new leaf identifier.</p>
 </section>
+<section id="leaf">
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaf"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">leaf</span></code><a class="headerlink" href="#leaf" title="Link to this heading"></a></h4>
+<p>Query or update outline settings for a docked leaf, floating token or hidden frame.</p>
+<pre class="literal-block"><strong>SPLITLAYOUTOBJ leaf</strong> <em>id ?option? | id ?-border boolean? ?-borderwidth pixels? ?-color color? ?-relief relief?</em></pre>
+<p class="rubric">Parameters</p>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">id</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Content identifier.</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">option</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Single effective option to query.</p>
+</dd>
+</dl>
+<p class="rubric">Description</p>
+<p>Use inherit to reset one override. Settings follow the application frame through layout edits.</p>
+<p class="rubric">Return value</p>
+<p>The effective settings dictionary, or one option value.</p>
+</section>
 <section id="leaves">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-37"></span><span id="index-36"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aleaves"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">leaves</span></code><a class="headerlink" href="#leaves" title="Link to this heading"></a></h4>
 <p>Collects the leaves below a logical node.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ leaves</strong> <em>?id?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2146,7 +2272,7 @@ Inserting beside the root raises an error; split the root first.</p>
 <p>A list of leaf identifiers in depth-first pane order.</p>
 </section>
 <section id="locate">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-39"></span><span id="index-38"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3alocate"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">locate</span></code><a class="headerlink" href="#locate" title="Link to this heading"></a></h4>
 <p>Finds the leaf containing an application widget.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ locate</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -2162,7 +2288,7 @@ A split panedwindow does not identify a leaf.</p>
 <p>The containing leaf identifier, or empty for a missing or unrelated widget.</p>
 </section>
 <section id="minsize">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aminsize"></span><span id="index-41"></span><span id="index-40"></span><h4><code class="docutils literal notranslate"><span class="pre">minsize</span></code><a class="headerlink" href="#minsize" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aminsize"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">minsize</span></code><a class="headerlink" href="#minsize" title="Link to this heading"></a></h4>
 <p>Gets or sets the minimum content-area dimensions of a docked, floating, or hidden pane.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ minsize</strong> <em>id ?width height?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2184,7 +2310,7 @@ Header and border space is added by requiredsize. Validation is atomic; setting 
 <p>The content minimum as {width height}.</p>
 </section>
 <section id="move">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amove"></span><span id="index-43"></span><span id="index-42"></span><h4><code class="docutils literal notranslate"><span class="pre">move</span></code><a class="headerlink" href="#move" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amove"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">move</span></code><a class="headerlink" href="#move" title="Link to this heading"></a></h4>
 <p>Moves an existing leaf to an edge or sibling position without destroying its content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ move</strong> <em>leaf -left|-right|-top|-bottom|-before|-after target | leaf -tab page</em></pre>
 <p class="rubric">Parameters</p>
@@ -2230,7 +2356,7 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 <p>The unchanged source leaf identifier. Query parent, children, or tree for the resulting structure.</p>
 </section>
 <section id="movetab">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amovetab"></span><span id="index-45"></span><span id="index-44"></span><h4><code class="docutils literal notranslate"><span class="pre">movetab</span></code><a class="headerlink" href="#movetab" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3amovetab"></span><span id="index-47"></span><span id="index-46"></span><h4><code class="docutils literal notranslate"><span class="pre">movetab</span></code><a class="headerlink" href="#movetab" title="Link to this heading"></a></h4>
 <p>Reorders one notebook page relative to another, preserving the selection and both trees.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ movetab</strong> <em>tab -before page|-after page</em></pre>
 <p class="rubric">Parameters</p>
@@ -2249,7 +2375,7 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 <p>The moved page pathname.</p>
 </section>
 <section id="node">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-47"></span><span id="index-46"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3anode"></span><span id="index-49"></span><span id="index-48"></span><h4><code class="docutils literal notranslate"><span class="pre">node</span></code><a class="headerlink" href="#node" title="Link to this heading"></a></h4>
 <p>Finds the logical node associated with an exact widget pathname.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ node</strong> <em>path</em></pre>
 <p class="rubric">Parameters</p>
@@ -2264,7 +2390,7 @@ A successful structural move cancels deferred dragging and rebuilds geometry onc
 <p>The node identifier, or an empty string when no node matches.</p>
 </section>
 <section id="panedwindow">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3apanedwindow"></span><span id="index-49"></span><span id="index-48"></span><h4><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code><a class="headerlink" href="#panedwindow" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3apanedwindow"></span><span id="index-51"></span><span id="index-50"></span><h4><code class="docutils literal notranslate"><span class="pre">panedwindow</span></code><a class="headerlink" href="#panedwindow" title="Link to this heading"></a></h4>
 <p>Returns the native panedwindow of a split, independently of structure visibility.
 The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ panedwindow</strong> <em>id</em></pre>
@@ -2279,7 +2405,7 @@ The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 The native ttk panedwindow pathname. Leaf identifiers raise an error.</p>
 </section>
 <section id="parent">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-51"></span><span id="index-50"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aparent"></span><span id="index-53"></span><span id="index-52"></span><h4><code class="docutils literal notranslate"><span class="pre">parent</span></code><a class="headerlink" href="#parent" title="Link to this heading"></a></h4>
 <p>Returns the logical parent of a node.
 The parent node identifier, or an empty string for the root.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ parent</strong> <em>id</em></pre>
@@ -2296,7 +2422,7 @@ The parent node identifier, or an empty string for the root.</p>
 The parent node identifier, or an empty string for the root.</p>
 </section>
 <section id="proportions">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-53"></span><span id="index-52"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aproportions"></span><span id="index-55"></span><span id="index-54"></span><h4><code class="docutils literal notranslate"><span class="pre">proportions</span></code><a class="headerlink" href="#proportions" title="Link to this heading"></a></h4>
 <p>Queries or sets all pane proportions of a split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ proportions</strong> <em>node ?weights?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2316,7 +2442,7 @@ pending; otherwise it returns the stored proportions.</p>
 <p>The normalized list of pane proportions.</p>
 </section>
 <section id="ratio">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-55"></span><span id="index-54"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aratio"></span><span id="index-57"></span><span id="index-56"></span><h4><code class="docutils literal notranslate"><span class="pre">ratio</span></code><a class="headerlink" href="#ratio" title="Link to this heading"></a></h4>
 <p>Queries or sets the first pane fraction of a two-child split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ ratio</strong> <em>node ?value?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2336,7 +2462,7 @@ using the same conditions as proportions.</p>
 <p>The stored first pane fraction.</p>
 </section>
 <section id="remove">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-57"></span><span id="index-56"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aremove"></span><span id="index-59"></span><span id="index-58"></span><h4><code class="docutils literal notranslate"><span class="pre">remove</span></code><a class="headerlink" href="#remove" title="Link to this heading"></a></h4>
 <p>Removes a docked subtree or destroys owned floating content.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ remove</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -2353,7 +2479,7 @@ weights. If only one child remains, that child replaces the parent split. Surviv
 when removing floating content.</p>
 </section>
 <section id="requiredsize">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3arequiredsize"></span><span id="index-59"></span><span id="index-58"></span><h4><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code><a class="headerlink" href="#requiredsize" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3arequiredsize"></span><span id="index-61"></span><span id="index-60"></span><h4><code class="docutils literal notranslate"><span class="pre">requiredsize</span></code><a class="headerlink" href="#requiredsize" title="Link to this heading"></a></h4>
 <p>Calculates a node’s minimum outer size, including manager-owned decoration.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ requiredsize</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -2370,7 +2496,7 @@ native window decorations, or application widget requests. This query does not r
 <p>A two-element {width height} list in pixels.</p>
 </section>
 <section id="retain">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-61"></span><span id="index-60"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aretain"></span><span id="index-63"></span><span id="index-62"></span><h4><code class="docutils literal notranslate"><span class="pre">retain</span></code><a class="headerlink" href="#retain" title="Link to this heading"></a></h4>
 <p>Keeps a node while removing its siblings and collapsing its parent.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ retain</strong> <em>id</em></pre>
 <p class="rubric">Parameters</p>
@@ -2386,7 +2512,7 @@ parent. Only that parent level is collapsed. Retaining the root makes no changes
 <p>The retained node identifier.</p>
 </section>
 <section id="root">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-63"></span><span id="index-62"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aroot"></span><span id="index-65"></span><span id="index-64"></span><h4><code class="docutils literal notranslate"><span class="pre">root</span></code><a class="headerlink" href="#root" title="Link to this heading"></a></h4>
 <p>Returns the current logical root node.
 The root node identifier, or empty for a page without a tree.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ root</strong> <em>?tab?</em></pre>
@@ -2401,7 +2527,7 @@ The root node identifier, or empty for a page without a tree.</p>
 The root node identifier, or empty for a page without a tree.</p>
 </section>
 <section id="selecttab">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aselecttab"></span><span id="index-65"></span><span id="index-64"></span><h4><code class="docutils literal notranslate"><span class="pre">selecttab</span></code><a class="headerlink" href="#selecttab" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aselecttab"></span><span id="index-67"></span><span id="index-66"></span><h4><code class="docutils literal notranslate"><span class="pre">selecttab</span></code><a class="headerlink" href="#selecttab" title="Link to this heading"></a></h4>
 <p>Selects a tab or queries the current selection.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ selecttab</strong> <em>?args?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2414,7 +2540,7 @@ The root node identifier, or empty for a page without a tree.</p>
 <p>Selected page pathname, or empty for a plain layout.</p>
 </section>
 <section id="show">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ashow"></span><span id="index-67"></span><span id="index-66"></span><h4><code class="docutils literal notranslate"><span class="pre">show</span></code><a class="headerlink" href="#show" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ashow"></span><span id="index-69"></span><span id="index-68"></span><h4><code class="docutils literal notranslate"><span class="pre">show</span></code><a class="headerlink" href="#show" title="Link to this heading"></a></h4>
 <p>Restores hidden content using the same placement and share rules as implicit docking.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ show</strong> <em>?args?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2427,7 +2553,7 @@ The root node identifier, or empty for a page without a tree.</p>
 <p>The new docked leaf identifier. A refused restoration leaves the frame hidden.</p>
 </section>
 <section id="split">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-69"></span><span id="index-68"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3asplit"></span><span id="index-71"></span><span id="index-70"></span><h4><code class="docutils literal notranslate"><span class="pre">split</span></code><a class="headerlink" href="#split" title="Link to this heading"></a></h4>
 <p>Replaces a leaf with a split containing two new leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ split</strong> <em>node ?-orient orientation? ?-ratio fraction? ?-keep child?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2453,7 +2579,7 @@ child starts with an empty frame. Existing pane proportions are captured before 
 <p>The two new leaf identifiers in pane order.</p>
 </section>
 <section id="swap">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-71"></span><span id="index-70"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aswap"></span><span id="index-73"></span><span id="index-72"></span><h4><code class="docutils literal notranslate"><span class="pre">swap</span></code><a class="headerlink" href="#swap" title="Link to this heading"></a></h4>
 <p>Exchanges the content frames assigned to two leaves.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ swap</strong> <em>a b</em></pre>
 <p class="rubric">Parameters</p>
@@ -2473,7 +2599,7 @@ widget pathnames remain unchanged. Equal identifiers do nothing.</p>
 <p>Nothing.</p>
 </section>
 <section id="tabs">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atabs"></span><span id="index-73"></span><span id="index-72"></span><h4><code class="docutils literal notranslate"><span class="pre">tabs</span></code><a class="headerlink" href="#tabs" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atabs"></span><span id="index-75"></span><span id="index-74"></span><h4><code class="docutils literal notranslate"><span class="pre">tabs</span></code><a class="headerlink" href="#tabs" title="Link to this heading"></a></h4>
 <p>Lists tab pathnames in notebook order. Empty for a plain layout.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ tabs</strong> <em>?args?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2481,7 +2607,7 @@ widget pathnames remain unchanged. Equal identifiers do nothing.</p>
 <p>List of tab pathnames.</p>
 </section>
 <section id="tabtitle">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atabtitle"></span><span id="index-75"></span><span id="index-74"></span><h4><code class="docutils literal notranslate"><span class="pre">tabtitle</span></code><a class="headerlink" href="#tabtitle" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atabtitle"></span><span id="index-77"></span><span id="index-76"></span><h4><code class="docutils literal notranslate"><span class="pre">tabtitle</span></code><a class="headerlink" href="#tabtitle" title="Link to this heading"></a></h4>
 <p>Queries or sets a notebook tab label.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ tabtitle</strong> <em>tab ?text? Enable help for the command itself. In the setter, -help is a literal tab label.</em></pre>
 <p class="rubric">Parameters</p>
@@ -2497,7 +2623,7 @@ widget pathnames remain unchanged. Equal identifiers do nothing.</p>
 <p>The current tab label.</p>
 </section>
 <section id="tree">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-77"></span><span id="index-76"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atree"></span><span id="index-79"></span><span id="index-78"></span><h4><code class="docutils literal notranslate"><span class="pre">tree</span></code><a class="headerlink" href="#tree" title="Link to this heading"></a></h4>
 <p>Returns a recursive snapshot of the logical layout hierarchy.
 A nested dictionary describing the requested logical subtree, or empty for a rootless page.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ tree</strong> <em>?id?</em></pre>
@@ -2519,7 +2645,7 @@ the native split widget. Split children are nested node dictionaries in pane ord
 A nested dictionary describing the requested logical subtree, or empty for a rootless page.</p>
 </section>
 <section id="type">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-79"></span><span id="index-78"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3atype"></span><span id="index-81"></span><span id="index-80"></span><h4><code class="docutils literal notranslate"><span class="pre">type</span></code><a class="headerlink" href="#type" title="Link to this heading"></a></h4>
 <p>Returns the type of a logical node.
 The string leaf or split.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ type</strong> <em>id</em></pre>
@@ -2534,7 +2660,7 @@ The string leaf or split.</p>
 The string leaf or split.</p>
 </section>
 <section id="undock">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aundock"></span><span id="index-81"></span><span id="index-80"></span><h4><code class="docutils literal notranslate"><span class="pre">undock</span></code><a class="headerlink" href="#undock" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3aundock"></span><span id="index-83"></span><span id="index-82"></span><h4><code class="docutils literal notranslate"><span class="pre">undock</span></code><a class="headerlink" href="#undock" title="Link to this heading"></a></h4>
 <p>Removes a leaf from the layout and promotes its retained content to a floating window.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ undock</strong> <em>leaf ?-title title? ?-geometry geometry? ?-onclose action?</em></pre>
 <p class="rubric">Parameters</p>
@@ -2560,7 +2686,7 @@ The floating frame keeps its actual parent, so destroying the hull also destroys
 <p>An opaque floating token, accepted by dock, floating, frame, and remove.</p>
 </section>
 <section id="widget">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-83"></span><span id="index-82"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidget"></span><span id="index-85"></span><span id="index-84"></span><h4><code class="docutils literal notranslate"><span class="pre">widget</span></code><a class="headerlink" href="#widget" title="Link to this heading"></a></h4>
 <p>Returns the widget associated with a logical node.
 The outer geometry widget: a leaf wrapper with drag handles, a split wrapper with showstructure,
 or the content frame/native panedwindow otherwise. Use panedwindow to access a split’s native widget.</p>
@@ -2577,7 +2703,7 @@ The outer geometry widget: a leaf wrapper with drag handles, a split wrapper wit
 or the content frame/native panedwindow otherwise. Use panedwindow to access a split’s native widget.</p>
 </section>
 <section id="widgets">
-<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-85"></span><span id="index-84"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading"></a></h4>
+<span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3awidgets"></span><span id="index-87"></span><span id="index-86"></span><h4><code class="docutils literal notranslate"><span class="pre">widgets</span></code><a class="headerlink" href="#widgets" title="Link to this heading"></a></h4>
 <p>Returns a recursive snapshot of the actual Tk widget hierarchy.
 A nested widget dictionary with path, parent, class, manager, container, and children.</p>
 <pre class="literal-block"><strong>SPLITLAYOUTOBJ widgets</strong> <em>?path?</em></pre>
