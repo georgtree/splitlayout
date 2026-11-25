@@ -16,11 +16,11 @@ set startPageNroff $preparedStartPage
 
 set commonSphinx [list -title $title -sortnamespaces false -preamble $startPage -pagesplit namespace -recurse false\
                     -includesource false -pagesplit namespace -autopunctuate true -compact false -includeprivate false\
-                    -product splitlayout -diagrammer "ditaa --border-width 1" -version $packageVersion\
+                    -product splitlayout -diagrammer "ditaa --no-shadows" -version $packageVersion\
                     -copyright "George Yashin" {*}$::argv]
 set commonNroff [list -title $title -sortnamespaces false -preamble $startPageNroff -pagesplit namespace -recurse false\
                          -pagesplit namespace -autopunctuate true -compact false -includeprivate false\
-                         -product splitlayout -diagrammer "ditaa --border-width 1" -version $packageVersion\
+                         -product splitlayout -diagrammer "ditaa --no-shadows" -version $packageVersion\
                          -copyright "George Yashin" {*}$::argv]
 
 set namespaces [list ::splitlayout]
@@ -36,7 +36,24 @@ try {
     ::splitlayoutDoc::RestorePreambles $savedPreambles
 }
 
-::fileutil::appendToFile [file join $docDir sphinx conf.py] {
+# Ruff emits diagram SVGs next to its generated RST. Keep the published files in
+# _static/assets and point the figure directives at that same copy.
+set sphinxDir [file join $docDir sphinx]
+set assetDir [file join $docDir _static assets]
+set diagramRefs {}
+foreach diagram [glob -nocomplain -directory [file join $sphinxDir assets] *.svg] {
+    set name [file tail $diagram]
+    file mkdir $assetDir
+    file rename -force $diagram [file join $assetDir $name]
+    lappend diagramRefs ".. figure:: assets/$name\n" ".. figure:: ../_static/assets/$name\n"
+}
+if {[llength $diagramRefs]} {
+    foreach rst [glob -directory $sphinxDir *.rst] {
+        ::fileutil::updateInPlace $rst [list string map $diagramRefs]
+    }
+}
+
+::fileutil::appendToFile [file join $sphinxDir conf.py] {
 extensions = list(dict.fromkeys(globals().get("extensions", []) + [
     "sphinx_rtd_theme",
     "sphinx.ext.githubpages",
@@ -56,6 +73,8 @@ html_theme_options = {
 # Do not ask Sphinx to copy that directory onto itself.
 html_static_path = []
 html_css_files = list(globals().get("html_css_files", [])) + ["manual.css"]
+from docutils import nodes
+from sphinx.util.osutil import relative_uri
 from pygments.lexers.tcl import TclLexer
 from pygments.token import Operator
 
@@ -75,7 +94,19 @@ class MyTclLexer(TclLexer):
             else:
                 yield i, t, v
 
+def link_static_figures(app, doctree, docname):
+    if app.builder.name != "html":
+        return
+    for image in doctree.findall(nodes.image):
+        uri = image["uri"]
+        if uri.startswith("../_static/assets/"):
+            target = relative_uri(app.builder.get_target_uri(docname), uri[3:])
+            image["uri"] = target
+            # The SVG already lives at its published URL. Skip Sphinx's image copy.
+            image["candidates"] = {"?": target}
+
 def setup(app):
+    app.connect("doctree-resolved", link_static_figures)
     from sphinx.highlighting import lexers
     lexers["tcl"] = MyTclLexer()
 }

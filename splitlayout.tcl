@@ -358,6 +358,257 @@ namespace eval ::splitlayout {
         Geometry changes settle through Tk's event loop. Immediately after setting proportions, a query can return the
         stored values before the sashes have moved.
 
+        ## How layout operations change IDs
+
+        Each box represents a logical node. A split encloses its children in pane order. In a leaf
+        label such as `a / A`, `a` is the node ID held in `$a` and `A` stands for the pathname
+        returned by `$layout frame $a`. Follow the letter for the application widget you want to keep.
+        Each example starts independently; the labels stand for returned values rather than literal IDs.
+
+        For the two-pane examples, start each alternative with a fresh layout:
+
+        ```tcl
+        set layout [::splitlayout::splitlayout .example]
+        set r [$layout root]
+        lassign [$layout split $r -orient horizontal] a b
+        ```
+
+        ### Split or insert
+
+        Choose one command from this starting state:
+
+        ```tcl
+        # Subdivide a. Returns two new leaf IDs in pane order.
+        lassign [$layout split $a -orient vertical -keep first] x y
+
+        # Alternatively, insert beside a. Returns one new leaf ID.
+        set x [$layout insert $a -side after]
+        ```
+
+        ``` -caption {Subdividing a leaf or inserting a sibling} diagram
+        Before
+        +----------------------+
+        |     r horizontal     |
+        |                      |
+        | +-------+  +-------+ |
+        | | a / A |  | b / B | |
+        | +-------+  +-------+ |
+        +----------------------+
+
+        After split                    After insert
+        +---------------------------+  +---------------------------------+
+        |        r horizontal       |  |           r horizontal          |
+        |                           |  |                                 |
+        | +------------+  +-------+ |  | +-------+  +-------+  +-------+ |
+        | | a vertical |  | b / B | |  | | a / A |  | x / C |  | b / B | |
+        | |            |  +-------+ |  | +-------+  +-------+  +-------+ |
+        | | +-------+  |            |  +---------------------------------+
+        | | | x / A |  |            |
+        | | +-------+  |            |
+        | |            |            |
+        | | +-------+  |            |
+        | | | y / C |  |            |
+        | | +-------+  |            |
+        | +------------+            |
+        +---------------------------+
+        ```
+
+        In the split, `a` becomes a vertical split and `x` now owns frame A. In the insertion, `a`
+        still owns A. Both operations create frame C.
+
+        ### Swap or move within a split
+
+        ```tcl
+        # Exchange frames. Returns the empty string.
+        $layout swap $a $b
+
+        # Alternatively, reorder the leaves. Returns $a.
+        $layout move $a -after $b
+        ```
+
+        ``` -caption {Swapping content or reordering leaves} diagram
+        Before
+        +----------------------+
+        |     r horizontal     |
+        |                      |
+        | +-------+  +-------+ |
+        | | a / A |  | b / B | |
+        | +-------+  +-------+ |
+        +----------------------+
+
+        After swap                After move
+        +----------------------+  +----------------------+
+        |     r horizontal     |  |     r horizontal     |
+        |                      |  |                      |
+        | +-------+  +-------+ |  | +-------+  +-------+ |
+        | | a / B |  | b / A | |  | | b / B |  | a / A | |
+        | +-------+  +-------+ |  | +-------+  +-------+ |
+        +----------------------+  +----------------------+
+        ```
+
+        The frames appear in the same order after either operation. Only the move changes the order
+        returned by `$layout children $r`.
+
+        ### Move between two splits
+
+        ```tcl
+        lassign [$layout split $a -orient vertical] x y
+        lassign [$layout split $b -orient vertical] u v
+        $layout move $x -before $v    ;# Returns $x.
+        ```
+
+        ``` -caption {Moving between splits and promoting a survivor} diagram
+        Before
+        +--------------------------------+
+        |          r horizontal          |
+        |                                |
+        | +------------+  +------------+ |
+        | | a vertical |  | b vertical | |
+        | |            |  |            | |
+        | | +-------+  |  | +-------+  | |
+        | | | x / A |  |  | | u / B |  | |
+        | | +-------+  |  | +-------+  | |
+        | |            |  |            | |
+        | | +-------+  |  | +-------+  | |
+        | | | y / C |  |  | | v / D |  | |
+        | | +-------+  |  | +-------+  | |
+        | +------------+  +------------+ |
+        +--------------------------------+
+
+        After move
+        +---------------------------+
+        |        r horizontal       |
+        |                           |
+        | +-------+  +------------+ |
+        | | y / C |  | b vertical | |
+        | +-------+  |            | |
+        |            | +-------+  | |
+        |            | | u / B |  | |
+        |            | +-------+  | |
+        |            |            | |
+        |            | +-------+  | |
+        |            | | x / A |  | |
+        |            | +-------+  | |
+        |            |            | |
+        |            | +-------+  | |
+        |            | | v / D |  | |
+        |            | +-------+  | |
+        |            +------------+ |
+        +---------------------------+
+        ```
+
+        The moved leaf `x` keeps frame A. Its old parent `a` has only one child left and collapses:
+        `y` takes its place under `r`. The split ID `a` expires; `y` and its frame C survive.
+
+        ### Move to an empty tab
+
+        For this example, start with a fresh manager and its unused initial leaf:
+
+        ```tcl
+        set layout [::splitlayout::splitlayout .tabs]
+        set home [$layout addtab Home -empty]
+        set dest [$layout addtab Plots -empty]
+        set a [$layout addleaf $home]
+        $layout move $a -tab $dest    ;# Returns $a.
+        ```
+
+        ``` -caption {Transferring the root leaf between tabs} diagram
+        Before                      After move
+        +-----------+  +-------+    +-------+  +-----------+
+        |    Home   |  | Plots |    |  Home |  |   Plots   |
+        |           |  |       |    |       |  |           |
+        | +-------+ |  | empty |    | empty |  | +-------+ |
+        | | a / A | |  +-------+    +-------+  | | a / A | |
+        | +-------+ |                          | +-------+ |
+        +-----------+                          +-----------+
+        ```
+
+        The outer boxes here are pages. The root of Home becomes empty, and `$layout root $dest`
+        returns `$a`. Frame A can still be addressed through the same leaf ID.
+
+        ### Undock and dock
+
+        For both detachment examples, start with the two-pane layout and append a third leaf with
+        `set c [$layout insert $b]`. This leaves two docked siblings while A is away.
+
+        ```tcl
+        set frameA [$layout frame $a]
+        set f [$layout undock $a]     ;# Returns a floating token.
+        set x [$layout dock $f]       ;# Returns a new docked leaf ID.
+        ```
+
+        ``` -caption {Public handles during undock and dock} diagram
+        Before
+        +---------------------------------+
+        |           r horizontal          |
+        |                                 |
+        | +-------+  +-------+  +-------+ |
+        | | a / A |  | b / B |  | c / C | |
+        | +-------+  +-------+  +-------+ |
+        +---------------------------------+
+
+        After undock              Floating window
+        +----------------------+  +-------+
+        |     r horizontal     |  | f / A |
+        |                      |  +-------+
+        | +-------+  +-------+ |
+        | | b / B |  | c / C | |
+        | +-------+  +-------+ |
+        +----------------------+
+
+        After dock
+        +---------------------------------+
+        |           r horizontal          |
+        |                                 |
+        | +-------+  +-------+  +-------+ |
+        | | x / A |  | b / B |  | c / C | |
+        | +-------+  +-------+  +-------+ |
+        +---------------------------------+
+        ```
+
+        While floating, `$layout frame $f` returns `$frameA` and `a` has expired. On docking, `f`
+        expires and `$layout frame $x` returns the same pathname. The example uses the remembered
+        position with its original siblings still present.
+
+        ### Hide and show
+
+        ```tcl
+        set frameA [$layout hide $a]  ;# Returns the content frame pathname.
+        set x [$layout show $frameA]  ;# Returns a new docked leaf ID.
+        ```
+
+        ``` -caption {Public handles during hide and show} diagram
+        Before
+        +---------------------------------+
+        |           r horizontal          |
+        |                                 |
+        | +-------+  +-------+  +-------+ |
+        | | a / A |  | b / B |  | c / C | |
+        | +-------+  +-------+  +-------+ |
+        +---------------------------------+
+
+        After hide                Hidden
+        +----------------------+  +---------+
+        |     r horizontal     |  | frame A |
+        |                      |  +---------+
+        | +-------+  +-------+ |
+        | | b / B |  | c / C | |
+        | +-------+  +-------+ |
+        +----------------------+
+
+        After show
+        +---------------------------------+
+        |           r horizontal          |
+        |                                 |
+        | +-------+  +-------+  +-------+ |
+        | | x / A |  | b / B |  | c / C | |
+        | +-------+  +-------+  +-------+ |
+        +---------------------------------+
+        ```
+
+        While hidden, frame A is unmapped and its pathname is the handle accepted by `show`.
+        The original leaf ID `a` expires on hide. After show, `$layout frame $x` returns `$frameA`.
+
         ## Minimum content sizes
         ```tcl
         $manager minsize $leaf 200 120

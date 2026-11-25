@@ -61,6 +61,15 @@
 <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#splitting-existing-content">Splitting existing content</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#adding-panes-at-the-same-level">Adding panes at the same level</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-layout-operations-change-ids">How layout operations change IDs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#split-or-insert">Split or insert</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swap-or-move-within-a-split">Swap or move within a split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#move-between-two-splits">Move between two splits</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#move-to-an-empty-tab">Move to an empty tab</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#undock-and-dock">Undock and dock</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hide-and-show">Hide and show</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#minimum-content-sizes">Minimum content sizes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#per-node-constraints">Per-node constraints</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#what-follows-a-pane-during-swap-and-move">What follows a pane during swap and move</a></li>
@@ -264,6 +273,125 @@ child’s fraction:</p>
 </div>
 <p>Geometry changes settle through Tk’s event loop. Immediately after setting proportions, a query can return the
 stored values before the sashes have moved.</p>
+</section>
+<section id="how-layout-operations-change-ids">
+<span id="r-splitlayout-how-layout-operations-change-ids"></span><span id="r-3a3asplitlayoutqzhow20layout20operations20change20ids"></span><h2>How layout operations change IDs<a class="headerlink" href="#how-layout-operations-change-ids" title="Link to this heading"></a></h2>
+<p>Each box represents a logical node. A split encloses its children in pane order. In a leaf
+label such as <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">/</span> <span class="pre">A</span></code>, <code class="docutils literal notranslate"><span class="pre">a</span></code> is the node ID held in <code class="docutils literal notranslate"><span class="pre">$a</span></code> and <code class="docutils literal notranslate"><span class="pre">A</span></code> stands for the pathname
+returned by <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">frame</span> <span class="pre">$a</span></code>. Follow the letter for the application widget you want to keep.
+Each example starts independently; the labels stand for returned values rather than literal IDs.</p>
+<p>For the two-pane examples, start each alternative with a fresh layout:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>layout<span class="w"> </span><span class="k">[</span><span class="o">::</span><span class="nv">splitlayout</span><span class="o">::</span>splitlayout<span class="w"> </span>.example<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>r<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">root</span><span class="k">]</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="nv">$r</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>horizontal<span class="k">]</span><span class="w"> </span>a<span class="w"> </span>b
+</pre></div>
+</div>
+<section id="split-or-insert">
+<span id="r-splitlayout-split-or-insert"></span><span id="r-3a3asplitlayoutqzsplit20or20insert"></span><h3>Split or insert<a class="headerlink" href="#split-or-insert" title="Link to this heading"></a></h3>
+<p>Choose one command from this starting state:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Subdivide a. Returns two new leaf IDs in pane order.</span>
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="w"> </span><span class="o">-</span>keep<span class="w"> </span>first<span class="k">]</span><span class="w"> </span>x<span class="w"> </span>y
+
+<span class="c"># Alternatively, insert beside a. Returns one new leaf ID.</span>
+<span class="k">set</span><span class="w"> </span>x<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">insert</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="k">]</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id2">
+<span id="r-splitlayout-subdividing-a-leaf-or-inserting-a-sibling"></span><span id="r-3a3asplitlayoutqzsubdividing20a20leaf20or20inserting20a20sibling"></span><img alt="_static/assets/Subdividing-a-leaf-or-inserting-a-sibling.svg" src="_static/assets/Subdividing-a-leaf-or-inserting-a-sibling.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 1. Subdividing a leaf or inserting a sibling</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>In the split, <code class="docutils literal notranslate"><span class="pre">a</span></code> becomes a vertical split and <code class="docutils literal notranslate"><span class="pre">x</span></code> now owns frame A. In the insertion, <code class="docutils literal notranslate"><span class="pre">a</span></code>
+still owns A. Both operations create frame C.</p>
+</section>
+<section id="swap-or-move-within-a-split">
+<span id="r-splitlayout-swap-or-move-within-a-split"></span><span id="r-3a3asplitlayoutqzswap20or20move20within20a20split"></span><h3>Swap or move within a split<a class="headerlink" href="#swap-or-move-within-a-split" title="Link to this heading"></a></h3>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="c"># Exchange frames. Returns the empty string.</span>
+<span class="nv">$layout</span><span class="w"> </span><span class="nv">swap</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="nv">$b</span>
+
+<span class="c"># Alternatively, reorder the leaves. Returns $a.</span>
+<span class="nv">$layout</span><span class="w"> </span><span class="nv">move</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>after<span class="w"> </span><span class="nv">$b</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id3">
+<span id="r-splitlayout-swapping-content-or-reordering-leaves"></span><span id="r-3a3asplitlayoutqzswapping20content20or20reordering20leaves"></span><img alt="_static/assets/Swapping-content-or-reordering-leaves.svg" src="_static/assets/Swapping-content-or-reordering-leaves.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 2. Swapping content or reordering leaves</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The frames appear in the same order after either operation. Only the move changes the order
+returned by <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">children</span> <span class="pre">$r</span></code>.</p>
+</section>
+<section id="move-between-two-splits">
+<span id="r-splitlayout-move-between-two-splits"></span><span id="r-3a3asplitlayoutqzmove20between20two20splits"></span><h3>Move between two splits<a class="headerlink" href="#move-between-two-splits" title="Link to this heading"></a></h3>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="k">]</span><span class="w"> </span>x<span class="w"> </span>y
+<span class="nb">lassign</span><span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nb">split</span><span class="w"> </span><span class="nv">$b</span><span class="w"> </span><span class="o">-</span>orient<span class="w"> </span>vertical<span class="k">]</span><span class="w"> </span>u<span class="w"> </span>v
+<span class="nv">$layout</span><span class="w"> </span><span class="nv">move</span><span class="w"> </span><span class="nv">$x</span><span class="w"> </span><span class="o">-</span>before<span class="w"> </span><span class="nv">$v</span><span class="w">    </span><span class="k">;</span><span class="c"># Returns $x.</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id4">
+<span id="r-splitlayout-moving-between-splits-and-promoting-a-survivor"></span><span id="r-3a3asplitlayoutqzmoving20between20splits20and20promoting20a20survivor"></span><img alt="_static/assets/Moving-between-splits-and-promoting-a-survivor.svg" src="_static/assets/Moving-between-splits-and-promoting-a-survivor.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 3. Moving between splits and promoting a survivor</span><a class="headerlink" href="#id4" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The moved leaf <code class="docutils literal notranslate"><span class="pre">x</span></code> keeps frame A. Its old parent <code class="docutils literal notranslate"><span class="pre">a</span></code> has only one child left and collapses:
+<code class="docutils literal notranslate"><span class="pre">y</span></code> takes its place under <code class="docutils literal notranslate"><span class="pre">r</span></code>. The split ID <code class="docutils literal notranslate"><span class="pre">a</span></code> expires; <code class="docutils literal notranslate"><span class="pre">y</span></code> and its frame C survive.</p>
+</section>
+<section id="move-to-an-empty-tab">
+<span id="r-splitlayout-move-to-an-empty-tab"></span><span id="r-3a3asplitlayoutqzmove20to20an20empty20tab"></span><h3>Move to an empty tab<a class="headerlink" href="#move-to-an-empty-tab" title="Link to this heading"></a></h3>
+<p>For this example, start with a fresh manager and its unused initial leaf:</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>layout<span class="w"> </span><span class="k">[</span><span class="o">::</span><span class="nv">splitlayout</span><span class="o">::</span>splitlayout<span class="w"> </span>.tabs<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>home<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">addtab</span><span class="w"> </span>Home<span class="w"> </span><span class="o">-</span>empty<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>dest<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">addtab</span><span class="w"> </span>Plots<span class="w"> </span><span class="o">-</span>empty<span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>a<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">addleaf</span><span class="w"> </span><span class="nv">$home</span><span class="k">]</span>
+<span class="nv">$layout</span><span class="w"> </span><span class="nv">move</span><span class="w"> </span><span class="nv">$a</span><span class="w"> </span><span class="o">-</span>tab<span class="w"> </span><span class="nv">$dest</span><span class="w">    </span><span class="k">;</span><span class="c"># Returns $a.</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id5">
+<span id="r-splitlayout-transferring-the-root-leaf-between-tabs"></span><span id="r-3a3asplitlayoutqztransferring20the20root20leaf20between20tabs"></span><img alt="_static/assets/Transferring-the-root-leaf-between-tabs.svg" src="_static/assets/Transferring-the-root-leaf-between-tabs.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 4. Transferring the root leaf between tabs</span><a class="headerlink" href="#id5" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>The outer boxes here are pages. The root of Home becomes empty, and <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">root</span> <span class="pre">$dest</span></code>
+returns <code class="docutils literal notranslate"><span class="pre">$a</span></code>. Frame A can still be addressed through the same leaf ID.</p>
+</section>
+<section id="undock-and-dock">
+<span id="r-splitlayout-undock-and-dock"></span><span id="r-3a3asplitlayoutqzundock20and20dock"></span><h3>Undock and dock<a class="headerlink" href="#undock-and-dock" title="Link to this heading"></a></h3>
+<p>For both detachment examples, start with the two-pane layout and append a third leaf with
+<code class="docutils literal notranslate"><span class="pre">set</span> <span class="pre">c</span> <span class="pre">[$layout</span> <span class="pre">insert</span> <span class="pre">$b]</span></code>. This leaves two docked siblings while A is away.</p>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>frameA<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">frame</span><span class="w"> </span><span class="nv">$a</span><span class="k">]</span>
+<span class="k">set</span><span class="w"> </span>f<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">undock</span><span class="w"> </span><span class="nv">$a</span><span class="k">]</span><span class="w">     </span><span class="k">;</span><span class="c"># Returns a floating token.</span>
+<span class="k">set</span><span class="w"> </span>x<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">dock</span><span class="w"> </span><span class="nv">$f</span><span class="k">]</span><span class="w">       </span><span class="k">;</span><span class="c"># Returns a new docked leaf ID.</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id6">
+<span id="r-splitlayout-public-handles-during-undock-and-dock"></span><span id="r-3a3asplitlayoutqzpublic20handles20during20undock20and20dock"></span><img alt="_static/assets/Public-handles-during-undock-and-dock.svg" src="_static/assets/Public-handles-during-undock-and-dock.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 5. Public handles during undock and dock</span><a class="headerlink" href="#id6" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>While floating, <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">frame</span> <span class="pre">$f</span></code> returns <code class="docutils literal notranslate"><span class="pre">$frameA</span></code> and <code class="docutils literal notranslate"><span class="pre">a</span></code> has expired. On docking, <code class="docutils literal notranslate"><span class="pre">f</span></code>
+expires and <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">frame</span> <span class="pre">$x</span></code> returns the same pathname. The example uses the remembered
+position with its original siblings still present.</p>
+</section>
+<section id="hide-and-show">
+<span id="r-splitlayout-hide-and-show"></span><span id="r-3a3asplitlayoutqzhide20and20show"></span><h3>Hide and show<a class="headerlink" href="#hide-and-show" title="Link to this heading"></a></h3>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>frameA<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">hide</span><span class="w"> </span><span class="nv">$a</span><span class="k">]</span><span class="w">  </span><span class="k">;</span><span class="c"># Returns the content frame pathname.</span>
+<span class="k">set</span><span class="w"> </span>x<span class="w"> </span><span class="k">[</span><span class="nv">$layout</span><span class="w"> </span><span class="nv">show</span><span class="w"> </span><span class="nv">$frameA</span><span class="k">]</span><span class="w">  </span><span class="k">;</span><span class="c"># Returns a new docked leaf ID.</span>
+</pre></div>
+</div>
+<figure class="align-default" id="id7">
+<span id="r-splitlayout-public-handles-during-hide-and-show"></span><span id="r-3a3asplitlayoutqzpublic20handles20during20hide20and20show"></span><img alt="_static/assets/Public-handles-during-hide-and-show.svg" src="_static/assets/Public-handles-during-hide-and-show.svg" />
+<figcaption>
+<p><span class="caption-text">Figure 6. Public handles during hide and show</span><a class="headerlink" href="#id7" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>While hidden, frame A is unmapped and its pathname is the handle accepted by <code class="docutils literal notranslate"><span class="pre">show</span></code>.
+The original leaf ID <code class="docutils literal notranslate"><span class="pre">a</span></code> expires on hide. After show, <code class="docutils literal notranslate"><span class="pre">$layout</span> <span class="pre">frame</span> <span class="pre">$x</span></code> returns <code class="docutils literal notranslate"><span class="pre">$frameA</span></code>.</p>
+</section>
 </section>
 <section id="minimum-content-sizes">
 <span id="r-splitlayout-minimum-content-sizes"></span><span id="r-3a3asplitlayoutqzminimum20content20sizes"></span><h2>Minimum content sizes<a class="headerlink" href="#minimum-content-sizes" title="Link to this heading"></a></h2>

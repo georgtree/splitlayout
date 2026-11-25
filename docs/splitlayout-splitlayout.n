@@ -196,6 +196,294 @@ set shares [\&.layout proportions $root]
 .PP
 Geometry changes settle through Tk's event loop\&. Immediately after setting proportions, a query can return the
 stored values before the sashes have moved\&.
+.SH "HOW LAYOUT OPERATIONS CHANGE IDS"
+.PP
+Each box represents a logical node\&. A split encloses its children in pane order\&. In a leaf
+label such as a / A, a is the node ID held in $a and A stands for the pathname
+returned by $layout frame $a\&. Follow the letter for the application widget you want to keep\&.
+Each example starts independently; the labels stand for returned values rather than literal IDs\&.
+.PP
+For the two-pane examples, start each alternative with a fresh layout:
+.PP
+.RS 4n
+.nf
+set layout [::splitlayout::splitlayout \&.example]
+set r [$layout root]
+lassign [$layout split $r -orient horizontal] a b
+.fi
+.RE
+.SS "SPLIT OR INSERT"
+.PP
+Choose one command from this starting state:
+.PP
+.RS 4n
+.nf
+# Subdivide a\&. Returns two new leaf IDs in pane order\&.
+lassign [$layout split $a -orient vertical -keep first] x y
+
+# Alternatively, insert beside a\&. Returns one new leaf ID\&.
+set x [$layout insert $a -side after]
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before
++----------------------+
+|     r horizontal     |
+|                      |
+| +-------+  +-------+ |
+| | a / A |  | b / B | |
+| +-------+  +-------+ |
++----------------------+
+
+After split                    After insert
++---------------------------+  +---------------------------------+
+|        r horizontal       |  |           r horizontal          |
+|                           |  |                                 |
+| +------------+  +-------+ |  | +-------+  +-------+  +-------+ |
+| | a vertical |  | b / B | |  | | a / A |  | x / C |  | b / B | |
+| |            |  +-------+ |  | +-------+  +-------+  +-------+ |
+| | +-------+  |            |  +---------------------------------+
+| | | x / A |  |            |
+| | +-------+  |            |
+| |            |            |
+| | +-------+  |            |
+| | | y / C |  |            |
+| | +-------+  |            |
+| +------------+            |
++---------------------------+
+
+\fISubdividing a leaf or inserting a sibling\fP
+
+.fi
+.RE
+.PP
+In the split, a becomes a vertical split and x now owns frame A\&. In the insertion, a
+still owns A\&. Both operations create frame C\&.
+.SS "SWAP OR MOVE WITHIN A SPLIT"
+.PP
+.RS 4n
+.nf
+# Exchange frames\&. Returns the empty string\&.
+$layout swap $a $b
+
+# Alternatively, reorder the leaves\&. Returns $a\&.
+$layout move $a -after $b
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before
++----------------------+
+|     r horizontal     |
+|                      |
+| +-------+  +-------+ |
+| | a / A |  | b / B | |
+| +-------+  +-------+ |
++----------------------+
+
+After swap                After move
++----------------------+  +----------------------+
+|     r horizontal     |  |     r horizontal     |
+|                      |  |                      |
+| +-------+  +-------+ |  | +-------+  +-------+ |
+| | a / B |  | b / A | |  | | b / B |  | a / A | |
+| +-------+  +-------+ |  | +-------+  +-------+ |
++----------------------+  +----------------------+
+
+\fISwapping content or reordering leaves\fP
+
+.fi
+.RE
+.PP
+The frames appear in the same order after either operation\&. Only the move changes the order
+returned by $layout children $r\&.
+.SS "MOVE BETWEEN TWO SPLITS"
+.PP
+.RS 4n
+.nf
+lassign [$layout split $a -orient vertical] x y
+lassign [$layout split $b -orient vertical] u v
+$layout move $x -before $v    ;# Returns $x\&.
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before
++--------------------------------+
+|          r horizontal          |
+|                                |
+| +------------+  +------------+ |
+| | a vertical |  | b vertical | |
+| |            |  |            | |
+| | +-------+  |  | +-------+  | |
+| | | x / A |  |  | | u / B |  | |
+| | +-------+  |  | +-------+  | |
+| |            |  |            | |
+| | +-------+  |  | +-------+  | |
+| | | y / C |  |  | | v / D |  | |
+| | +-------+  |  | +-------+  | |
+| +------------+  +------------+ |
++--------------------------------+
+
+After move
++---------------------------+
+|        r horizontal       |
+|                           |
+| +-------+  +------------+ |
+| | y / C |  | b vertical | |
+| +-------+  |            | |
+|            | +-------+  | |
+|            | | u / B |  | |
+|            | +-------+  | |
+|            |            | |
+|            | +-------+  | |
+|            | | x / A |  | |
+|            | +-------+  | |
+|            |            | |
+|            | +-------+  | |
+|            | | v / D |  | |
+|            | +-------+  | |
+|            +------------+ |
++---------------------------+
+
+\fIMoving between splits and promoting a survivor\fP
+
+.fi
+.RE
+.PP
+The moved leaf x keeps frame A\&. Its old parent a has only one child left and collapses:
+y takes its place under r\&. The split ID a expires; y and its frame C survive\&.
+.SS "MOVE TO AN EMPTY TAB"
+.PP
+For this example, start with a fresh manager and its unused initial leaf:
+.PP
+.RS 4n
+.nf
+set layout [::splitlayout::splitlayout \&.tabs]
+set home [$layout addtab Home -empty]
+set dest [$layout addtab Plots -empty]
+set a [$layout addleaf $home]
+$layout move $a -tab $dest    ;# Returns $a\&.
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before                      After move
++-----------+  +-------+    +-------+  +-----------+
+|    Home   |  | Plots |    |  Home |  |   Plots   |
+|           |  |       |    |       |  |           |
+| +-------+ |  | empty |    | empty |  | +-------+ |
+| | a / A | |  +-------+    +-------+  | | a / A | |
+| +-------+ |                          | +-------+ |
++-----------+                          +-----------+
+
+\fITransferring the root leaf between tabs\fP
+
+.fi
+.RE
+.PP
+The outer boxes here are pages\&. The root of Home becomes empty, and $layout root $dest
+returns $a\&. Frame A can still be addressed through the same leaf ID\&.
+.SS "UNDOCK AND DOCK"
+.PP
+For both detachment examples, start with the two-pane layout and append a third leaf with
+set c [$layout insert $b]\&. This leaves two docked siblings while A is away\&.
+.PP
+.RS 4n
+.nf
+set frameA [$layout frame $a]
+set f [$layout undock $a]     ;# Returns a floating token\&.
+set x [$layout dock $f]       ;# Returns a new docked leaf ID\&.
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before
++---------------------------------+
+|           r horizontal          |
+|                                 |
+| +-------+  +-------+  +-------+ |
+| | a / A |  | b / B |  | c / C | |
+| +-------+  +-------+  +-------+ |
++---------------------------------+
+
+After undock              Floating window
++----------------------+  +-------+
+|     r horizontal     |  | f / A |
+|                      |  +-------+
+| +-------+  +-------+ |
+| | b / B |  | c / C | |
+| +-------+  +-------+ |
++----------------------+
+
+After dock
++---------------------------------+
+|           r horizontal          |
+|                                 |
+| +-------+  +-------+  +-------+ |
+| | x / A |  | b / B |  | c / C | |
+| +-------+  +-------+  +-------+ |
++---------------------------------+
+
+\fIPublic handles during undock and dock\fP
+
+.fi
+.RE
+.PP
+While floating, $layout frame $f returns $frameA and a has expired\&. On docking, f
+expires and $layout frame $x returns the same pathname\&. The example uses the remembered
+position with its original siblings still present\&.
+.SS "HIDE AND SHOW"
+.PP
+.RS 4n
+.nf
+set frameA [$layout hide $a]  ;# Returns the content frame pathname\&.
+set x [$layout show $frameA]  ;# Returns a new docked leaf ID\&.
+.fi
+.RE
+.PP
+.RS 4n
+.nf
+Before
++---------------------------------+
+|           r horizontal          |
+|                                 |
+| +-------+  +-------+  +-------+ |
+| | a / A |  | b / B |  | c / C | |
+| +-------+  +-------+  +-------+ |
++---------------------------------+
+
+After hide                Hidden
++----------------------+  +---------+
+|     r horizontal     |  | frame A |
+|                      |  +---------+
+| +-------+  +-------+ |
+| | b / B |  | c / C | |
+| +-------+  +-------+ |
++----------------------+
+
+After show
++---------------------------------+
+|           r horizontal          |
+|                                 |
+| +-------+  +-------+  +-------+ |
+| | x / A |  | b / B |  | c / C | |
+| +-------+  +-------+  +-------+ |
++---------------------------------+
+
+\fIPublic handles during hide and show\fP
+
+.fi
+.RE
+.PP
+While hidden, frame A is unmapped and its pathname is the handle accepted by show\&.
+The original leaf ID a expires on hide\&. After show, $layout frame $x returns $frameA\&.
 .SH "MINIMUM CONTENT SIZES"
 .PP
 .RS 4n
