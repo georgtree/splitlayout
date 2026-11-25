@@ -241,7 +241,7 @@ editor in the second child instead. Both children are returned in pane order.</p
 <section id="adding-panes-at-the-same-level">
 <span id="r-splitlayout-adding-panes-at-the-same-level"></span><span id="r-3a3asplitlayoutqzadding20panes20at20the20same20level"></span><h2>Adding panes at the same level<a class="headerlink" href="#adding-panes-at-the-same-level" title="Link to this heading"></a></h2>
 <p>Insert beside a leaf or a split, provided that it has a parent:</p>
-<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>middle<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>insert<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="k">]</span>
+<div class="highlight-tcl notranslate"><div class="highlight"><pre><span></span><span class="k">set</span><span class="w"> </span>middle<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>insert<span class="w"> </span><span class="nv">$left</span><span class="w"> </span><span class="o">-</span>side<span class="w"> </span>after<span class="w"> </span><span class="o">-</span>ratio<span class="w"> </span><span class="mf">0.25</span><span class="k">]</span>
 <span class="k">set</span><span class="w"> </span>middleFrame<span class="w"> </span><span class="k">[</span><span class="nv">.layout</span><span class="w"> </span>frame<span class="w"> </span><span class="nv">$middle</span><span class="k">]</span>
 <span class="nv">ttk</span><span class="o">::</span>label<span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>text<span class="w"> </span><span class="k">{</span><span class="nv">Middle</span><span class="w"> </span>pane<span class="k">}</span>
 <span class="nv">pack</span><span class="w"> </span><span class="nv">$middleFrame.label</span><span class="w"> </span><span class="o">-</span>fill<span class="w"> </span>both<span class="w"> </span><span class="o">-</span>expand<span class="w"> </span><span class="mi">1</span>
@@ -250,9 +250,10 @@ editor in the second child instead. Both children are returned in pane order.</p
 <span class="nv">.layout</span><span class="w"> </span>proportions<span class="w"> </span><span class="nv">$root</span><span class="w"> </span><span class="k">{</span><span class="nv">2</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="mi">3</span><span class="k">}</span>
 </pre></div>
 </div>
-<p>Insertion divides the target child’s existing share equally between that child and the new leaf. The <code class="docutils literal notranslate"><span class="pre">-side</span></code>
-option accepts <code class="docutils literal notranslate"><span class="pre">before</span></code> or <code class="docutils literal notranslate"><span class="pre">after</span></code>, with <code class="docutils literal notranslate"><span class="pre">after</span></code> as the default. To add panes when the root is still a leaf,
-split it first.</p>
+<p>The new leaf receives the fraction <code class="docutils literal notranslate"><span class="pre">-ratio</span></code> of the target’s current share. The default is 0.5.
+For example, if the target occupies 40% of its parent, <code class="docutils literal notranslate"><span class="pre">-ratio</span> <span class="pre">0.25</span></code> gives the new pane 10% and leaves
+the target with 30%. Other siblings keep their shares. The calculation is the same for <code class="docutils literal notranslate"><span class="pre">-side</span> <span class="pre">before</span></code>
+and <code class="docutils literal notranslate"><span class="pre">-side</span> <span class="pre">after</span></code> (the default). Split the root first to insert beside one of its children.</p>
 <p><code class="docutils literal notranslate"><span class="pre">proportions</span></code> accepts one finite positive weight per immediate child and normalizes the weights. The example
 assigns shares of 2/6, 1/6, and 3/6. For a split with exactly two children, <code class="docutils literal notranslate"><span class="pre">ratio</span></code> queries or sets the first
 child’s fraction:</p>
@@ -2222,18 +2223,21 @@ The content frame pathname, unchanged across docking transitions.</p>
 <section id="insert">
 <span id="r-symbolqz3a3asplitlayout3a3asplitlayout3a3ainsert"></span><span id="index-35"></span><span id="index-34"></span><h4><code class="docutils literal notranslate"><span class="pre">insert</span></code><a class="headerlink" href="#insert" title="Link to this heading"></a></h4>
 <p>Inserts an empty leaf beside an existing non-root node.</p>
-<pre class="literal-block"><strong>SPLITLAYOUTOBJ insert</strong> <em>node ?-side side?</em></pre>
+<pre class="literal-block"><strong>SPLITLAYOUTOBJ insert</strong> <em>node ?-side side? ?-ratio fraction?</em></pre>
 <p class="rubric">Parameters</p>
 <dl class="field-list simple">
-<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-side</span> <span class="pre">side</span></code><span class="colon">:</span></dt>
-<dd class="field-odd"><p>Position of the new leaf relative to node: before or after; default after.</p>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">-ratio</span> <span class="pre">fraction</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fraction of the target’s share assigned to the new leaf; default 0.5.</p>
 </dd>
-<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">node</span></code><span class="colon">:</span></dt>
-<dd class="field-even"><p>Identifier of the leaf or split beside which to insert a sibling.</p>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">-side</span> <span class="pre">side</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>Position of the new leaf relative to node: before or after; default after.</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">node</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>Identifier of the leaf or split beside which to insert a sibling.</p>
 </dd>
 </dl>
 <p class="rubric">Description</p>
-<p>The new leaf shares the target parent, and the target pane share is divided equally between the two siblings.
+<p>Both siblings share the target’s parent. Other siblings retain their proportions.
 Inserting beside the root raises an error; split the root first.</p>
 <p class="rubric">Return value</p>
 <p>The new leaf identifier.</p>

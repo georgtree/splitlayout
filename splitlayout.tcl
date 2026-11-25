@@ -332,7 +332,7 @@ namespace eval ::splitlayout {
         ## Adding panes at the same level
         Insert beside a leaf or a split, provided that it has a parent:
         ```tcl
-        set middle [.layout insert $left -side after]
+        set middle [.layout insert $left -side after -ratio 0.25]
         set middleFrame [.layout frame $middle]
         ttk::label $middleFrame.label -text {Middle pane}
         pack $middleFrame.label -fill both -expand 1
@@ -341,9 +341,10 @@ namespace eval ::splitlayout {
         .layout proportions $root {2 1 3}
         ```
 
-        Insertion divides the target child's existing share equally between that child and the new leaf. The `-side`
-        option accepts `before` or `after`, with `after` as the default. To add panes when the root is still a leaf,
-        split it first.
+        The new leaf receives the fraction `-ratio` of the target's current share. The default is 0.5.
+        For example, if the target occupies 40% of its parent, `-ratio 0.25` gives the new pane 10% and leaves
+        the target with 30%. Other siblings keep their shares. The calculation is the same for `-side before`
+        and `-side after` (the default). Split the root first to insert beside one of its children.
 
         `proportions` accepts one finite positive weight per immediate child and normalizes the weights. The example
         assigns shares of 2/6, 1/6, and 3/6. For a split with exactly two children, `ratio` queries or sets the first
@@ -2907,15 +2908,17 @@ oo::configurable create ::splitlayout::splitlayout {
         # Inserts an empty leaf beside an existing non-root node.
         #  node - Identifier of the leaf or split beside which to insert a sibling.
         #  -side side - Position of the new leaf relative to node: before or after; default after.
+        #  -ratio fraction - Fraction of the target's share assigned to the new leaf; default 0.5.
         #
-        # The new leaf shares the target parent, and the target pane share is divided equally between the two siblings.
+        # Both siblings share the target's parent. Other siblings retain their proportions.
         # Inserting beside the root raises an error; split the root first.
         #
         # Returns: The new leaf identifier.
-        # Synopsis: node ?-side side?
+        # Synopsis: node ?-side side? ?-ratio fraction?
         set opts [argparse -inline -pfirst -help {Insert an empty leaf beside a non-root node, sharing its parent\
                     and dividing its pane share} {
             {node -help {Non-root leaf or split serving as the insertion reference}}
+            {-ratio= -default 0.5 -help {Fraction of the target share for the new leaf, strictly between 0 and 1}}
             {-side= -default after -enum {before after} -help {Insert before or after the reference node}}
         }]
         set id [my Check [dict get $opts node]]
@@ -2923,11 +2926,17 @@ oo::configurable create ::splitlayout::splitlayout {
         if {$parent eq {}} {
             return -code error {cannot insert beside root; split it first}
         }
+        set fraction [my Fraction [dict get $opts ratio]]
         my ValidateOperation insert $id [dict get $opts side]
         set page [my NodePage $id]
         my CaptureAll [list $page]
+        set at [lsearch -exact [dict get $Nodes $parent children] $id]
+        set weight [lindex [dict get $Nodes $parent proportions] $at]
+        if {$weight * min($fraction, 1.0-$fraction) == 0.0} {
+            return -code error {insertion would give a pane zero weight}
+        }
         set new [my NewLeaf $parent]
-        my InsertSibling $new $id [expr {[dict get $opts side] eq {before}}]
+        my InsertSibling $new $id [expr {[dict get $opts side] eq {before}}] [list $fraction [expr {1.0-$fraction}]]
         my Rebuild [list $page]
         return $new
     }

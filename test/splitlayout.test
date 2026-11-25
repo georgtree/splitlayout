@@ -485,6 +485,34 @@ test splitlayout-flat-9.1 {insertion order and splitting the target share} -setu
     list [expr {[$m children $root] eq [list $d $a $b $c]}] [$m proportions $root] [::sltest::check $m]
 } -cleanup {::sltest::cleanup} -result {1 {0.2 0.2 0.3 0.3} 1}
 
+foreach side {before after} {
+    test splitlayout-flat-9.1-ratio-$side {new pane gets the requested fraction of the target split's share} -setup {
+        set m [::sltest::setup]
+        set root [$m root]
+        lassign [$m split $root -ratio 0.5] target other
+        set subtree [$m split $target -orient vertical]
+    } -body {
+        set new [$m insert $target -side $side -ratio 0.25]
+        foreach id [$m children $root] w [$m proportions $root] {dict set shares $id $w}
+        list [dict get $shares $new] [dict get $shares $target] [dict get $shares $other]\
+                [expr {[lsearch -exact [$m children $root] $new] == ($side eq {after})}]\
+                [expr {[$m children $target] eq $subtree}]
+    } -cleanup {::sltest::cleanup} -result {0.125 0.375 0.5 1 1}
+}
+
+test splitlayout-flat-9.1-invalid {invalid insert ratios preserve the tree and content windows} -setup {
+    set m [::sltest::setup]
+    lassign [$m split [$m root] -ratio 0.25] target other
+    set before [$m tree]
+    set windows [winfo children $m]
+} -body {
+    set errors {}
+    foreach fraction {0 1 -0.2 1.2 Inf NaN bogus 5e-324} {
+        lappend errors [catch {$m insert $target -ratio $fraction}]
+    }
+    list $errors [expr {[$m tree] eq $before}] [expr {[winfo children $m] eq $windows}]
+} -cleanup {::sltest::cleanup} -result {{1 1 1 1 1 1 1 1} 1 1}
+
 test splitlayout-flat-9.2 {removal redistributes shares then collapses single child} -setup {
     set m [::sltest::setup]; set root [$m root]
     lassign [$m split $root] a b
