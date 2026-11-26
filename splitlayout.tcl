@@ -388,7 +388,7 @@ namespace eval ::splitlayout {
         ``` -caption {Subdividing a leaf or inserting a sibling} diagram
         Before
         +----------------------+
-        |     r horizontal     |
+        | r horizontal         |
         |                      |
         | +-------+  +-------+ |
         | | a / A |  | b / B | |
@@ -397,7 +397,7 @@ namespace eval ::splitlayout {
 
         After split                    After insert
         +---------------------------+  +---------------------------------+
-        |        r horizontal       |  |           r horizontal          |
+        | r horizontal              |  | r horizontal                    |
         |                           |  |                                 |
         | +------------+  +-------+ |  | +-------+  +-------+  +-------+ |
         | | a vertical |  | b / B | |  | | a / A |  | x / C |  | b / B | |
@@ -429,7 +429,7 @@ namespace eval ::splitlayout {
         ``` -caption {Swapping content or reordering leaves} diagram
         Before
         +----------------------+
-        |     r horizontal     |
+        | r horizontal         |
         |                      |
         | +-------+  +-------+ |
         | | a / A |  | b / B | |
@@ -438,7 +438,7 @@ namespace eval ::splitlayout {
 
         After swap                After move
         +----------------------+  +----------------------+
-        |     r horizontal     |  |     r horizontal     |
+        | r horizontal         |  | r horizontal         |
         |                      |  |                      |
         | +-------+  +-------+ |  | +-------+  +-------+ |
         | | a / B |  | b / A | |  | | b / B |  | a / A | |
@@ -460,7 +460,7 @@ namespace eval ::splitlayout {
         ``` -caption {Moving between splits and promoting a survivor} diagram
         Before
         +--------------------------------+
-        |          r horizontal          |
+        | r horizontal                   |
         |                                |
         | +------------+  +------------+ |
         | | a vertical |  | b vertical | |
@@ -477,7 +477,7 @@ namespace eval ::splitlayout {
 
         After move
         +---------------------------+
-        |        r horizontal       |
+        | r horizontal              |
         |                           |
         | +-------+  +------------+ |
         | | y / C |  | b vertical | |
@@ -515,7 +515,7 @@ namespace eval ::splitlayout {
         ``` -caption {Transferring the root leaf between tabs} diagram
         Before                      After move
         +-----------+  +-------+    +-------+  +-----------+
-        |    Home   |  | Plots |    |  Home |  |   Plots   |
+        | Home      |  | Plots |    | Home  |  | Plots     |
         |           |  |       |    |       |  |           |
         | +-------+ |  | empty |    | empty |  | +-------+ |
         | | a / A | |  +-------+    +-------+  | | a / A | |
@@ -540,7 +540,7 @@ namespace eval ::splitlayout {
         ``` -caption {Public handles during undock and dock} diagram
         Before
         +---------------------------------+
-        |           r horizontal          |
+        | r horizontal                    |
         |                                 |
         | +-------+  +-------+  +-------+ |
         | | a / A |  | b / B |  | c / C | |
@@ -549,7 +549,7 @@ namespace eval ::splitlayout {
 
         After undock              Floating window
         +----------------------+  +-------+
-        |     r horizontal     |  | f / A |
+        | r horizontal         |  | f / A |
         |                      |  +-------+
         | +-------+  +-------+ |
         | | b / B |  | c / C | |
@@ -558,7 +558,7 @@ namespace eval ::splitlayout {
 
         After dock
         +---------------------------------+
-        |           r horizontal          |
+        | r horizontal                    |
         |                                 |
         | +-------+  +-------+  +-------+ |
         | | x / A |  | b / B |  | c / C | |
@@ -580,7 +580,7 @@ namespace eval ::splitlayout {
         ``` -caption {Public handles during hide and show} diagram
         Before
         +---------------------------------+
-        |           r horizontal          |
+        | r horizontal                    |
         |                                 |
         | +-------+  +-------+  +-------+ |
         | | a / A |  | b / B |  | c / C | |
@@ -589,7 +589,7 @@ namespace eval ::splitlayout {
 
         After hide                Hidden
         +----------------------+  +---------+
-        |     r horizontal     |  | frame A |
+        | r horizontal         |  | frame A |
         |                      |  +---------+
         | +-------+  +-------+ |
         | | b / B |  | c / C | |
@@ -598,7 +598,7 @@ namespace eval ::splitlayout {
 
         After show
         +---------------------------------+
-        |           r horizontal          |
+        | r horizontal                    |
         |                                 |
         | +-------+  +-------+  +-------+ |
         | | x / A |  | b / B |  | c / C | |

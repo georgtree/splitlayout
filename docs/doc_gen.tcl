@@ -16,11 +16,11 @@ set startPageNroff $preparedStartPage
 
 set commonSphinx [list -title $title -sortnamespaces false -preamble $startPage -pagesplit namespace -recurse false\
                     -includesource false -pagesplit namespace -autopunctuate true -compact false -includeprivate false\
-                    -product splitlayout -diagrammer "ditaa --no-shadows" -version $packageVersion\
+                    -product splitlayout -diagrammer "ditaa --round-corners" -version $packageVersion\
                     -copyright "George Yashin" {*}$::argv]
 set commonNroff [list -title $title -sortnamespaces false -preamble $startPageNroff -pagesplit namespace -recurse false\
                          -pagesplit namespace -autopunctuate true -compact false -includeprivate false\
-                         -product splitlayout -diagrammer "ditaa --no-shadows" -version $packageVersion\
+                         -product splitlayout -diagrammer "ditaa --round-corners" -version $packageVersion\
                          -copyright "George Yashin" {*}$::argv]
 
 set namespaces [list ::splitlayout]
@@ -44,6 +44,8 @@ set diagramRefs {}
 foreach diagram [glob -nocomplain -directory [file join $sphinxDir assets] *.svg] {
     set name [file tail $diagram]
     file mkdir $assetDir
+    set fonts [list {font-family='Courier'} {font-family='Fira Code, Consolas, monospace'}]
+    ::fileutil::updateInPlace $diagram [list string map $fonts]
     file rename -force $diagram [file join $assetDir $name]
     lappend diagramRefs ".. figure:: assets/$name\n" ".. figure:: ../_static/assets/$name\n"
 }

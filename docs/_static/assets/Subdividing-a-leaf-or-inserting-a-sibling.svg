@@ -14,32 +14,44 @@
   </defs>
   <g stroke-width='1' stroke-linecap='square' stroke-linejoin='round'>
     <rect x='0' y='0' width='700' height='406' style='fill: #ffffff'/>
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M305.0 175.0 L305.0 371.0 L25.0 371.0 L25.0 175.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M675.0 175.0 L675.0 259.0 L335.0 259.0 L335.0 175.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M25.0 49.0 L25.0 133.0 L255.0 133.0 L255.0 49.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M45.0 217.0 L45.0 357.0 L175.0 357.0 L175.0 217.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M125.0 91.0 L125.0 119.0 L45.0 119.0 L45.0 91.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M205.0 245.0 L285.0 245.0 L285.0 217.0 L205.0 217.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M65.0 287.0 L145.0 287.0 L145.0 259.0 L65.0 259.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M155.0 119.0 L155.0 91.0 L235.0 91.0 L235.0 119.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M435.0 217.0 L355.0 217.0 L355.0 245.0 L435.0 245.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M65.0 315.0 L65.0 343.0 L145.0 343.0 L145.0 315.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M575.0 245.0 L575.0 217.0 L655.0 217.0 L655.0 245.0 z' />
-    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M465.0 217.0 L465.0 245.0 L545.0 245.0 L545.0 217.0 z' />
-    <text x='26' y='40' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[Before]]></text>
-    <text x='71' y='110' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[a / A]]></text>
-    <text x='41' y='166' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[After split]]></text>
-    <text x='130' y='194' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
-    <text x='230' y='236' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
-    <text x='100' y='68' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
-    <text x='180' y='110' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
-    <text x='78' y='236' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[a vertical]]></text>
-    <text x='91' y='278' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[x / A]]></text>
-    <text x='91' y='334' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[y / C]]></text>
-    <text x='351' y='166' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[After insert]]></text>
-    <text x='470' y='194' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
-    <text x='490' y='236' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[x / C]]></text>
-    <text x='600' y='236' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
-    <text x='381' y='236' font-family='Courier' font-size='14' stroke='none' fill='#000000' ><![CDATA[a / A]]></text>
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M300.0 175.0 Q305.0 175.0 305.0 182.0 L305.0 364.0 Q305.0 371.0 300.0 371.0 L30.0 371.0 L30.0 371.0 Q25.0 371.0 25.0 364.0 L25.0 182.0 L25.0 182.0 Q25.0 175.0 30.0 175.0 L300.0 175.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M670.0 175.0 Q675.0 175.0 675.0 182.0 L675.0 252.0 Q675.0 259.0 670.0 259.0 L340.0 259.0 L340.0 259.0 Q335.0 259.0 335.0 252.0 L335.0 182.0 L335.0 182.0 Q335.0 175.0 340.0 175.0 L670.0 175.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M30.0 49.0 Q25.0 49.0 25.0 56.0 L25.0 126.0 Q25.0 133.0 30.0 133.0 L250.0 133.0 L250.0 133.0 Q255.0 133.0 255.0 126.0 L255.0 56.0 L255.0 56.0 Q255.0 49.0 250.0 49.0 L30.0 49.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M50.0 217.0 Q45.0 217.0 45.0 224.0 L45.0 350.0 Q45.0 357.0 50.0 357.0 L170.0 357.0 L170.0 357.0 Q175.0 357.0 175.0 350.0 L175.0 224.0 L175.0 224.0 Q175.0 217.0 170.0 217.0 L50.0 217.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M120.0 91.0 Q125.0 91.0 125.0 98.0 L125.0 112.0 Q125.0 119.0 120.0 119.0 L50.0 119.0 L50.0 119.0 Q45.0 119.0 45.0 112.0 L45.0 98.0 L45.0 98.0 Q45.0 91.0 50.0 91.0 L120.0 91.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M205.0 238.0 Q205.0 245.0 210.0 245.0 L280.0 245.0 Q285.0 245.0 285.0 238.0 L285.0 224.0 L285.0 224.0 Q285.0 217.0 280.0 217.0 L210.0 217.0 L210.0 217.0 Q205.0 217.0 205.0 224.0 L205.0 238.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M65.0 280.0 Q65.0 287.0 70.0 287.0 L140.0 287.0 Q145.0 287.0 145.0 280.0 L145.0 266.0 L145.0 266.0 Q145.0 259.0 140.0 259.0 L70.0 259.0 L70.0 259.0 Q65.0 259.0 65.0 266.0 L65.0 280.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M160.0 119.0 Q155.0 119.0 155.0 112.0 L155.0 98.0 Q155.0 91.0 160.0 91.0 L230.0 91.0 L230.0 91.0 Q235.0 91.0 235.0 98.0 L235.0 112.0 L235.0 112.0 Q235.0 119.0 230.0 119.0 L160.0 119.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M435.0 224.0 Q435.0 217.0 430.0 217.0 L360.0 217.0 Q355.0 217.0 355.0 224.0 L355.0 238.0 L355.0 238.0 Q355.0 245.0 360.0 245.0 L430.0 245.0 L430.0 245.0 Q435.0 245.0 435.0 238.0 L435.0 224.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M70.0 315.0 Q65.0 315.0 65.0 322.0 L65.0 336.0 Q65.0 343.0 70.0 343.0 L140.0 343.0 L140.0 343.0 Q145.0 343.0 145.0 336.0 L145.0 322.0 L145.0 322.0 Q145.0 315.0 140.0 315.0 L70.0 315.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M580.0 245.0 Q575.0 245.0 575.0 238.0 L575.0 224.0 Q575.0 217.0 580.0 217.0 L650.0 217.0 L650.0 217.0 Q655.0 217.0 655.0 224.0 L655.0 238.0 L655.0 238.0 Q655.0 245.0 650.0 245.0 L580.0 245.0 z' />
+    <path stroke='gray' fill='gray' filter='url(#f2)' d='M470.0 217.0 Q465.0 217.0 465.0 224.0 L465.0 238.0 Q465.0 245.0 470.0 245.0 L540.0 245.0 L540.0 245.0 Q545.0 245.0 545.0 238.0 L545.0 224.0 L545.0 224.0 Q545.0 217.0 540.0 217.0 L470.0 217.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M300.0 175.0 Q305.0 175.0 305.0 182.0 L305.0 364.0 Q305.0 371.0 300.0 371.0 L30.0 371.0 L30.0 371.0 Q25.0 371.0 25.0 364.0 L25.0 182.0 L25.0 182.0 Q25.0 175.0 30.0 175.0 L300.0 175.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M670.0 175.0 Q675.0 175.0 675.0 182.0 L675.0 252.0 Q675.0 259.0 670.0 259.0 L340.0 259.0 L340.0 259.0 Q335.0 259.0 335.0 252.0 L335.0 182.0 L335.0 182.0 Q335.0 175.0 340.0 175.0 L670.0 175.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M30.0 49.0 Q25.0 49.0 25.0 56.0 L25.0 126.0 Q25.0 133.0 30.0 133.0 L250.0 133.0 L250.0 133.0 Q255.0 133.0 255.0 126.0 L255.0 56.0 L255.0 56.0 Q255.0 49.0 250.0 49.0 L30.0 49.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M50.0 217.0 Q45.0 217.0 45.0 224.0 L45.0 350.0 Q45.0 357.0 50.0 357.0 L170.0 357.0 L170.0 357.0 Q175.0 357.0 175.0 350.0 L175.0 224.0 L175.0 224.0 Q175.0 217.0 170.0 217.0 L50.0 217.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M120.0 91.0 Q125.0 91.0 125.0 98.0 L125.0 112.0 Q125.0 119.0 120.0 119.0 L50.0 119.0 L50.0 119.0 Q45.0 119.0 45.0 112.0 L45.0 98.0 L45.0 98.0 Q45.0 91.0 50.0 91.0 L120.0 91.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M205.0 238.0 Q205.0 245.0 210.0 245.0 L280.0 245.0 Q285.0 245.0 285.0 238.0 L285.0 224.0 L285.0 224.0 Q285.0 217.0 280.0 217.0 L210.0 217.0 L210.0 217.0 Q205.0 217.0 205.0 224.0 L205.0 238.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M65.0 280.0 Q65.0 287.0 70.0 287.0 L140.0 287.0 Q145.0 287.0 145.0 280.0 L145.0 266.0 L145.0 266.0 Q145.0 259.0 140.0 259.0 L70.0 259.0 L70.0 259.0 Q65.0 259.0 65.0 266.0 L65.0 280.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M160.0 119.0 Q155.0 119.0 155.0 112.0 L155.0 98.0 Q155.0 91.0 160.0 91.0 L230.0 91.0 L230.0 91.0 Q235.0 91.0 235.0 98.0 L235.0 112.0 L235.0 112.0 Q235.0 119.0 230.0 119.0 L160.0 119.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M435.0 224.0 Q435.0 217.0 430.0 217.0 L360.0 217.0 Q355.0 217.0 355.0 224.0 L355.0 238.0 L355.0 238.0 Q355.0 245.0 360.0 245.0 L430.0 245.0 L430.0 245.0 Q435.0 245.0 435.0 238.0 L435.0 224.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M70.0 315.0 Q65.0 315.0 65.0 322.0 L65.0 336.0 Q65.0 343.0 70.0 343.0 L140.0 343.0 L140.0 343.0 Q145.0 343.0 145.0 336.0 L145.0 322.0 L145.0 322.0 Q145.0 315.0 140.0 315.0 L70.0 315.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M580.0 245.0 Q575.0 245.0 575.0 238.0 L575.0 224.0 Q575.0 217.0 580.0 217.0 L650.0 217.0 L650.0 217.0 Q655.0 217.0 655.0 224.0 L655.0 238.0 L655.0 238.0 Q655.0 245.0 650.0 245.0 L580.0 245.0 z' />
+    <path stroke='#000000' stroke-width='1,000000' stroke-linecap='round' stroke-linejoin='round' fill='white' d='M470.0 217.0 Q465.0 217.0 465.0 224.0 L465.0 238.0 Q465.0 245.0 470.0 245.0 L540.0 245.0 L540.0 245.0 Q545.0 245.0 545.0 238.0 L545.0 224.0 L545.0 224.0 Q545.0 217.0 540.0 217.0 L470.0 217.0 z' />
+    <text x='26' y='40' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[Before]]></text>
+    <text x='60' y='68' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
+    <text x='71' y='110' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[a / A]]></text>
+    <text x='41' y='166' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[After split]]></text>
+    <text x='60' y='194' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
+    <text x='230' y='236' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
+    <text x='180' y='110' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
+    <text x='78' y='236' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[a vertical]]></text>
+    <text x='91' y='278' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[x / A]]></text>
+    <text x='91' y='334' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[y / C]]></text>
+    <text x='351' y='166' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[After insert]]></text>
+    <text x='370' y='194' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[r horizontal]]></text>
+    <text x='490' y='236' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[x / C]]></text>
+    <text x='600' y='236' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[b / B]]></text>
+    <text x='381' y='236' font-family='Fira Code, Consolas, monospace' font-size='14' stroke='none' fill='#000000' ><![CDATA[a / A]]></text>
   </g>
 </svg>

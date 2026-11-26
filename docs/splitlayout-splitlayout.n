@@ -230,7 +230,7 @@ set x [$layout insert $a -side after]
 .nf
 Before
 +----------------------+
-|     r horizontal     |
+| r horizontal         |
 |                      |
 | +-------+  +-------+ |
 | | a / A |  | b / B | |
@@ -239,7 +239,7 @@ Before
 
 After split                    After insert
 +---------------------------+  +---------------------------------+
-|        r horizontal       |  |           r horizontal          |
+| r horizontal              |  | r horizontal                    |
 |                           |  |                                 |
 | +------------+  +-------+ |  | +-------+  +-------+  +-------+ |
 | | a vertical |  | b / B | |  | | a / A |  | x / C |  | b / B | |
@@ -277,7 +277,7 @@ $layout move $a -after $b
 .nf
 Before
 +----------------------+
-|     r horizontal     |
+| r horizontal         |
 |                      |
 | +-------+  +-------+ |
 | | a / A |  | b / B | |
@@ -286,7 +286,7 @@ Before
 
 After swap                After move
 +----------------------+  +----------------------+
-|     r horizontal     |  |     r horizontal     |
+| r horizontal         |  | r horizontal         |
 |                      |  |                      |
 | +-------+  +-------+ |  | +-------+  +-------+ |
 | | a / B |  | b / A | |  | | b / B |  | a / A | |
@@ -314,7 +314,7 @@ $layout move $x -before $v    ;# Returns $x\&.
 .nf
 Before
 +--------------------------------+
-|          r horizontal          |
+| r horizontal                   |
 |                                |
 | +------------+  +------------+ |
 | | a vertical |  | b vertical | |
@@ -331,7 +331,7 @@ Before
 
 After move
 +---------------------------+
-|        r horizontal       |
+| r horizontal              |
 |                           |
 | +-------+  +------------+ |
 | | y / C |  | b vertical | |
@@ -375,7 +375,7 @@ $layout move $a -tab $dest    ;# Returns $a\&.
 .nf
 Before                      After move
 +-----------+  +-------+    +-------+  +-----------+
-|    Home   |  | Plots |    |  Home |  |   Plots   |
+| Home      |  | Plots |    | Home  |  | Plots     |
 |           |  |       |    |       |  |           |
 | +-------+ |  | empty |    | empty |  | +-------+ |
 | | a / A | |  +-------+    +-------+  | | a / A | |
@@ -406,7 +406,7 @@ set x [$layout dock $f]       ;# Returns a new docked leaf ID\&.
 .nf
 Before
 +---------------------------------+
-|           r horizontal          |
+| r horizontal                    |
 |                                 |
 | +-------+  +-------+  +-------+ |
 | | a / A |  | b / B |  | c / C | |
@@ -415,7 +415,7 @@ Before
 
 After undock              Floating window
 +----------------------+  +-------+
-|     r horizontal     |  | f / A |
+| r horizontal         |  | f / A |
 |                      |  +-------+
 | +-------+  +-------+ |
 | | b / B |  | c / C | |
@@ -424,7 +424,7 @@ After undock              Floating window
 
 After dock
 +---------------------------------+
-|           r horizontal          |
+| r horizontal                    |
 |                                 |
 | +-------+  +-------+  +-------+ |
 | | x / A |  | b / B |  | c / C | |
@@ -452,7 +452,7 @@ set x [$layout show $frameA]  ;# Returns a new docked leaf ID\&.
 .nf
 Before
 +---------------------------------+
-|           r horizontal          |
+| r horizontal                    |
 |                                 |
 | +-------+  +-------+  +-------+ |
 | | a / A |  | b / B |  | c / C | |
@@ -461,7 +461,7 @@ Before
 
 After hide                Hidden
 +----------------------+  +---------+
-|     r horizontal     |  | frame A |
+| r horizontal         |  | frame A |
 |                      |  +---------+
 | +-------+  +-------+ |
 | | b / B |  | c / C | |
@@ -470,7 +470,7 @@ After hide                Hidden
 
 After show
 +---------------------------------+
-|           r horizontal          |
+| r horizontal                    |
 |                                 |
 | +-------+  +-------+  +-------+ |
 | | x / A |  | b / B |  | c / C | |
